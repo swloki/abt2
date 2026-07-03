@@ -142,10 +142,10 @@ pub async fn get_ledger_list(
         card
     } else {
         html! {
-            div class="flex items-center justify-between mb-5 flex-wrap gap-2" {
+            div class="flex items-center justify-between mb-4 flex-wrap gap-4" {
                 div {
                     h1 class="text-xl font-bold text-fg tracking-tight" { "单据台账" }
-                    p class="text-sm text-muted mt-0.5" { "按类型 / 状态 / 单号 / 日期 检索全部 WMS 单据" }
+                    p class="text-sm text-muted mt-1" { "按类型 / 状态 / 单号 / 日期 检索全部 WMS 单据" }
                 }
             }
             (card)
@@ -239,6 +239,8 @@ async fn render_ledger_card(
 
     Ok(html! {
         div id="ledger-card" class="bg-bg border border-border-soft rounded-lg shadow-card overflow-hidden" {
+            // card 头（类型图标 + 标题 + 描述），对齐 MES render_card_shell 范式
+            (ledger_card_head(type_slug))
             // 类型 tab（5）；状态走过滤栏 select（对齐 Odoo filter 范式，select 语义更轻）
             (status_tabs_with_oob(
                 LedgerPath::PATH, "#ledger-card", "#ledger-filter", "",
@@ -250,6 +252,27 @@ async fn render_ledger_card(
             }
         }
     })
+}
+
+/// card 头：类型图标 + 标题 + 描述，对齐 MES `render_card_shell` 的 card 头范式。随 type_slug 切换。
+fn ledger_card_head(type_slug: &str) -> Markup {
+    let (title, icon_mkp, desc): (&str, Markup, &str) = match type_slug {
+        "arrival" => ("收货", icon::truck_icon("w-[15px] h-[15px]"), "采购 PO / 生产工单 收货入库单据"),
+        "outbound" => ("出库", icon::upload_icon("w-[15px] h-[15px]"), "销售订单 发货出库单据"),
+        "transfer" => ("调拨", icon::arrow_left_right_icon("w-[15px] h-[15px]"), "仓间库存调拨单据"),
+        "requisition" => ("领料", icon::clipboard_list_icon("w-[15px] h-[15px]"), "生产工单 领料发料单据"),
+        "cycle-count" => ("盘点", icon::clipboard_document_icon("w-[15px] h-[15px]"), "库存盘点 审批调整单据"),
+        _ => ("收货", icon::truck_icon("w-[15px] h-[15px]"), "收货单据"),
+    };
+    html! {
+        div class="flex items-center gap-3 px-5 py-3 border-b border-border-soft" {
+            div class="relative w-7 h-7 rounded-md grid place-items-center bg-surface text-fg-2 shrink-0" {
+                (icon_mkp)
+            }
+            span class="font-semibold text-fg shrink-0" { (title) }
+            span class="text-xs text-muted font-mono flex-1 min-w-0 truncate" { (desc) }
+        }
+    }
 }
 
 /// 类型 tab（5）：收货 / 出库 / 调拨 / 领料 / 盘点

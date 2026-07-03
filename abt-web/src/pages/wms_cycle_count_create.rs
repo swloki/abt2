@@ -69,7 +69,7 @@ pub async fn get_cycle_count_create(
  .map(|r| r.items)
  .unwrap_or_default();
 
- let content = cycle_count_create_page(&warehouses);
+ let content = cycle_count_create_page(&warehouses, CycleCountCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx,
  "新建盘点",
@@ -97,6 +97,58 @@ pub async fn get_item_row(
  Ok(Html(item_row_fragment(&product).into_string()))
 }
 
+/// 提取的业务逻辑（事务编排），供独立页 POST 与作业中心 drawer POST 共用。
+/// action=start 时建单后立即 start_count。
+pub async fn do_create_cycle_count(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::ServiceContext,
+    form: CreateCycleCountForm,
+) -> Result<i64> {
+    let svc = state.cycle_count_service();
+
+    let count_date = chrono::NaiveDate::parse_from_str(&form.count_date, "%Y-%m-%d")
+        .map_err(|e| DomainError::validation(format!("无效日期格式: {e}")))?;
+
+    let is_blind = form.is_blind.as_deref() == Some("on");
+    let warehouse_id = form.warehouse_id
+        .ok_or_else(|| DomainError::validation("请选择盘点仓库"))?;
+
+    let web_items: Vec<CycleCountItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("物料数据无效: {e}")))?;
+
+    let items: Vec<CreateCycleCountItemReq> = web_items.into_iter().map(|it| {
+        let product_id: i64 = it.product_id.parse().unwrap_or(0);
+        let bin_id: i64 = it.bin_id.as_ref().and_then(|s| s.parse().ok()).unwrap_or(0);
+        let system_qty: Decimal = it.system_qty.parse().unwrap_or(Decimal::ZERO);
+        CreateCycleCountItemReq {
+            bin_id,
+            product_id,
+            batch_no: it.batch_no.filter(|s| !s.is_empty()),
+            system_qty,
+        }
+    }).collect();
+
+    let req = CreateCycleCountReq {
+        warehouse_id,
+        zone_id: form.zone_id,
+        count_date,
+        is_blind,
+        remark: form.remark,
+        items,
+    };
+
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let id = svc.create(service_ctx, &mut tx, req).await?;
+
+    if form.action.as_deref() == Some("start") {
+        svc.start_count(service_ctx, &mut tx, id).await?;
+    }
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    Ok(id)
+}
+
 #[require_permission("INVENTORY", "create")]
 pub async fn create_cycle_count(
  _path: CycleCountCreatePath,
@@ -104,48 +156,7 @@ pub async fn create_cycle_count(
  axum::Form(form): axum::Form<CreateCycleCountForm>,
 ) -> Result<axum::response::Response> {
  let RequestContext { state, service_ctx, .. } = ctx;
- let svc = state.cycle_count_service();
-
- let count_date = chrono::NaiveDate::parse_from_str(&form.count_date, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效日期格式: {e}")))?;
-
- let is_blind = form.is_blind.as_deref() == Some("on");
- let warehouse_id = form.warehouse_id
- .ok_or_else(|| DomainError::validation("请选择盘点仓库"))?;
-
- let web_items: Vec<CycleCountItemWeb> = serde_json::from_str(&form.items_json)
- .map_err(|e| DomainError::validation(format!("物料数据无效: {e}")))?;
-
- let items: Vec<CreateCycleCountItemReq> = web_items.into_iter().map(|it| {
- let product_id: i64 = it.product_id.parse().unwrap_or(0);
- let bin_id: i64 = it.bin_id.as_ref().and_then(|s| s.parse().ok()).unwrap_or(0);
- let system_qty: Decimal = it.system_qty.parse().unwrap_or(Decimal::ZERO);
- CreateCycleCountItemReq {
- bin_id,
- product_id,
- batch_no: it.batch_no.filter(|s| !s.is_empty()),
- system_qty,
- }
- }).collect();
-
- let req = CreateCycleCountReq {
- warehouse_id,
- zone_id: form.zone_id,
- count_date,
- is_blind,
- remark: form.remark,
- items,
- };
-
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let id = svc.create(&service_ctx, &mut tx, req).await?;
-
- if form.action.as_deref() == Some("start") {
- svc.start_count(&service_ctx, &mut tx, id).await?;
- }
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ do_create_cycle_count(&state, &service_ctx, form).await?;
 
  let redirect = format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH);
  Ok(([("HX-Redirect", redirect)], Html(String::new())).into_response())
@@ -153,28 +164,34 @@ pub async fn create_cycle_count(
 
 // ── Components ──
 
-fn cycle_count_create_page(
+pub fn cycle_count_create_page(
  warehouses: &[abt_core::wms::warehouse::model::Warehouse],
+ post_path: &str,
+ after_request_hs: &str,
+ show_header: bool,
 ) -> Markup {
  html! {
     div {
-        // ── Back Link ──
-        a   href=(format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH))
-            class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
-        { (icon::chevron_left_icon("w-4 h-4")) "返回作业中心" }
-        // ── Page Header ──
-        div class="flex items-center justify-between mb-5" {
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建盘点" }
-            span class="text-xs text-muted flex items-center gap-2" {
-                (icon::clock_icon("w-3.5 h-3.5"))
-                "自动保存草稿"
+        @if show_header {
+            // ── Back Link ──
+            a   href=(format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH))
+                class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+            { (icon::chevron_left_icon("w-4 h-4")) "返回作业中心" }
+            // ── Page Header ──
+            div class="flex items-center justify-between mb-5" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建盘点" }
+                span class="text-xs text-muted flex items-center gap-2" {
+                    (icon::clock_icon("w-3.5 h-3.5"))
+                    "自动保存草稿"
+                }
             }
         }
         form
-            hx-post=(CycleCountCreatePath::PATH)
+            hx-post=(post_path)
             hx-swap="none"
             id="cycleCountForm"
             onsubmit="return cycleCountCollectItems()"
+            _=(after_request_hs)
         {
             // ── 盘点信息 ──
             div class="form-section" {
@@ -282,9 +299,16 @@ fn cycle_count_create_page(
             {
                 div {}
                 div class="flex gap-3" {
-                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        href=(format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH))
-                    { "取消" }
+                    @if show_header {
+                        a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            href=(format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH))
+                        { "取消" }
+                    } @else {
+                        button type="button"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            _="on click remove .open from closest .drawer-overlay"
+                        { "取消" }
+                    }
                     button
                         type="submit"
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"

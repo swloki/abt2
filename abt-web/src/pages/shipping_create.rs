@@ -92,7 +92,7 @@ fn order_item_to_json(row: &OrderItemRow) -> serde_json::Value {
 
 /// 订单详情页「创建发货申请」带入的预填数据
 #[derive(Default)]
-struct ShippingPrefill {
+pub struct ShippingPrefill {
  customer_id: Option<i64>,
  /// 完整 orderData JSON，前端 selectOrder() 直接消费
  order_json: Option<String>,
@@ -206,13 +206,55 @@ pub async fn get_shipping_create(
  ShippingPrefill::default()
  };
 
- let content = shipping_create_page(&customers.items, &warehouses.items, &prefill);
+ let content = shipping_create_page(&customers.items, &warehouses.items, &prefill, ShippingCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx, "新建发货申请", &claims, "sales",
  ShippingCreatePath::PATH, "销售管理", Some("新建发货申请"), content, &nav_filter,
  );
 
  Ok(Html(page_html.into_string()))
+}
+
+/// 提取的业务逻辑（tx + create_from_order），供独立页 POST 与作业中心 drawer POST 共用。返回新建发货单 id。
+pub async fn do_create_shipping(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::ServiceContext,
+    form: ShippingCreateForm,
+) -> Result<i64> {
+    let svc = state.picking_service();
+    if form.customer_id == 0 {
+        return Err(DomainError::validation("请选择客户").into());
+    }
+    if form.order_id == 0 {
+        return Err(DomainError::validation("请选择来源订单").into());
+    }
+    let web_items: Vec<ShippingItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效产品数据: {e}")))?;
+    if web_items.is_empty() {
+        return Err(DomainError::validation("请至少添加一个发货产品").into());
+    }
+    let items: Vec<CreateShippingItemReq> = web_items.into_iter().map(|item| {
+        CreateShippingItemReq {
+            order_item_id: item.order_item_id,
+            warehouse_id: Some(item.warehouse_id),
+            requested_qty: item.requested_qty.parse().unwrap_or(rust_decimal::Decimal::ONE),
+        }
+    }).collect();
+    let expected_ship_date = form.expected_ship_date
+        .and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
+    let shipping_address = form.shipping_address.filter(|s| !s.is_empty());
+    let req = CreateFromOrderReq {
+        order_id: form.order_id,
+        expected_ship_date,
+        shipping_address,
+        items,
+    };
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let id = svc.create_from_order(service_ctx, &mut tx, req).await?;
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    Ok(id)
 }
 
 #[require_permission("SHIPPING", "create")]
@@ -222,49 +264,7 @@ pub async fn post_shipping_create(
  axum::Form(form): axum::Form<ShippingCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext { state, service_ctx, .. } = ctx;
-
- let svc = state.picking_service();
-
- if form.customer_id == 0 {
- return Err(DomainError::validation("请选择客户").into());
- }
- if form.order_id == 0 {
- return Err(DomainError::validation("请选择来源订单").into());
- }
-
- let web_items: Vec<ShippingItemWeb> = serde_json::from_str(&form.items_json)
- .map_err(|e| DomainError::validation(format!("无效产品数据: {e}")))?;
-
- if web_items.is_empty() {
- return Err(DomainError::validation("请至少添加一个发货产品").into());
- }
-
- let items: Vec<CreateShippingItemReq> = web_items.into_iter().map(|item| {
- CreateShippingItemReq {
- order_item_id: item.order_item_id,
- warehouse_id: Some(item.warehouse_id),
- requested_qty: item.requested_qty.parse().unwrap_or(rust_decimal::Decimal::ONE),
- }
- }).collect();
-
- let expected_ship_date = form.expected_ship_date
- .and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
- let shipping_address = form.shipping_address.filter(|s| !s.is_empty());
-
- let req = CreateFromOrderReq {
- order_id: form.order_id,
- expected_ship_date,
- shipping_address,
- items,
- };
-
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let id = svc.create_from_order(&service_ctx, &mut tx, req).await?;
-
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-
+ let id = do_create_shipping(&state, &service_ctx, form).await?;
  let redirect = ShippingDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -299,7 +299,7 @@ pub async fn get_shipping_edit(
  .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 100)
  .await?;
 
- let content = shipping_edit_page(&draft, &items, &customers.items, &warehouses.items);
+ let content = shipping_edit_page(&draft, &items, &customers.items, &warehouses.items, true);
  let page_html = admin_page(
  is_htmx, "编辑发货申请", &claims, "sales",
  ShippingEditPath { id: path.id }.to_string().as_str(), "销售管理", Some("编辑发货申请"), content, &nav_filter,
@@ -487,6 +487,7 @@ fn shipping_edit_page(
  items: &[StockPickingItem],
  customers: &[abt_core::master_data::customer::model::Customer],
  warehouses: &[abt_core::wms::warehouse::model::Warehouse],
+ show_header: bool,
 ) -> Markup {
  let warehouses_json = serde_json::to_string(
  &warehouses.iter().map(|w| serde_json::json!({
@@ -757,9 +758,16 @@ fn shipping_edit_page(
         // ── Action Bar ──
         div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
         {
-            a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                href=(format!("{}?restore=true", ShippingListPath::PATH))
-            { "取消" }
+            @if show_header {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", ShippingListPath::PATH))
+                { "取消" }
+            } @else {
+                button type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _="on click remove .open from closest .drawer-overlay"
+                { "取消" }
+            }
             button
                 type="button"
                 class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
@@ -845,10 +853,13 @@ fn shipping_edit_page(
 }
 }
 
-fn shipping_create_page(
+pub fn shipping_create_page(
  customers: &[abt_core::master_data::customer::model::Customer],
  warehouses: &[abt_core::wms::warehouse::model::Warehouse],
  prefill: &ShippingPrefill,
+ post_path: &str,
+ after_request_hs: &str,
+ show_header: bool,
 ) -> Markup {
  let warehouses_json = serde_json::to_string(
  &warehouses.iter().map(|w| serde_json::json!({
@@ -866,15 +877,17 @@ fn shipping_create_page(
         data-warehouses=(warehouses_json)
         data-order-prefill=(prefill_order_json)
     {
-        // ── Page Header ──
-        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-            href=(format!("{}?restore=true", ShippingListPath::PATH))
-        { (icon::arrow_left_icon("w-4 h-4")) "返回发货申请列表" }
-        div class="flex items-center justify-between mb-6" {
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建发货申请" }
+        @if show_header {
+            // ── Page Header ──
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(format!("{}?restore=true", ShippingListPath::PATH))
+            { (icon::arrow_left_icon("w-4 h-4")) "返回发货申请列表" }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建发货申请" }
+            }
         }
 
-        form id="shipping-form" hx-post=(ShippingCreatePath::PATH) hx-swap="none" {
+        form id="shipping-form" hx-post=(post_path) hx-swap="none" _=(after_request_hs) {
             input type="hidden" name="items_json";
             input type="hidden" name="order_id";
             // ── 客户信息 ──
@@ -1137,9 +1150,16 @@ fn shipping_create_page(
         // ── Action Bar ──
         div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
         {
-            a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                href=(format!("{}?restore=true", ShippingListPath::PATH))
-            { "取消" }
+            @if show_header {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", ShippingListPath::PATH))
+                { "取消" }
+            } @else {
+                button type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _="on click remove .open from closest .drawer-overlay"
+                { "取消" }
+            }
             button
                 type="button"
                 class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"

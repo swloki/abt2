@@ -50,7 +50,7 @@ pub async fn get_stock_in_create(
  let nav_filter = ctx.nav_filter().await;
  let RequestContext { claims, .. } = ctx;
 
- let content = stock_in_create_content();
+ let content = stock_in_create_content(StockInCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx, "新建入库单", &claims, "inventory", StockInCreatePath::PATH, "库存管理", None, content, &nav_filter,
  );
@@ -568,6 +568,40 @@ struct StockInItemWeb {
  source_doc_number: Option<String>,
 }
 
+/// 提取的业务逻辑（tx + 幂等 + 来料通知/直接入库闭环），供独立页 POST 与作业中心 drawer POST 共用。
+/// **PO 收货闭环编排（handle_purchase_stock_in）原样保留，不改一行**（CLAUDE.md「业务闭环单据不可绕过」）。
+pub async fn do_create_stock_in(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::ServiceContext,
+    form: StockInCreateForm,
+) -> Result<()> {
+    let web_items: Vec<StockInItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效物料数据: {e}")))?;
+    if web_items.is_empty() {
+        return Err(DomainError::validation("请至少添加一个物料").into());
+    }
+    let transaction_type = match form.transaction_type.as_str() {
+        "ProductionReceipt" => TransactionType::ProductionReceipt,
+        _ => TransactionType::PurchaseReceipt,
+    };
+    let remark = form.remark.clone().filter(|s| !s.is_empty());
+    // 多步写（来料通知编排 + 库存入库）必须事务包裹：半失败整体回滚，避免「库存已入但 PO 回写/台账未动」残留
+    let mut tx = state.pool.begin().await.map_err(|e| DomainError::Internal(e.into()))?;
+    // 幂等防护：try_claim 在事务内，业务失败回滚则记录也回滚（允许重试）
+    if !state.idempotency_service().try_claim(service_ctx, &mut tx, &form.idempotency_key).await? {
+        return Ok(());  // 幂等命中：tx drop rollback，claim 回滚
+    }
+    if form.source_type == "purchase" {
+        // 采购入库走「来料通知」回写闭环（ArrivalAcceptedHandler 回写 PO received_qty/状态 + 立应付台账）
+        handle_purchase_stock_in(state, service_ctx, &mut tx, &web_items, transaction_type, &form, remark.as_deref()).await?;
+    } else {
+        // arrival/work_order/manual：直接 record() 入库
+        handle_direct_stock_in(state, service_ctx, &mut tx, &web_items, transaction_type, &form, remark.as_deref()).await?;
+    }
+    tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(())
+}
+
 #[require_permission("INVENTORY", "create")]
 pub async fn create_stock_in(
  _path: StockInCreatePath,
@@ -575,54 +609,7 @@ pub async fn create_stock_in(
  axum::Form(form): axum::Form<StockInCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext { state, service_ctx, .. } = ctx;
-
- let web_items: Vec<StockInItemWeb> = serde_json::from_str(&form.items_json)
-  .map_err(|e| DomainError::validation(format!("无效物料数据: {e}")))?;
- if web_items.is_empty() {
-  return Err(DomainError::validation("请至少添加一个物料").into());
- }
-
- let transaction_type = match form.transaction_type.as_str() {
-  "ProductionReceipt" => TransactionType::ProductionReceipt,
-  _ => TransactionType::PurchaseReceipt,
- };
- let remark = form.remark.clone().filter(|s| !s.is_empty());
-
- // 多步写（来料通知编排 + 库存入库），必须事务包裹：半失败整体回滚，
- // 避免「库存已入但 PO 回写/台账未动」残留（事故类比 SO-2026-06-000170）
- let mut tx = state
-  .pool
-  .begin()
-  .await
-  .map_err(|e| DomainError::Internal(e.into()))?;
-
- // 幂等防护：同一 idempotency_key（前端表单加载生成）重复提交只执行一次，
- // 防双击/网络重试导致重复建来料通知+重复入库。try_claim 在事务内，业务失败回滚则记录也回滚（允许重试）。
- if !state
-  .idempotency_service()
-  .try_claim(&service_ctx, &mut tx, &form.idempotency_key)
-  .await?
- {
-  return Ok(([("HX-Redirect", StockInListPath.to_string())], Html(String::new())));
- }
-
- if form.source_type == "purchase" {
-  // 采购入库走「来料通知」回写闭环：自动建来料通知 + 收货 + 检验通过，
-  // 复用 ArrivalAcceptedHandler 回写 PO received_qty/状态 + 立应付台账
-  handle_purchase_stock_in(
-   &state, &service_ctx, &mut tx, &web_items, transaction_type, &form, remark.as_deref(),
-  )
-  .await?;
- } else {
-  // arrival/work_order/manual：保持原有直接 record() 入库
-  handle_direct_stock_in(
-   &state, &service_ctx, &mut tx, &web_items, transaction_type, &form, remark.as_deref(),
-  )
-  .await?;
- }
-
- tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
-
+ do_create_stock_in(&state, &service_ctx, form).await?;
  let redirect = StockInListPath.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -820,25 +807,28 @@ async fn record_stock_in_item(
 
 // ── Components ──
 
-fn stock_in_create_content() -> Markup {
+pub fn stock_in_create_content(post_path: &str, after_request_hs: &str, show_header: bool) -> Markup {
  html! {
     div {
-        // ── Back Link ──
-        a   href="/admin/wms/stock-in"
-            class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-        { (icon::chevron_left_icon("w-4 h-4")) "返回入库列表" }
-        // ── Page Header ──
-        div class="flex items-center justify-between mb-6" {
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建入库单" }
+        @if show_header {
+            // ── Back Link ──
+            a   href="/admin/wms/stock-in"
+                class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+            { (icon::chevron_left_icon("w-4 h-4")) "返回入库列表" }
+            // ── Page Header ──
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建入库单" }
+            }
         }
 
         form
             id="stockInForm"
             class="space-y-3"
-            hx-post=(StockInCreatePath::PATH)
+            hx-post=(post_path)
             hx-swap="none"
             hx-disabled-elt="#stockin-submit-btn"
             onsubmit="return wmsStockInCollectItems()"
+            _=(after_request_hs)
         {
             // 幂等键：页面加载时生成一次，双击/重试同一 key → 后端只入库一次
             input
@@ -1020,9 +1010,16 @@ fn stock_in_create_content() -> Markup {
             // ── Action Bar ──
             div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
             {
-                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    href=(format!("{}?restore=true", StockInListPath::PATH))
-                { "取消" }
+                @if show_header {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href=(format!("{}?restore=true", StockInListPath::PATH))
+                    { "取消" }
+                } @else {
+                    button type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        _="on click remove .open from closest .drawer-overlay"
+                    { "取消" }
+                }
                 div class="flex gap-3" {
                     button
                         type="button"

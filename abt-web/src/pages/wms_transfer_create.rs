@@ -46,7 +46,7 @@ pub async fn get_transfer_create(
  .map(|r| r.items)
  .unwrap_or_default();
 
- let content = transfer_create_page(&warehouses);
+ let content = transfer_create_page(&warehouses, TransferCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx, "新建调拨单", &claims, "inventory", TransferCreatePath::PATH, "库存管理", None, content, &nav_filter,
  );
@@ -96,6 +96,63 @@ pub struct TransferCreateForm {
  pub items_json: String,
 }
 
+/// 提取的业务逻辑（含 tx），供独立页 POST 与作业中心 drawer POST 共用。
+pub async fn do_create_transfer(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::ServiceContext,
+    form: TransferCreateForm,
+) -> Result<()> {
+    let svc = state.picking_service();
+    let from_warehouse_id = form.from_warehouse_id
+        .ok_or_else(|| DomainError::validation("请选择调出仓库"))?;
+    let to_warehouse_id = form.to_warehouse_id
+        .ok_or_else(|| DomainError::validation("请选择调入仓库"))?;
+
+    let web_items: Vec<TransferItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效物料数据: {e}")))?;
+    if web_items.is_empty() {
+        return Err(DomainError::validation("调拨单至少需要一条明细").into());
+    }
+
+    let items: Vec<CreatePickingItemReq> = web_items.into_iter().map(|item| {
+        CreatePickingItemReq {
+            product_id: item.product_id.parse().unwrap_or(0),
+            batch_no: item.batch_no,
+            qty_requested: item.quantity.parse().unwrap_or(Decimal::ZERO),
+            from_bin_id: None,
+            to_bin_id: None,
+            operation_id: None,
+            batch_id: None,
+            source_item_id: None,
+            remark: None,
+        }
+    }).collect();
+
+    let req = CreatePickingReq {
+        picking_type: PickingType::InternalTransfer,
+        source_type: Some("none".into()),
+        source_id: None,
+        partner_id: None,
+        from_warehouse_id: Some(from_warehouse_id),
+        from_zone_id: form.from_zone_id,
+        from_bin_id: form.from_bin_id,
+        to_warehouse_id: Some(to_warehouse_id),
+        to_zone_id: form.to_zone_id,
+        to_bin_id: form.to_bin_id,
+        scheduled_date: Some(form.transfer_date),
+        work_order_id: None,
+        remark: form.remark.clone(),
+        items,
+    };
+
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    svc.create(service_ctx, &mut tx, req).await?;
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    Ok(())
+}
+
 #[require_permission("INVENTORY", "create")]
 pub async fn create_transfer(
  _path: TransferCreatePath,
@@ -103,78 +160,33 @@ pub async fn create_transfer(
  axum::Form(form): axum::Form<TransferCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext { state, service_ctx, .. } = ctx;
- let svc = state.picking_service();
-
- let from_warehouse_id = form.from_warehouse_id
- .ok_or_else(|| DomainError::validation("请选择调出仓库"))?;
- let to_warehouse_id = form.to_warehouse_id
- .ok_or_else(|| DomainError::validation("请选择调入仓库"))?;
-
- let web_items: Vec<TransferItemWeb> = serde_json::from_str(&form.items_json)
- .map_err(|e| DomainError::validation(format!("无效物料数据: {e}")))?;
-
- if web_items.is_empty() {
- return Err(DomainError::validation("调拨单至少需要一条明细").into());
- }
-
- let items: Vec<CreatePickingItemReq> = web_items.into_iter().map(|item| {
- CreatePickingItemReq {
- product_id: item.product_id.parse().unwrap_or(0),
- batch_no: item.batch_no,
- qty_requested: item.quantity.parse().unwrap_or(Decimal::ZERO),
- from_bin_id: None,
- to_bin_id: None,
- operation_id: None,
- batch_id: None,
- source_item_id: None,
- remark: None,
- }
- }).collect();
-
- let req = CreatePickingReq {
- picking_type: PickingType::InternalTransfer,
- source_type: Some("none".into()),
- source_id: None,
- partner_id: None,
- from_warehouse_id: Some(from_warehouse_id),
- from_zone_id: form.from_zone_id,
- from_bin_id: form.from_bin_id,
- to_warehouse_id: Some(to_warehouse_id),
- to_zone_id: form.to_zone_id,
- to_bin_id: form.to_bin_id,
- scheduled_date: Some(form.transfer_date),
- work_order_id: None,
- remark: form.remark.clone(),
- items,
- };
-
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let _id = svc.create(&service_ctx, &mut tx, req).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-
+ do_create_transfer(&state, &service_ctx, form).await?;
  let redirect = format!("{}?domain=transfer&view=all", WmsWorkCenterPath::PATH);
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-fn transfer_create_page(
+pub fn transfer_create_page(
  warehouses: &[abt_core::wms::warehouse::model::Warehouse],
+ post_path: &str,
+ after_request_hs: &str,
+ show_header: bool,
 ) -> Markup {
  html! {
     div {
-        // ── Back Link ──
-        a   href="/admin/wms/transfers"
-            class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
-        { (icon::chevron_left_icon("w-4 h-4")) "返回库存调拨列表" }
-        // ── Page Header ──
-        div class="flex items-center justify-between mb-5" {
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建调拨" }
-            span class="text-xs text-muted flex items-center gap-2" {
-                (icon::clock_icon("w-3.5 h-3.5"))
-                "自动保存草稿"
+        @if show_header {
+            // ── Back Link ──
+            a   href="/admin/wms/transfers"
+                class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+            { (icon::chevron_left_icon("w-4 h-4")) "返回库存调拨列表" }
+            // ── Page Header ──
+            div class="flex items-center justify-between mb-5" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建调拨" }
+                span class="text-xs text-muted flex items-center gap-2" {
+                    (icon::clock_icon("w-3.5 h-3.5"))
+                    "自动保存草稿"
+                }
             }
         }
         // ── Status Flow ──
@@ -193,9 +205,10 @@ fn transfer_create_page(
             { "完成" }
         }
         form
-            hx-post=(TransferCreatePath::PATH)
+            hx-post=(post_path)
             hx-swap="none"
             onsubmit="return transferCollectItems()"
+            _=(after_request_hs)
         {
             // ── 调拨信息 ──
             div class="form-section" {
@@ -362,9 +375,16 @@ fn transfer_create_page(
             {
                 div {}
                 div class="flex gap-3" {
-                    a   href="/admin/wms/transfers"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    { (icon::save_icon("w-4 h-4")) "取消" }
+                    @if show_header {
+                        a   href="/admin/wms/transfers"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        { (icon::save_icon("w-4 h-4")) "取消" }
+                    } @else {
+                        button type="button"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            _="on click remove .open from closest .drawer-overlay"
+                        { "取消" }
+                    }
                     button
                         type="submit"
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"

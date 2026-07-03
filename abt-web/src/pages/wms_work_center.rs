@@ -1,4 +1,4 @@
-use axum::response::Html;
+use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
@@ -20,6 +20,7 @@ use abt_core::shared::document_sequence::DocumentSequenceService;
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::shared::enums::DocumentType;
 use abt_core::wms::enums::TransactionType;
+use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
@@ -34,12 +35,7 @@ use abt_core::mes::work_order::WorkOrderService;
 use crate::errors::Result;
 use abt_core::shared::types::error::DomainError;
 use crate::layout::page::admin_page;
-use crate::routes::shipping::{ShippingCreatePath, ShippingDetailPath};
-use crate::routes::wms_cycle_count::CycleCountCreatePath;
-use crate::routes::wms_requisition::RequisitionCreatePath;
-use crate::routes::wms_transfer::TransferCreatePath;
-use crate::routes::wms_stock_in::StockInCreatePath;
-use crate::routes::wms_ledger::LedgerPath;
+use crate::routes::shipping::ShippingDetailPath;
 use crate::routes::wms_work_center::WmsWorkCenterPath;
 use crate::utils::fmt_qty;
 use crate::utils::RequestContext;
@@ -176,44 +172,46 @@ fn domain_detail_url(domain: WorkCenterDomain, doc_id: i64) -> Option<String> {
     }
 }
 
-/// 跳转类操作按钮（质检 / 盘点）：纯链接到对应详情页，次级按钮样式。
-fn render_jump_action(label: &str, url: &str) -> Markup {
+/// 各 domain tab 的收口入口：CycleCount/Requisition/Transfer 已 drawer 化；
+/// Arrival/Outbound 仍跳独立 Create 路由（待 drawer 化）。
+fn domain_entries(active: WorkCenterDomain) -> Markup {
+    const BTN_CLS: &str = "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90";
+    match active {
+        WorkCenterDomain::CycleCount => create_drawer_btn(
+            BTN_CLS, "新建盘点单", "wc-cycle-count-create-overlay", "wc-cycle-count-create-drawer-body",
+            crate::routes::wms_work_center::WcCycleCountCreateDrawerPath::PATH,
+        ),
+        WorkCenterDomain::Requisition => create_drawer_btn(
+            BTN_CLS, "新建领料单", "wc-requisition-create-overlay", "wc-requisition-create-drawer-body",
+            crate::routes::wms_work_center::WcRequisitionCreateDrawerPath::PATH,
+        ),
+        WorkCenterDomain::Transfer => create_drawer_btn(
+            BTN_CLS, "新建调拨单", "wc-transfer-create-overlay", "wc-transfer-create-drawer-body",
+            crate::routes::wms_work_center::WcTransferCreateDrawerPath::PATH,
+        ),
+        WorkCenterDomain::Arrival => create_drawer_btn(
+            BTN_CLS, "新建入库单", "wc-stock-in-create-overlay", "wc-stock-in-create-drawer-body",
+            crate::routes::wms_work_center::WcStockInCreateDrawerPath::PATH,
+        ),
+        WorkCenterDomain::Outbound => create_drawer_btn(
+            BTN_CLS, "新建发货单", "wc-shipping-create-overlay", "wc-shipping-create-drawer-body",
+            crate::routes::wms_work_center::WcShippingCreateDrawerPath::PATH,
+        ),
+    }
+}
+
+/// drawer 新建按钮：hx-get 加载 drawer body，afterRequest 开 overlay。
+fn create_drawer_btn(cls: &str, label: &str, overlay_id: &str, body_id: &str, src: &str) -> Markup {
     html! {
-        a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold no-underline cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
-            href=(url) {
-            (label)
-            (icon::arrow_right_icon("w-3 h-3"))
+        button type="button" class=(cls)
+            hx-get=(src)
+            hx-target=(format!("#{body_id}")) hx-swap="innerHTML"
+            _=(format!("on 'htmx:afterRequest'[detail.xhr.status<400] add .open to #{}", overlay_id)) {
+            (icon::plus_icon("w-3 h-3")) (label)
         }
     }
 }
 
-/// 各 domain tab 的收口入口：「新建」走各业务 Create 路由；「查看全部」统一跳单据台账对应类型 tab
-/// （全量查询不在作业中心内重做，DRY；台账页 /admin/wms/ledger 承载状态/单号/日期检索）。
-fn domain_entries(active: WorkCenterDomain) -> Markup {
-    let (new_label, new_path): (&str, &str) = match active {
-        WorkCenterDomain::Arrival => ("新建入库单", StockInCreatePath::PATH),
-        WorkCenterDomain::Outbound => ("新建发货单", ShippingCreatePath::PATH),
-        WorkCenterDomain::Requisition => ("新建领料单", RequisitionCreatePath::PATH),
-        WorkCenterDomain::Transfer => ("新建调拨单", TransferCreatePath::PATH),
-        WorkCenterDomain::CycleCount => ("新建盘点单", CycleCountCreatePath::PATH),
-    };
-    let ledger_type = match active {
-        WorkCenterDomain::Arrival => "arrival",
-        WorkCenterDomain::Outbound => "outbound",
-        WorkCenterDomain::Requisition => "requisition",
-        WorkCenterDomain::Transfer => "transfer",
-        WorkCenterDomain::CycleCount => "cycle-count",
-    };
-    let ledger_url = format!("{}?type={ledger_type}", LedgerPath::PATH);
-    html! {
-        a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
-            href=(new_path) {
-            (icon::plus_icon("w-3 h-3"))
-            (new_label)
-        }
-        (render_jump_action("查看全部", &ledger_url))
-    }
-}
 
 /// 领料单状态 → (标签, 语义色 class)。作业中心全部视图用（对齐 list 页 status_label 语义）。
 fn picking_status_label(s: PickingStatus) -> (&'static str, &'static str) {
@@ -1098,30 +1096,32 @@ async fn render_work_center_page(
     let domain_markup: Markup = render_domain_card(domain, &summary, &result, q, &warehouses);
 
     let content = if is_htmx {
-        // htmx 片段：只渲染 tab 主体（顶栏总数 badge 由 POST oob 更新，GET 切 tab 不变）
-        domain_markup
-    } else {
-        // 整页：标题 + 总数 badge + tab 主体
-        let today_str = chrono::Local::now().format("%Y-%m-%d").to_string();
+        // htmx 片段：tab 主体 + 顶栏总数 badge oob（wcChanged 触发 card 自刷新时一并更新顶栏待办数）
         html! {
-            div class="bg-bg border border-border-soft rounded-lg p-6 mb-4 shadow-card" {
-                div class="flex items-center justify-between mb-5 flex-wrap gap-4" {
-                    div {
-                        div class="flex items-center gap-2.5" {
-                            h1 class="text-xl font-bold text-fg tracking-tight" { "仓库作业中心" }
-                            (total_badge(summary.total(), false))
-                        }
-                        div class="flex items-center gap-2 mt-1.5" {
-                            span class="inline-flex items-center gap-1.5 bg-surface border border-border-soft rounded-sm px-2.5 py-1 text-xs text-fg-2 font-medium" {
-                                (icon::calendar_icon("w-3.5 h-3.5")) (today_str)
-                            }
-                        }
+            (domain_markup)
+            (total_badge(summary.total(), true))
+        }
+    } else {
+        // 整页：标题 + 总数 badge + tab 主体（裸标题，对齐 MES 作业中心范式）
+        html! {
+            div class="flex items-center justify-between mb-4 flex-wrap gap-4" {
+                div {
+                    div class="flex items-center gap-2.5" {
+                        h1 class="text-xl font-bold text-fg tracking-tight" { "仓库作业中心" }
+                        (total_badge(summary.total(), false))
                     }
+                    p class="text-sm text-muted mt-1" { "待收货 · 待出库 · 待领料 · 待调拨 · 待盘点 一屏处理，就地收发与盘点" }
                 }
             }
             (domain_markup)
             // 共享 drawer overlay（各域 GET ?drawer=&id= 把 body 填入 #wc-drawer-body）
             (wc_drawer_shell())
+            // 各 domain 创建 drawer（新建按钮 hx-get 填 body；submit 保 tab）
+            (render_drawer_overlay("wc-cycle-count-create-overlay", "wc-cycle-count-create-drawer-body", "新建盘点单", "w-[900px] max-w-[94vw]"))
+            (render_drawer_overlay("wc-requisition-create-overlay", "wc-requisition-create-drawer-body", "新建领料单", "w-[900px] max-w-[94vw]"))
+            (render_drawer_overlay("wc-transfer-create-overlay", "wc-transfer-create-drawer-body", "新建调拨单", "w-[1000px] max-w-[94vw]"))
+            (render_drawer_overlay("wc-shipping-create-overlay", "wc-shipping-create-drawer-body", "新建发货单", "w-[1000px] max-w-[94vw]"))
+            (render_drawer_overlay("wc-stock-in-create-overlay", "wc-stock-in-create-drawer-body", "新建入库单", "w-[1000px] max-w-[94vw]"))
             // 库位选择弹窗（复用 stock-in/create 的 suggest_bins 端点；收货 drawer 选目标库位）
             (wc_bin_picker_shell())
         }
@@ -1143,14 +1143,19 @@ async fn render_work_center_page(
 
 /// 顶栏待办总数 badge（h1 标题后）。`oob=true` 时带 hx-swap-oob，就地操作后由 POST 响应局部刷新。
 fn total_badge(total: u64, oob: bool) -> Markup {
-    let cls = "inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-mono font-bold tabular-nums bg-accent-bg text-accent border border-accent/25";
+    // 对齐 MES 作业中心 badge 范式：无边框 + 内层数字加粗 span + "待办"
+    let cls = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-bg text-accent text-xs font-semibold";
+    let inner = html! {
+        span class="font-mono tabular-nums font-bold" { (total) }
+        "待办"
+    };
     if oob {
         html! {
-            span id="wc-total-badge" class=(cls) hx-swap-oob="true" { (total) " 待办" }
+            span id="wc-total-badge" class=(cls) hx-swap-oob="true" { (inner) }
         }
     } else {
         html! {
-            span id="wc-total-badge" class=(cls) { (total) " 待办" }
+            span id="wc-total-badge" class=(cls) { (inner) }
         }
     }
 }
@@ -1171,6 +1176,44 @@ fn domain_tabs(summary: &WorkCenterSummary) -> [TabItem; 5] {
     })
 }
 
+/// card 头：图标（带紧急度角标）+ domain 标题 + meta（待办数 + 描述 + 紧急度），对齐
+/// MES `render_card_shell` 的 card 头范式。随 active domain 切换图标/标题/描述。
+fn domain_card_head(active: WorkCenterDomain, summary: &WorkCenterSummary) -> Markup {
+    let (title, icon_mkp, desc): (&str, Markup, &str) = match active {
+        WorkCenterDomain::Arrival => ("待收货", icon::truck_icon("w-[15px] h-[15px]"), "采购 PO / 生产工单 收货入库"),
+        WorkCenterDomain::Outbound => ("待出库", icon::upload_icon("w-[15px] h-[15px]"), "销售订单 发出立应收"),
+        WorkCenterDomain::Requisition => ("待领料", icon::clipboard_list_icon("w-[15px] h-[15px]"), "生产工单 领料发料"),
+        WorkCenterDomain::Transfer => ("待调拨", icon::arrow_left_right_icon("w-[15px] h-[15px]"), "仓间调拨 出入库"),
+        WorkCenterDomain::CycleCount => ("待盘点", icon::clipboard_document_icon("w-[15px] h-[15px]"), "库存盘点 审批调整"),
+    };
+    let s = summary.of(active);
+    let total = s.total;
+    let overdue = s.overdue;
+    let soon = s.soon;
+    let mut meta = format!("{total} 张待办 · {desc}");
+    let dot = if overdue > 0 {
+        meta.push_str(&format!(" · {overdue} 逾期"));
+        Some("danger")
+    } else if soon > 0 {
+        meta.push_str(&format!(" · {soon} 临期"));
+        Some("warn")
+    } else {
+        None
+    };
+    html! {
+        div class="flex items-center gap-3 px-5 py-3 border-b border-border-soft" {
+            div class="relative w-7 h-7 rounded-md grid place-items-center bg-surface text-fg-2 shrink-0" {
+                (icon_mkp)
+                @if let Some(token) = dot {
+                    span class=(format!("absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-{token} ring-2 ring-bg")) {}
+                }
+            }
+            span class="font-semibold text-fg shrink-0" { (title) }
+            span class="text-xs text-muted font-mono flex-1 min-w-0 truncate" { (meta) }
+        }
+    }
+}
+
 /// tab 主体卡片：`#wc-domain-card`（status-tabs + filter-form + 队列表格 + 分页）。
 /// 整体可被 hx-target/hx-select outerHTML 替换（切 tab / 搜索 / 分页 / 就地操作后回填）。
 fn render_domain_card(
@@ -1185,7 +1228,14 @@ fn render_domain_card(
         (s.overdue, s.soon)
     };
     html! {
-        div id="wc-domain-card" class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
+        div id="wc-domain-card"
+            hx-get=(format!("{}?domain={}", WmsWorkCenterPath::PATH, domain_slug(active)))
+            hx-trigger="wcChanged from:body"
+            hx-include="#wc-domain-filter"
+            hx-target="this" hx-select="#wc-domain-card" hx-swap="outerHTML"
+            class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
+            // card 头（图标 + 紧急度角标 + domain 标题 + meta），对齐 MES render_card_shell 范式
+            (domain_card_head(active, summary))
             // tab 栏（6 环节 + 计数 badge；切 tab 强制 page=1、携带 filter）。
             // #status-tabs 在 #wc-domain-card 内，整体 outerHTML 替换已更新 tab 栏，
             // 故传空 hx-select-oob——若用默认 oob=#status-tabs，htmx 会把 tab 栏从主内容
@@ -1477,6 +1527,215 @@ fn wc_drawer_shell() -> Markup {
     drawer_shell("wc-drawer-overlay", "w-[460px]", html! {
         div id="wc-drawer-body" class="flex-1 overflow-y-auto" {}
     })
+}
+
+/// 创建 drawer overlay 壳：标题栏（含×）+ body 槽（按钮 hx-get 填入 #body_id）。
+/// 开：按钮 afterRequest add .open / body afterSettle add .open；关：× / Esc（drawer_shell 自带）/ form afterRequest 守卫。
+/// 仿 purchase_work_center::render_drawer_overlay。
+fn render_drawer_overlay(overlay_id: &str, body_id: &str, title: &str, width_class: &str) -> Markup {
+    drawer_shell(overlay_id, width_class, html! {
+        div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
+            div class="font-bold text-base text-fg" { (title) }
+            button type="button"
+                class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
+                _=(format!("on click remove .open from #{}", overlay_id)) {
+                (icon::x_icon("w-4 h-4"))
+            }
+        }
+        div id=(body_id) class="flex-1 overflow-y-auto"
+            _=(format!("on 'htmx:afterSettle' add .open to #{}", overlay_id)) {}
+    })
+}
+
+// ── 盘点创建 drawer（CycleCount tab「新建盘点单」按钮 hx-get 填 body）──
+
+#[require_permission("INVENTORY", "read")]
+pub async fn get_cycle_count_create_drawer(
+    _path: crate::routes::wms_work_center::WcCycleCountCreateDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let warehouses = state
+        .warehouse_service()
+        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    // MES 守卫：提交成功（空 body 200）才关 drawer；子请求/校验失败重渲染（非空）不关
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length==0 and detail.xhr.status<400] remove .open from #wc-cycle-count-create-overlay";
+    Ok(Html(
+        crate::pages::wms_cycle_count_create::cycle_count_create_page(
+            &warehouses,
+            crate::routes::wms_work_center::WcCycleCountCreatePath::PATH,
+            after_hs,
+            false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("INVENTORY", "create")]
+pub async fn post_cycle_count_create(
+    _path: crate::routes::wms_work_center::WcCycleCountCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<crate::pages::wms_cycle_count_create::CreateCycleCountForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    crate::pages::wms_cycle_count_create::do_create_cycle_count(&state, &service_ctx, form).await?;
+    // 空 body + wcChanged：form afterRequest 守卫关 drawer；#wc-domain-card 监听 wcChanged 自刷新（带 active domain 保 tab）
+    Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
+}
+
+// ── 领料创建 drawer（Requisition tab「新建领料单」按钮）──
+
+#[require_permission("INVENTORY", "read")]
+pub async fn get_requisition_create_drawer(
+    _path: crate::routes::wms_work_center::WcRequisitionCreateDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let warehouses = state
+        .warehouse_service()
+        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length==0 and detail.xhr.status<400] remove .open from #wc-requisition-create-overlay";
+    Ok(Html(
+        crate::pages::wms_requisition_create::requisition_create_page(
+            &warehouses,
+            crate::routes::wms_work_center::WcRequisitionCreatePath::PATH,
+            after_hs,
+            false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("INVENTORY", "create")]
+pub async fn post_requisition_create(
+    _path: crate::routes::wms_work_center::WcRequisitionCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<crate::pages::wms_requisition_create::RequisitionCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, mut conn, .. } = ctx;
+    crate::pages::wms_requisition_create::do_create_requisition(&state, &service_ctx, &mut conn, form).await?;
+    Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
+}
+
+// ── 调拨创建 drawer（Transfer tab「新建调拨单」按钮）──
+
+#[require_permission("INVENTORY", "read")]
+pub async fn get_transfer_create_drawer(
+    _path: crate::routes::wms_work_center::WcTransferCreateDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let warehouses = state
+        .warehouse_service()
+        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length==0 and detail.xhr.status<400] remove .open from #wc-transfer-create-overlay";
+    Ok(Html(
+        crate::pages::wms_transfer_create::transfer_create_page(
+            &warehouses,
+            crate::routes::wms_work_center::WcTransferCreatePath::PATH,
+            after_hs,
+            false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("INVENTORY", "create")]
+pub async fn post_transfer_create(
+    _path: crate::routes::wms_work_center::WcTransferCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<crate::pages::wms_transfer_create::TransferCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    crate::pages::wms_transfer_create::do_create_transfer(&state, &service_ctx, form).await?;
+    Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
+}
+
+// ── 发货创建 drawer（Outbound tab「新建发货单」按钮）──
+
+#[require_permission("SHIPPING", "read")]
+pub async fn get_shipping_create_drawer(
+    _path: crate::routes::wms_work_center::WcShippingCreateDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let customers = state
+        .customer_service()
+        .list(
+            &service_ctx, &mut conn,
+            abt_core::master_data::customer::model::CustomerQuery {
+                name: None, status: None, category: None, owner_id: None,
+            },
+            abt_core::shared::types::PageParams::new(1, 200),
+        )
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let warehouses = state
+        .warehouse_service()
+        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let prefill = crate::pages::shipping_create::ShippingPrefill::default();
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length==0 and detail.xhr.status<400] remove .open from #wc-shipping-create-overlay";
+    Ok(Html(
+        crate::pages::shipping_create::shipping_create_page(
+            &customers, &warehouses, &prefill,
+            crate::routes::wms_work_center::WcShippingCreatePath::PATH,
+            after_hs, false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("SHIPPING", "create")]
+pub async fn post_shipping_create(
+    _path: crate::routes::wms_work_center::WcShippingCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<crate::pages::shipping_create::ShippingCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    crate::pages::shipping_create::do_create_shipping(&state, &service_ctx, form).await?;
+    Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
+}
+
+// ── 入库创建 drawer（Arrival tab「新建入库单」按钮）──
+
+#[require_permission("INVENTORY", "read")]
+pub async fn get_stock_in_create_drawer(
+    _path: crate::routes::wms_work_center::WcStockInCreateDrawerPath,
+    _ctx: RequestContext,
+) -> Result<Html<String>> {
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length==0 and detail.xhr.status<400] remove .open from #wc-stock-in-create-overlay";
+    Ok(Html(
+        crate::pages::wms_stock_in_create::stock_in_create_content(
+            crate::routes::wms_work_center::WcStockInCreatePath::PATH,
+            after_hs,
+            false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("INVENTORY", "create")]
+pub async fn post_stock_in_create(
+    _path: crate::routes::wms_work_center::WcStockInCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<crate::pages::wms_stock_in_create::StockInCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    crate::pages::wms_stock_in_create::do_create_stock_in(&state, &service_ctx, form).await?;
+    Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
 }
 
 /// 库位选择弹窗壳：复用 stock-in/create 的 suggest_bins 端点（按产品+仓库 SameMerge 推荐）。

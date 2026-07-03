@@ -691,18 +691,18 @@ async fn k5_one_click_request_ship_to_work_center() {
         .bind(so_id).fetch_one(&mut *conn).await.unwrap();
     assert_eq!(so_status, 8, "❌ 订单应推进到 ShippingRequested(8)，实际 {so_status}");
 
-    // 4) 发货单 status=2（Confirmed，跳过 Draft，直接进 work-center 待发货）
+    // 4) 发货 picking status=2（Confirmed，跳过 Draft，直接进 work-center 待发货）
     let ship_status: i16 = sqlx::query_scalar(
-        "SELECT status FROM shipping_requests WHERE order_id=$1 ORDER BY id DESC LIMIT 1",
+        "SELECT status FROM stock_pickings WHERE picking_type=3 AND source_id=$1 ORDER BY id DESC LIMIT 1",
     ).bind(so_id).fetch_one(&mut *conn).await.unwrap();
-    assert_eq!(ship_status, 2, "❌ 发货单应为 Confirmed(2)（跳过 Draft）");
+    assert_eq!(ship_status, 2, "❌ 发货 picking 应为 Confirmed(2)（跳过 Draft）");
 
-    // 5) 发货明细 warehouse_id NULL（销售不指定仓库，拣货时定）
+    // 5) 发货明细 from_warehouse_id NULL（销售不指定仓库，direct_ship 时选）
     let ship_id: i64 = sqlx::query_scalar(
-        "SELECT id FROM shipping_requests WHERE order_id=$1 ORDER BY id DESC LIMIT 1",
+        "SELECT id FROM stock_pickings WHERE picking_type=3 AND source_id=$1 ORDER BY id DESC LIMIT 1",
     ).bind(so_id).fetch_one(&mut *conn).await.unwrap();
     let wh_id: Option<i64> = sqlx::query_scalar(
-        "SELECT warehouse_id FROM shipping_request_items WHERE shipping_request_id=$1 LIMIT 1",
+        "SELECT from_warehouse_id FROM stock_picking_items WHERE picking_id=$1 LIMIT 1",
     ).bind(ship_id).fetch_one(&mut *conn).await.unwrap();
     assert!(wh_id.is_none(), "❌ 发货明细仓库应为 NULL（销售不指定仓库），实际 {:?}", wh_id);
 }

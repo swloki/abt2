@@ -278,21 +278,22 @@ pub async fn aggregate_shipping_items(
 ) -> Result<Vec<AggregatedShippingItem>> {
     let items = sqlx::query_as::<sqlx::Postgres, AggregatedShippingItem>(
         r#"SELECT
-            sr.id AS shipping_request_id,
+            sp.id AS shipping_request_id,
             so.id AS sales_order_id,
-            sri.product_id,
-            sri.shipped_qty AS quantity,
+            spi.product_id,
+            spi.qty_done AS quantity,
             soi.unit_price,
-            (sri.shipped_qty * soi.unit_price) AS amount
-        FROM shipping_requests sr
-        JOIN sales_orders so ON sr.order_id = so.id
-        JOIN shipping_request_items sri ON sri.shipping_request_id = sr.id
-        JOIN sales_order_items soi ON soi.id = sri.order_item_id
+            (spi.qty_done * soi.unit_price) AS amount
+        FROM stock_pickings sp
+        JOIN sales_orders so ON sp.source_id = so.id
+        JOIN stock_picking_items spi ON spi.picking_id = sp.id
+        JOIN sales_order_items soi ON soi.id = spi.source_item_id
         WHERE so.customer_id = $1
-          AND sr.status = 4
-          AND to_char(sr.created_at, 'YYYY-MM') = $2
-          AND sr.deleted_at IS NULL
-        ORDER BY sr.id, sri.line_no"#,
+          AND sp.picking_type = 3
+          AND sp.status = 3
+          AND to_char(sp.created_at, 'YYYY-MM') = $2
+          AND sp.deleted_at IS NULL
+        ORDER BY sp.id, spi.id"#,
     )
     .bind(customer_id)
     .bind(period)

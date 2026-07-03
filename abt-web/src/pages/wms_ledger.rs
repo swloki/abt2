@@ -175,8 +175,6 @@ async fn render_ledger_card(
     page: u32,
 ) -> Result<Markup> {
     let type_tabs = type_tab_items();
-    let status_tabs = status_tab_items(type_slug);
-    let active_status = q.status.as_deref().unwrap_or("");
 
     let warehouses = state
         .warehouse_service()
@@ -241,15 +239,10 @@ async fn render_ledger_card(
 
     Ok(html! {
         div id="ledger-card" class="bg-bg border border-border-soft rounded-lg shadow-card overflow-hidden" {
-            // 第一层：类型 tab（5）
+            // 类型 tab（5）；状态走过滤栏 select（对齐 Odoo filter 范式，select 语义更轻）
             (status_tabs_with_oob(
                 LedgerPath::PATH, "#ledger-card", "#ledger-filter", "",
                 &type_tabs, type_slug, "type",
-            ))
-            // 第二层：状态 tab（picking 4 态 / cycle_count 6 态）
-            (status_tabs_with_oob(
-                LedgerPath::PATH, "#ledger-card", "#ledger-filter", "",
-                &status_tabs, active_status, "status",
             ))
             (render_ledger_filter(q, type_slug))
             div class="p-4" {
@@ -308,11 +301,13 @@ fn status_tab_items(type_slug: &str) -> Vec<TabItem> {
         .collect()
 }
 
-/// 过滤栏：单号搜索（防抖）+ 日期范围。hidden type/status 携带当前 tab（搜索时不丢上下文）。
+/// 过滤栏：单号搜索（防抖）+ 状态 select（按类型动态）+ 日期范围。
+/// hidden type 携带当前 tab；status 由 select 提交（搜索/切状态时不丢上下文）。
 fn render_ledger_filter(q: &LedgerQuery, type_slug: &str) -> Markup {
     let kw = q.keyword.as_deref().unwrap_or("");
     let df = q.date_from.as_deref().unwrap_or("");
     let dt = q.date_to.as_deref().unwrap_or("");
+    let active_status = q.status.as_deref().unwrap_or("");
     html! {
         form id="ledger-filter"
             class="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border-soft"
@@ -323,12 +318,18 @@ fn render_ledger_filter(q: &LedgerQuery, type_slug: &str) -> Markup {
             hx-swap="outerHTML"
             hx-include="#ledger-filter" {
             input type="hidden" name="type" value=(type_slug);
-            input type="hidden" name="status" value=(q.status.as_deref().unwrap_or(""));
             div class="relative" {
                 (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
                 input class="ledger-search w-[220px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
                     type="text" name="keyword" placeholder="搜索单号"
                     value=(kw);
+            }
+            // 状态 select（picking 4 态 / 盘点 6 态，按当前类型动态）
+            select name="status"
+                class="px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent cursor-pointer" {
+                @for opt in status_tab_items(type_slug) {
+                    option value=(opt.value) selected[opt.value.as_str() == active_status] { (opt.label) }
+                }
             }
             input class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
                 type="date" name="date_from" value=(df);

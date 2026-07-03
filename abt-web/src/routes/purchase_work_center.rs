@@ -114,6 +114,16 @@ pub struct PcQuotationDetailDrawerPath {
     pub id: i64,
 }
 
+// ── 创建 drawer（就地新建，对标 wms domain_entries 但走 drawer）──
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/quotations/create-drawer")]
+pub struct PcQuotationCreateDrawerPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/quotations/create")]
+pub struct PcQuotationCreatePath;
+
 // ── 写操作 POST（事务包裹，HX-Trigger 广播）──
 
 #[derive(TypedPath, Deserialize, Clone)]
@@ -266,6 +276,14 @@ pub fn router() -> Router<AppState> {
         .route(
             PcQuotationDetailDrawerPath::PATH,
             get(purchase_work_center::get_quotation_detail_drawer),
+        )
+        .route(
+            PcQuotationCreateDrawerPath::PATH,
+            get(purchase_work_center::get_quotation_create_drawer),
+        )
+        .route(
+            PcQuotationCreatePath::PATH,
+            post(purchase_work_center::post_quotation_create),
         )
         .route(
             PcOrderApprovePath::PATH,

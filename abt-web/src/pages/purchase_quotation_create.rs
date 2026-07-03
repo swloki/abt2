@@ -91,7 +91,7 @@ pub async fn get_pq_create(
  .map(|r| r.items)
  .unwrap_or_default();
 
- let content = pq_create_page(&suppliers.items, &users);
+ let content = pq_create_page(&suppliers.items, &users, PQCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx,
  "新建采购报价",
@@ -173,70 +173,77 @@ pub struct SupplierContactParams {
 }
 
 /// POST: create purchase quotation from form submission (HTMX)
+/// 报价创建核心逻辑（解析 PQCreateForm → svc.create），创建页与 work_center drawer 共用。
+pub async fn do_create_pq(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::context::ServiceContext,
+    form: PQCreateForm,
+) -> Result<i64> {
+    let svc = state.purchase_quotation_service();
+    let quotation_date = chrono::NaiveDate::parse_from_str(&form.quotation_date, "%Y-%m-%d")
+        .map_err(|e| DomainError::validation(format!("无效报价日期格式: {e}")))?;
+    let valid_from = chrono::NaiveDate::parse_from_str(&form.valid_from, "%Y-%m-%d")
+        .map_err(|e| DomainError::validation(format!("无效生效日期格式: {e}")))?;
+    let valid_until = chrono::NaiveDate::parse_from_str(&form.valid_until, "%Y-%m-%d")
+        .map_err(|e| DomainError::validation(format!("无效失效日期格式: {e}")))?;
+    let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效产品数据: {e}")))?;
+    let items: Vec<CreateQuotationItemRequest> = web_items
+        .into_iter()
+        .enumerate()
+        .map(|(idx, item)| CreateQuotationItemRequest {
+            product_id: item.product_id.parse().unwrap_or(0),
+            line_no: (idx as i32) + 1,
+            unit_price: item
+                .unit_price
+                .parse()
+                .unwrap_or(rust_decimal::Decimal::ZERO),
+            min_order_qty: item.min_order_qty.and_then(|s| s.parse().ok()),
+            lead_time_days: item.lead_time_days.and_then(|s| s.parse().ok()),
+            currency: item.currency.unwrap_or_else(|| "CNY".to_string()),
+            is_preferred: item.is_preferred.is_some(),
+        })
+        .collect();
+    let create_req = CreatePurchaseQuotationRequest {
+        supplier_id: form.supplier_id,
+        quotation_date,
+        valid_from,
+        valid_until,
+        remark: form.remark.unwrap_or_default(),
+        items,
+    };
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let id = svc.create(service_ctx, &mut tx, create_req, None).await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    Ok(id)
+}
+
 #[require_permission("PURCHASE_QUOTATION", "create")]
 pub async fn create_pq(
  _path: PQCreatePath,
  ctx: RequestContext,
  axum::Form(form): axum::Form<PQCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- state,
- service_ctx,
- ..
- } = ctx;
- let svc = state.purchase_quotation_service();
-
- let quotation_date = chrono::NaiveDate::parse_from_str(&form.quotation_date, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效报价日期格式: {e}")))?;
- let valid_from = chrono::NaiveDate::parse_from_str(&form.valid_from, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效生效日期格式: {e}")))?;
- let valid_until = chrono::NaiveDate::parse_from_str(&form.valid_until, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效失效日期格式: {e}")))?;
-
- let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
- .map_err(|e| DomainError::validation(format!("无效产品数据: {e}")))?;
-
- let items: Vec<CreateQuotationItemRequest> = web_items
- .into_iter()
- .enumerate()
- .map(|(idx, item)| CreateQuotationItemRequest {
- product_id: item.product_id.parse().unwrap_or(0),
- line_no: (idx as i32) + 1,
- unit_price: item
- .unit_price
- .parse()
- .unwrap_or(rust_decimal::Decimal::ZERO),
- min_order_qty: item.min_order_qty.and_then(|s| s.parse().ok()),
- lead_time_days: item.lead_time_days.and_then(|s| s.parse().ok()),
- currency: item.currency.unwrap_or_else(|| "CNY".to_string()),
- is_preferred: item.is_preferred.is_some(),
- })
- .collect();
-
- let create_req = CreatePurchaseQuotationRequest {
- supplier_id: form.supplier_id,
- quotation_date,
- valid_from,
- valid_until,
- remark: form.remark.unwrap_or_default(),
- items,
- };
-
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let id = svc.create(&service_ctx, &mut tx, create_req, None).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let id = do_create_pq(&state, &service_ctx, form).await?;
  let redirect = PQDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-fn pq_create_page(
+pub fn pq_create_page(
  suppliers: &[abt_core::master_data::supplier::model::Supplier],
  users: &[abt_core::shared::identity::model::User],
+ post_path: &str,
+ after_request_hs: &str,
+ show_header: bool,
 ) -> Markup {
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
  let default_valid = chrono::Local::now()
@@ -246,15 +253,16 @@ fn pq_create_page(
 
  html! {
     div id="pq-app" {
-        // ── Page Header ──
-        div class="flex items-center justify-between mb-6" {
-            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-                href=(format!("{}?restore=true", PQListPath::PATH))
-            { (icon::arrow_left_icon("w-4 h-4")) "返回采购报价列表" }
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购报价" }
+        @if show_header {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", PQListPath::PATH))
+                { (icon::arrow_left_icon("w-4 h-4")) "返回采购报价列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购报价" }
+            }
         }
 
-        form id="pq-form" hx-post=(PQCreatePath::PATH) hx-swap="none" {
+        form id="pq-form" hx-post=(post_path) hx-swap="none" _=(after_request_hs) {
             input type="hidden" id="items-json" name="items_json" value="[]";
             input type="hidden" id="form-action" name="action" value="submit";
             // ── Supplier Selection ──

@@ -128,6 +128,7 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
         (render_drawer_overlay("po-detail-overlay", "po-detail-drawer", "po-detail-drawer-body", "采购订单详情", "w-[900px] max-w-[92vw]"))
         (render_drawer_overlay("return-detail-overlay", "return-detail-drawer", "return-detail-drawer-body", "退货详情", "w-[680px] max-w-[92vw]"))
         (render_drawer_overlay("quotation-detail-overlay", "quotation-detail-drawer", "quotation-detail-drawer-body", "报价详情", "w-[680px] max-w-[92vw]"))
+        (render_drawer_overlay("quotation-create-overlay", "quotation-create-drawer", "quotation-create-drawer-body", "新建报价", "w-[860px] max-w-[94vw]"))
         // 转单成功后自动切草稿订单列表：后端广播 convertDone → htmx 原生 hx-get 切订单 card
         div class="hidden"
             hx-trigger="convertDone from:body"
@@ -1745,6 +1746,65 @@ fn render_return_detail_drawer_body(
 // ── 报价详情 drawer（就地查看 + 生效/取消/转PO）──
 
 #[require_permission("PURCHASE_QUOTATION", "read")]
+pub async fn get_quotation_create_drawer(
+    _path: PcQuotationCreateDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let suppliers = state
+        .supplier_service()
+        .list(
+            &service_ctx,
+            &mut conn,
+            abt_core::master_data::supplier::model::SupplierQuery {
+                name: None,
+                status: None,
+                category: None,
+            },
+            PageParams::new(1, 200),
+        )
+        .await?
+        .items;
+    let users = state
+        .user_service()
+        .list_users(&service_ctx, &mut conn, 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-create-overlay then call showToast('报价已创建')";
+    Ok(Html(
+        crate::pages::purchase_quotation_create::pq_create_page(
+            &suppliers,
+            &users,
+            PcQuotationCreatePath::PATH,
+            after_hs,
+            false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("PURCHASE_QUOTATION", "create")]
+pub async fn post_quotation_create(
+    _path: PcQuotationCreatePath,
+    ctx: RequestContext,
+    Form(form): Form<crate::pages::purchase_quotation_create::PQCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    crate::pages::purchase_quotation_create::do_create_pq(&state, &service_ctx, form).await?;
+    invalidate_purchase_summary(&state);
+    // 创建成功后整页刷新 work-center（drawer 关 + 列表刷新看新建）。
+    // 局部关 drawer 不可靠：form afterRequest 不触发（程序化提交坑）+ OOB 替换 overlay 又触发
+    // overlay_hs afterSettle add .open（overlay.rs 统一显隐机制，单一来源不宜改）。
+    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+}
+
+#[require_permission("PURCHASE_QUOTATION", "read")]
 pub async fn get_quotation_detail_drawer(
     path: PcQuotationDetailDrawerPath,
     ctx: RequestContext,
@@ -2110,8 +2170,7 @@ fn render_drawer_overlay(overlay_id: &str, _drawer_id: &str, body_id: &str, titl
                 (icon::x_icon("w-4 h-4"))
             }
         }
-        div id=(body_id) class="flex-1 overflow-y-auto px-6 py-5"
-            _=(format!("on 'htmx:afterSettle' add .open to #{}", overlay_id)) {}
+        div id=(body_id) class="flex-1 overflow-y-auto px-6 py-5" {}
     })
 }
 
@@ -2547,6 +2606,11 @@ fn settlement_filter_bar(tab: &str, status: Option<i16>, p: &SettlementCardParam
                     type="text" name="keyword" placeholder="搜索供应商/单号"
                     value=(kw);
             }
+            (if tab == "payment" {
+                new_button(crate::routes::payment_request::PayCreatePath::PATH, "新建付款")
+            } else {
+                new_button(crate::routes::purchase_reconciliation::PreconCreatePath::PATH, "新建对账单")
+            })
         }
         form id="pc-filter-form" class="hidden" {
             input type="hidden" name="keyword" value=(kw);
@@ -2670,6 +2734,7 @@ fn returns_filter_bar(status: Option<i16>, p: &ReturnsCardParams) -> Markup {
                     type="text" name="keyword" placeholder="搜索退货单号"
                     value=(kw);
             }
+            (new_button(crate::routes::purchase_return::PRCreatePath::PATH, "新建退货"))
         }
         form id="pc-filter-form" class="hidden" {
             input type="hidden" name="keyword" value=(kw);
@@ -2717,6 +2782,16 @@ fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>) -> Mark
 
 // ── 供应商报价 card 渲染 ──
 
+/// 「新建」accent 主按钮（跳各业务 CreatePath，对齐 wms_work_center domain_entries）。
+fn new_button(path: &str, label: &str) -> Markup {
+    html! {
+        a class="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
+            href=(path) {
+            (icon::plus_icon("w-3 h-3")) (label)
+        }
+    }
+}
+
 fn quotation_filter_bar(status: Option<i16>) -> Markup {
     html! {
         form class="flex items-center gap-2 flex-wrap px-5 py-3 border-b border-border-soft"
@@ -2731,6 +2806,12 @@ fn quotation_filter_bar(status: Option<i16>) -> Markup {
                 option value="2" selected[status == Some(2)] { "已生效" }
                 option value="3" selected[status == Some(3)] { "已过期" }
                 option value="4" selected[status == Some(4)] { "已取消" }
+            }
+            button class="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90"
+                hx-get=(PcQuotationCreateDrawerPath::PATH)
+                hx-target="#quotation-create-drawer-body" hx-swap="innerHTML"
+                _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #quotation-create-overlay" {
+                (icon::plus_icon("w-3 h-3")) "新建报价"
             }
         }
         form id="pc-filter-form" class="hidden" {
@@ -2805,6 +2886,7 @@ fn misc_filter_bar(status: Option<i16>) -> Markup {
                 option value="5" selected[status == Some(5)] { "已关闭" }
                 option value="6" selected[status == Some(6)] { "已取消" }
             }
+            (new_button(crate::routes::misc_request::MiscCreatePath::PATH, "新建请购"))
         }
         form id="pc-filter-form" class="hidden" {
             input type="hidden" name="status" value=(status.map(|s| s.to_string()).unwrap_or_default());

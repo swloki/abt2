@@ -1780,7 +1780,9 @@ pub async fn get_quotation_create_drawer(
         .await
         .map(|r| r.items)
         .unwrap_or_default();
-    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-create-overlay then call showToast('报价已创建')";
+    // 提交成功（空 body）广播 quotationChanged → quotation card 局部刷新，tab 保持 active=quotation；
+    // form afterRequest 凭 responseText 空 关 drawer（供应商联系人子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #quotation-create-overlay";
     Ok(Html(
         crate::pages::purchase_quotation_create::pq_create_page(
             &suppliers,
@@ -1802,10 +1804,9 @@ pub async fn post_quotation_create(
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::purchase_quotation_create::do_create_pq(&state, &service_ctx, form).await?;
     invalidate_purchase_summary(&state);
-    // 创建成功后整页刷新 work-center（drawer 关 + 列表刷新看新建）。
-    // 局部关 drawer 不可靠：form afterRequest 不触发（程序化提交坑）+ OOB 替换 overlay 又触发
-    // overlay_hs afterSettle add .open（overlay.rs 统一显隐机制，单一来源不宜改）。
-    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+    // 局部刷新保 tab：广播 quotationChanged → quotation card 刷新（pc_tab_bar active 仍为 quotation）。
+    // drawer 关闭由 form afterRequest（responseText 空）负责；空 body 不替换 overlay，不触发 afterSettle 重开。
+    Ok(([("HX-Trigger", "quotationChanged")], Html(String::new())))
 }
 
 // ── 退货创建 drawer ──
@@ -1842,7 +1843,9 @@ pub async fn get_return_create_drawer(
             .await?;
         all_orders.extend(result.items);
     }
-    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #return-create-overlay then call showToast('退货已创建')";
+    // 提交成功（空 body）广播 returnChanged → returns card 局部刷新（保 tab）；
+    // form afterRequest 凭 responseText 空 关 drawer（PO 明细子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #return-create-overlay";
     Ok(Html(
         crate::pages::purchase_return_create::pr_create_page(
             &all_orders,
@@ -1863,7 +1866,7 @@ pub async fn post_return_create(
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::purchase_return_create::do_create_pr(&state, &service_ctx, form).await?;
     invalidate_purchase_summary(&state);
-    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+    Ok(([("HX-Trigger", "returnChanged")], Html(String::new())))
 }
 
 // ── 请购创建 drawer ──
@@ -1873,7 +1876,9 @@ pub async fn get_misc_create_drawer(
     _path: PcMiscCreateDrawerPath,
     _ctx: RequestContext,
 ) -> Result<Html<String>> {
-    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #misc-create-overlay then call showToast('请购已创建')";
+    // 提交成功（空 body）广播 demandChanged → misc card 局部刷新（保 tab）；
+    // form afterRequest 凭 responseText 空 关 drawer（明细行子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #misc-create-overlay";
     Ok(Html(
         crate::pages::misc_request_create::misc_create_page(
             PcMiscCreatePath::PATH,
@@ -1905,7 +1910,7 @@ pub async fn post_misc_create(
     )
     .await?;
     invalidate_purchase_summary(&state);
-    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+    Ok(([("HX-Trigger", "demandChanged")], Html(String::new())))
 }
 
 // ── 对账创建 drawer ──
@@ -1936,7 +1941,9 @@ pub async fn get_recon_create_drawer(
         )
         .await?
         .items;
-    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #recon-create-overlay then call showToast('对账单已创建')";
+    // 提交成功（空 body）广播 reconChanged → settlement card 局部刷新（保 tab）；
+    // form afterRequest 凭 responseText 空 关 drawer（preview 子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #recon-create-overlay";
     Ok(Html(
         crate::pages::purchase_recon_create::precon_create_page(
             &suppliers,
@@ -1958,7 +1965,7 @@ pub async fn post_recon_create(
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::purchase_recon_create::do_create_precon(&state, &service_ctx, form).await?;
     invalidate_purchase_summary(&state);
-    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+    Ok(([("HX-Trigger", "reconChanged")], Html(String::new())))
 }
 
 // ── 付款创建 drawer ──
@@ -2005,7 +2012,10 @@ pub async fn get_pay_create_drawer(
         .await
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| claims.display_name.clone());
-    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #pay-create-overlay then call showToast('付款申请已创建')";
+    // 提交成功（空 body）广播 reconChanged → settlement card 局部刷新（hx-include filter-form
+    // 带 tab=payment，保 payment 子tab）；form afterRequest 凭 responseText 空 关 drawer
+    // （供应商信息子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #pay-create-overlay";
     Ok(Html(
         crate::pages::payment_request_create::pay_create_page(
             &suppliers,
@@ -2028,7 +2038,7 @@ pub async fn post_pay_create(
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::payment_request_create::do_create_pay(&state, &service_ctx, form).await?;
     invalidate_purchase_summary(&state);
-    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+    Ok(([("HX-Trigger", "reconChanged")], Html(String::new())))
 }
 
 #[require_permission("PURCHASE_QUOTATION", "read")]

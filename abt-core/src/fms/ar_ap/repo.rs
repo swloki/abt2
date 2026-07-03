@@ -49,8 +49,8 @@ macro_rules! bind_filter {
 fn product_field_cond(field: &str, n: usize) -> String {
     format!(
         "EXISTS(\
-         SELECT 1 FROM shipping_request_items sri JOIN products p ON p.product_id = sri.product_id \
-           WHERE sri.shipping_request_id = l.source_id AND l.source_type = 3 AND p.{field} ILIKE ${n} \
+         SELECT 1 FROM stock_picking_items spi JOIN products p ON p.product_id = spi.product_id \
+           WHERE spi.picking_id = l.source_id AND l.source_type = 3 AND p.{field} ILIKE ${n} \
          UNION ALL SELECT 1 FROM purchase_order_items poi JOIN products p ON p.product_id = poi.product_id \
            WHERE poi.order_id = l.source_id AND l.source_type = 7 AND p.{field} ILIKE ${n} \
          UNION ALL SELECT 1 FROM outsourcing_orders oo JOIN products p ON p.product_id = oo.product_id \
@@ -64,9 +64,9 @@ fn product_field_cond(field: &str, n: usize) -> String {
 fn rep_cond(n: usize) -> String {
     format!(
         "EXISTS(\
-         SELECT 1 FROM shipping_requests sr JOIN sales_orders so ON so.id = sr.order_id \
+         SELECT 1 FROM stock_pickings sp JOIN sales_orders so ON so.id = sp.source_id \
            JOIN users u ON u.user_id = so.sales_rep_id \
-           WHERE sr.id = l.source_id AND l.source_type = 3 AND u.display_name ILIKE ${n} \
+           WHERE sp.id = l.source_id AND sp.picking_type = 3 AND l.source_type = 3 AND u.display_name ILIKE ${n} \
          UNION ALL SELECT 1 FROM purchase_orders po JOIN users u ON u.user_id = po.operator_id \
            WHERE po.id = l.source_id AND l.source_type = 7 AND u.display_name ILIKE ${n})",
         n = n
@@ -421,9 +421,9 @@ impl ArApLedgerRepo {
                       COALESCE(
                         (SELECT po.doc_number FROM purchase_orders po
                          WHERE po.id = l.source_id AND l.source_type = 7 AND po.deleted_at IS NULL),
-                        (SELECT so.doc_number FROM shipping_requests sr
-                         JOIN sales_orders so ON so.id = sr.order_id AND so.deleted_at IS NULL
-                         WHERE sr.id = l.source_id AND l.source_type = 3)
+                        (SELECT so.doc_number FROM stock_pickings sp
+                         JOIN sales_orders so ON so.id = sp.source_id AND so.deleted_at IS NULL
+                         WHERE sp.id = l.source_id AND sp.picking_type = 3 AND l.source_type = 3)
                       ) AS upstream_doc_no,
                       COALESCE(
                         (SELECT string_agg(DISTINCT p.pdt_name, '、')
@@ -434,9 +434,9 @@ impl ArApLedgerRepo {
                          JOIN products p ON p.product_id = oo.product_id
                          WHERE oo.id = l.source_id AND l.source_type = 11),
                         (SELECT string_agg(DISTINCT p.pdt_name, '、')
-                         FROM shipping_request_items sri
-                         JOIN products p ON p.product_id = sri.product_id
-                         WHERE sri.shipping_request_id = l.source_id AND l.source_type = 3)
+                         FROM stock_picking_items spi
+                         JOIN products p ON p.product_id = spi.product_id
+                         WHERE spi.picking_id = l.source_id AND l.source_type = 3)
                       ) AS product_summary
                FROM ar_ap_ledger l
                LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
@@ -514,16 +514,16 @@ impl ArApLedgerRepo {
               SELECT f.id, f.party_name, f.source_doc_no,
                      so.doc_number, 3::SMALLINT,
                      p.product_code, p.pdt_name,
-                     sri.shipped_qty AS quantity,
+                     spi.qty_done AS quantity,
                      COALESCE(soi.unit_price, 0) AS unit_price,
-                     COALESCE(sri.shipped_qty * soi.unit_price, 0) AS line_amount,
+                     COALESCE(spi.qty_done * soi.unit_price, 0) AS line_amount,
                      f.transaction_date
               FROM filtered f
-              JOIN shipping_requests sr ON sr.id = f.source_id AND f.source_type = 3
-              LEFT JOIN sales_orders so ON so.id = sr.order_id
-              JOIN shipping_request_items sri ON sri.shipping_request_id = sr.id AND sri.shipped_qty > 0
-              LEFT JOIN sales_order_items soi ON soi.id = sri.order_item_id
-              JOIN products p ON p.product_id = sri.product_id
+              JOIN stock_pickings sp ON sp.id = f.source_id AND f.source_type = 3 AND sp.picking_type = 3
+              LEFT JOIN sales_orders so ON so.id = sp.source_id
+              JOIN stock_picking_items spi ON spi.picking_id = sp.id AND spi.qty_done > 0
+              LEFT JOIN sales_order_items soi ON soi.id = spi.source_item_id
+              JOIN products p ON p.product_id = spi.product_id
               ORDER BY transaction_date DESC, ledger_id"#,
             where_clause = where_clause,
         );
@@ -592,9 +592,9 @@ impl ArApLedgerRepo {
                       COALESCE(
                         (SELECT po.doc_number FROM purchase_orders po
                          WHERE po.id = l.source_id AND l.source_type = 7 AND po.deleted_at IS NULL),
-                        (SELECT so.doc_number FROM shipping_requests sr
-                         JOIN sales_orders so ON so.id = sr.order_id AND so.deleted_at IS NULL
-                         WHERE sr.id = l.source_id AND l.source_type = 3)
+                        (SELECT so.doc_number FROM stock_pickings sp
+                         JOIN sales_orders so ON so.id = sp.source_id AND so.deleted_at IS NULL
+                         WHERE sp.id = l.source_id AND sp.picking_type = 3 AND l.source_type = 3)
                       ) AS upstream_doc_no,
                       COALESCE(
                         (SELECT string_agg(DISTINCT p.pdt_name, '、')
@@ -603,8 +603,8 @@ impl ArApLedgerRepo {
                         (SELECT p.pdt_name FROM outsourcing_orders oo JOIN products p ON p.product_id = oo.product_id
                          WHERE oo.id = l.source_id AND l.source_type = 11),
                         (SELECT string_agg(DISTINCT p.pdt_name, '、')
-                         FROM shipping_request_items sri JOIN products p ON p.product_id = sri.product_id
-                         WHERE sri.shipping_request_id = l.source_id AND l.source_type = 3)
+                         FROM stock_picking_items spi JOIN products p ON p.product_id = spi.product_id
+                         WHERE spi.picking_id = l.source_id AND l.source_type = 3)
                       ) AS product_summary
                FROM ar_ap_ledger l
                LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
@@ -647,13 +647,13 @@ impl ArApLedgerRepo {
             _ => {
                 // 销售发货 — 发货明细 × 产品 × SO 单价
                 r#"SELECT p.product_code, p.pdt_name AS product_name,
-                          sri.shipped_qty AS quantity,
+                          spi.qty_done AS quantity,
                           COALESCE(soi.unit_price, 0) AS unit_price,
-                          COALESCE(sri.shipped_qty * soi.unit_price, 0) AS line_amount
-                   FROM shipping_request_items sri
-                   JOIN products p ON p.product_id = sri.product_id
-                   LEFT JOIN sales_order_items soi ON soi.id = sri.order_item_id
-                   WHERE sri.shipping_request_id = $1 AND sri.shipped_qty > 0"#
+                          COALESCE(spi.qty_done * soi.unit_price, 0) AS line_amount
+                   FROM stock_picking_items spi
+                   JOIN products p ON p.product_id = spi.product_id
+                   LEFT JOIN sales_order_items soi ON soi.id = spi.source_item_id
+                   WHERE spi.picking_id = $1 AND spi.qty_done > 0"#
             }
         };
         let rows = sqlx::query_as::<sqlx::Postgres, LedgerDetailItem>(sqlx::AssertSqlSafe(sql))

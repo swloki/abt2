@@ -124,6 +124,40 @@ pub struct PcQuotationCreateDrawerPath;
 #[typed_path("/admin/purchase/work-center/quotations/create")]
 pub struct PcQuotationCreatePath;
 
+// ── 创建 drawer（退货/请购/对账/付款，就地新建）──
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/returns/create-drawer")]
+pub struct PcReturnCreateDrawerPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/returns/create")]
+pub struct PcReturnCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/misc/create-drawer")]
+pub struct PcMiscCreateDrawerPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/misc/create")]
+pub struct PcMiscCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/reconciliations/create-drawer")]
+pub struct PcReconCreateDrawerPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/reconciliations/create")]
+pub struct PcReconCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/payments/create-drawer")]
+pub struct PcPayCreateDrawerPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/payments/create")]
+pub struct PcPayCreatePath;
+
 // ── 写操作 POST（事务包裹，HX-Trigger 广播）──
 
 #[derive(TypedPath, Deserialize, Clone)]
@@ -284,6 +318,38 @@ pub fn router() -> Router<AppState> {
         .route(
             PcQuotationCreatePath::PATH,
             post(purchase_work_center::post_quotation_create),
+        )
+        .route(
+            PcReturnCreateDrawerPath::PATH,
+            get(purchase_work_center::get_return_create_drawer),
+        )
+        .route(
+            PcReturnCreatePath::PATH,
+            post(purchase_work_center::post_return_create),
+        )
+        .route(
+            PcMiscCreateDrawerPath::PATH,
+            get(purchase_work_center::get_misc_create_drawer),
+        )
+        .route(
+            PcMiscCreatePath::PATH,
+            post(purchase_work_center::post_misc_create),
+        )
+        .route(
+            PcReconCreateDrawerPath::PATH,
+            get(purchase_work_center::get_recon_create_drawer),
+        )
+        .route(
+            PcReconCreatePath::PATH,
+            post(purchase_work_center::post_recon_create),
+        )
+        .route(
+            PcPayCreateDrawerPath::PATH,
+            get(purchase_work_center::get_pay_create_drawer),
+        )
+        .route(
+            PcPayCreatePath::PATH,
+            post(purchase_work_center::post_pay_create),
         )
         .route(
             PcOrderApprovePath::PATH,

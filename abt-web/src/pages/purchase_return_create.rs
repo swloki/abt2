@@ -88,7 +88,7 @@ pub async fn get_pr_create(
  all_orders.extend(result.items);
  }
 
- let content = pr_create_page(&all_orders);
+ let content = pr_create_page(&all_orders, PRCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx,
  "新建采购退货",
@@ -171,6 +171,69 @@ struct SupplierInfo {
  phone: String,
 }
 
+/// 退货创建核心逻辑（解析 PRCreateForm → svc.create），创建页与 work_center drawer 共用。
+pub async fn do_create_pr(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::context::ServiceContext,
+    form: PRCreateForm,
+) -> Result<i64> {
+    if form.order_id == 0 {
+        return Err(DomainError::validation("请选择采购订单").into());
+    }
+
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let order_svc = state.purchase_order_service();
+    let order = order_svc
+        .get(service_ctx, &mut tx, form.order_id)
+        .await?;
+
+    let return_date = chrono::NaiveDate::parse_from_str(&form.return_date, "%Y-%m-%d")
+        .map_err(|e| DomainError::validation(format!("无效退货日期格式: {e}")))?;
+
+    let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效退货明细数据: {e}")))?;
+
+    if web_items.is_empty() {
+        return Err(DomainError::validation("请至少添加一个退货产品").into());
+    }
+
+    let items: Vec<CreateReturnItemRequest> = web_items
+        .into_iter()
+        .map(|item| CreateReturnItemRequest {
+            order_item_id: item.order_item_id,
+            product_id: item.product_id,
+            returned_qty: item
+                .returned_qty
+                .parse()
+                .unwrap_or(rust_decimal::Decimal::ZERO),
+            unit_price: item
+                .unit_price
+                .parse()
+                .unwrap_or(rust_decimal::Decimal::ZERO),
+        })
+        .collect();
+
+    let create_req = CreatePurchaseReturnRequest {
+        order_id: form.order_id,
+        supplier_id: order.supplier_id,
+        return_date,
+        return_reason: form.return_reason,
+        remark: form.remark.unwrap_or_default(),
+        items,
+    };
+
+    let svc = state.purchase_return_service();
+    let id = svc.create(service_ctx, &mut tx, create_req, None).await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    Ok(id)
+}
+
 /// POST: create purchase return from form submission (HTMX)
 #[require_permission("PURCHASE_RETURN", "create")]
 pub async fn create_pr(
@@ -178,88 +241,38 @@ pub async fn create_pr(
  ctx: RequestContext,
  axum::Form(form): axum::Form<PRCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- state,
- service_ctx,
- ..
- } = ctx;
-
- if form.order_id == 0 {
- return Err(DomainError::validation("请选择采购订单").into());
- }
-
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let order_svc = state.purchase_order_service();
- let order = order_svc
- .get(&service_ctx, &mut tx, form.order_id)
- .await?;
-
- let return_date = chrono::NaiveDate::parse_from_str(&form.return_date, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效退货日期格式: {e}")))?;
-
- let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
- .map_err(|e| DomainError::validation(format!("无效退货明细数据: {e}")))?;
-
- if web_items.is_empty() {
- return Err(DomainError::validation("请至少添加一个退货产品").into());
- }
-
- let items: Vec<CreateReturnItemRequest> = web_items
- .into_iter()
- .map(|item| CreateReturnItemRequest {
- order_item_id: item.order_item_id,
- product_id: item.product_id,
- returned_qty: item
- .returned_qty
- .parse()
- .unwrap_or(rust_decimal::Decimal::ZERO),
- unit_price: item
- .unit_price
- .parse()
- .unwrap_or(rust_decimal::Decimal::ZERO),
- })
- .collect();
-
- let create_req = CreatePurchaseReturnRequest {
- order_id: form.order_id,
- supplier_id: order.supplier_id,
- return_date,
- return_reason: form.return_reason,
- remark: form.remark.unwrap_or_default(),
- items,
- };
-
- let svc = state.purchase_return_service();
- let id = svc.create(&service_ctx, &mut tx, create_req, None).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let id = do_create_pr(&state, &service_ctx, form).await?;
  let redirect = PRDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-fn pr_create_page(
+pub fn pr_create_page(
  orders: &[abt_core::purchase::order::model::PurchaseOrder],
+ post_path: &str,
+ after_request_hs: &str,
+ show_header: bool,
 ) -> Markup {
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
  html! {
     div id="pr-app" {
-        // ── Page Header ──
-        div class="flex items-center justify-between mb-6" {
-            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-                href=(format!("{}?restore=true", PRListPath::PATH))
-            { (icon::arrow_left_icon("w-4 h-4")) "返回采购退货列表" }
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购退货" }
+        @if show_header {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", PRListPath::PATH))
+                { (icon::arrow_left_icon("w-4 h-4")) "返回采购退货列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购退货" }
+            }
         }
 
         form
             id="pr-form"
-            hx-post=(PRCreatePath::PATH)
+            hx-post=(post_path)
             hx-swap="none"
+            _=(after_request_hs)
             onsubmit="PRCreate.collectItems();return true"
         {
             input type="hidden" id="items-json" name="items_json" value="[]";

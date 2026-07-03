@@ -129,6 +129,10 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
         (render_drawer_overlay("return-detail-overlay", "return-detail-drawer", "return-detail-drawer-body", "退货详情", "w-[680px] max-w-[92vw]"))
         (render_drawer_overlay("quotation-detail-overlay", "quotation-detail-drawer", "quotation-detail-drawer-body", "报价详情", "w-[680px] max-w-[92vw]"))
         (render_drawer_overlay("quotation-create-overlay", "quotation-create-drawer", "quotation-create-drawer-body", "新建报价", "w-[860px] max-w-[94vw]"))
+        (render_drawer_overlay("return-create-overlay", "return-create-drawer", "return-create-drawer-body", "新建退货", "w-[1000px] max-w-[94vw]"))
+        (render_drawer_overlay("misc-create-overlay", "misc-create-drawer", "misc-create-drawer-body", "新建零星请购", "w-[900px] max-w-[94vw]"))
+        (render_drawer_overlay("recon-create-overlay", "recon-create-drawer", "recon-create-drawer-body", "新建采购对账单", "w-[1000px] max-w-[94vw]"))
+        (render_drawer_overlay("pay-create-overlay", "pay-create-drawer", "pay-create-drawer-body", "新建付款申请", "w-[680px] max-w-[94vw]"))
         // 转单成功后自动切草稿订单列表：后端广播 convertDone → htmx 原生 hx-get 切订单 card
         div class="hidden"
             hx-trigger="convertDone from:body"
@@ -985,7 +989,7 @@ pub async fn get_payment_approve_drawer(
 // ── PO 详情 drawer（就地查看 + Draft 编辑/状态操作，对标 MES order-overlay）──
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct PoDrawerForm {
+pub struct PoDrawerForm {
     #[serde(default)]
     supplier_id: i64,
     #[serde(default, deserialize_with = "empty_as_none")]
@@ -1804,6 +1808,229 @@ pub async fn post_quotation_create(
     Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
 }
 
+// ── 退货创建 drawer ──
+
+#[require_permission("PURCHASE_RETURN", "read")]
+pub async fn get_return_create_drawer(
+    _path: PcReturnCreateDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let order_svc = state.purchase_order_service();
+    let statuses = [
+        PurchaseOrderStatus::Confirmed,
+        PurchaseOrderStatus::PartiallyReceived,
+        PurchaseOrderStatus::Received,
+    ];
+    let mut all_orders = Vec::new();
+    for status in &statuses {
+        let result = order_svc
+            .list(
+                &service_ctx,
+                &mut conn,
+                PurchaseOrderQuery {
+                    status: Some(*status),
+                    ..Default::default()
+                },
+                PageParams::new(1, 100),
+            )
+            .await?;
+        all_orders.extend(result.items);
+    }
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #return-create-overlay then call showToast('退货已创建')";
+    Ok(Html(
+        crate::pages::purchase_return_create::pr_create_page(
+            &all_orders,
+            PcReturnCreatePath::PATH,
+            after_hs,
+            false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("PURCHASE_RETURN", "create")]
+pub async fn post_return_create(
+    _path: PcReturnCreatePath,
+    ctx: RequestContext,
+    Form(form): Form<crate::pages::purchase_return_create::PRCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    crate::pages::purchase_return_create::do_create_pr(&state, &service_ctx, form).await?;
+    invalidate_purchase_summary(&state);
+    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+}
+
+// ── 请购创建 drawer ──
+
+#[require_permission("MISC_REQUEST", "read")]
+pub async fn get_misc_create_drawer(
+    _path: PcMiscCreateDrawerPath,
+    _ctx: RequestContext,
+) -> Result<Html<String>> {
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #misc-create-overlay then call showToast('请购已创建')";
+    Ok(Html(
+        crate::pages::misc_request_create::misc_create_page(
+            PcMiscCreatePath::PATH,
+            after_hs,
+            false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("MISC_REQUEST", "create")]
+pub async fn post_misc_create(
+    _path: PcMiscCreatePath,
+    ctx: RequestContext,
+    Form(form): Form<crate::pages::misc_request_create::MiscCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+    let department_id = claims.department_ids.first().copied().unwrap_or(1);
+    crate::pages::misc_request_create::do_create_misc(
+        &state,
+        &service_ctx,
+        department_id,
+        form,
+    )
+    .await?;
+    invalidate_purchase_summary(&state);
+    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+}
+
+// ── 对账创建 drawer ──
+
+#[require_permission("PURCHASE_RECON", "read")]
+pub async fn get_recon_create_drawer(
+    _path: PcReconCreateDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+    let suppliers = state
+        .supplier_service()
+        .list(
+            &service_ctx,
+            &mut conn,
+            abt_core::master_data::supplier::model::SupplierQuery {
+                name: None,
+                status: None,
+                category: None,
+            },
+            PageParams::new(1, 200),
+        )
+        .await?
+        .items;
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #recon-create-overlay then call showToast('对账单已创建')";
+    Ok(Html(
+        crate::pages::purchase_recon_create::precon_create_page(
+            &suppliers,
+            &claims.display_name,
+            PcReconCreatePath::PATH,
+            after_hs,
+            false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("PURCHASE_RECON", "create")]
+pub async fn post_recon_create(
+    _path: PcReconCreatePath,
+    ctx: RequestContext,
+    Form(form): Form<crate::pages::purchase_recon_create::PreconCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    crate::pages::purchase_recon_create::do_create_precon(&state, &service_ctx, form).await?;
+    invalidate_purchase_summary(&state);
+    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+}
+
+// ── 付款创建 drawer ──
+
+#[require_permission("PAYMENT_REQUEST", "read")]
+pub async fn get_pay_create_drawer(
+    _path: PcPayCreateDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+    let suppliers = state
+        .supplier_service()
+        .list(
+            &service_ctx,
+            &mut conn,
+            abt_core::master_data::supplier::model::SupplierQuery {
+                name: None,
+                status: None,
+                category: None,
+            },
+            PageParams::new(1, 200),
+        )
+        .await?
+        .items;
+    let reconciliations = state
+        .purchase_reconciliation_service()
+        .list(
+            &service_ctx,
+            &mut conn,
+            PurchaseReconciliationQuery::default(),
+            PageParams::new(1, 200),
+        )
+        .await?
+        .items;
+    let applicant_name = state
+        .user_service()
+        .get_user(&service_ctx, &mut conn, claims.sub)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| claims.display_name.clone());
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #pay-create-overlay then call showToast('付款申请已创建')";
+    Ok(Html(
+        crate::pages::payment_request_create::pay_create_page(
+            &suppliers,
+            &reconciliations,
+            &applicant_name,
+            PcPayCreatePath::PATH,
+            after_hs,
+            false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("PAYMENT_REQUEST", "create")]
+pub async fn post_pay_create(
+    _path: PcPayCreatePath,
+    ctx: RequestContext,
+    Form(form): Form<crate::pages::payment_request_create::PayCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    crate::pages::payment_request_create::do_create_pay(&state, &service_ctx, form).await?;
+    invalidate_purchase_summary(&state);
+    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+}
+
 #[require_permission("PURCHASE_QUOTATION", "read")]
 pub async fn get_quotation_detail_drawer(
     path: PcQuotationDetailDrawerPath,
@@ -2607,9 +2834,9 @@ fn settlement_filter_bar(tab: &str, status: Option<i16>, p: &SettlementCardParam
                     value=(kw);
             }
             (if tab == "payment" {
-                new_button(crate::routes::payment_request::PayCreatePath::PATH, "新建付款")
+                new_drawer_button(PcPayCreateDrawerPath::PATH, "#pay-create-drawer-body", "#pay-create-overlay", "新建付款")
             } else {
-                new_button(crate::routes::purchase_reconciliation::PreconCreatePath::PATH, "新建对账单")
+                new_drawer_button(PcReconCreateDrawerPath::PATH, "#recon-create-drawer-body", "#recon-create-overlay", "新建对账单")
             })
         }
         form id="pc-filter-form" class="hidden" {
@@ -2734,7 +2961,7 @@ fn returns_filter_bar(status: Option<i16>, p: &ReturnsCardParams) -> Markup {
                     type="text" name="keyword" placeholder="搜索退货单号"
                     value=(kw);
             }
-            (new_button(crate::routes::purchase_return::PRCreatePath::PATH, "新建退货"))
+            (new_drawer_button(PcReturnCreateDrawerPath::PATH, "#return-create-drawer-body", "#return-create-overlay", "新建退货"))
         }
         form id="pc-filter-form" class="hidden" {
             input type="hidden" name="keyword" value=(kw);
@@ -2783,10 +3010,16 @@ fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>) -> Mark
 // ── 供应商报价 card 渲染 ──
 
 /// 「新建」accent 主按钮（跳各业务 CreatePath，对齐 wms_work_center domain_entries）。
-fn new_button(path: &str, label: &str) -> Markup {
+/// 「新建」drawer 触发按钮：hx-get 拉 drawer body → afterRequest 成功后 add .open 开 overlay。
+fn new_drawer_button(get_path: &str, body_sel: &str, overlay_sel: &str, label: &str) -> Markup {
+    let hs = format!(
+        "on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to {overlay_sel}"
+    );
     html! {
-        a class="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
-            href=(path) {
+        button class="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90"
+            hx-get=(get_path)
+            hx-target=(body_sel) hx-swap="innerHTML"
+            _=(hs) {
             (icon::plus_icon("w-3 h-3")) (label)
         }
     }
@@ -2886,7 +3119,7 @@ fn misc_filter_bar(status: Option<i16>) -> Markup {
                 option value="5" selected[status == Some(5)] { "已关闭" }
                 option value="6" selected[status == Some(6)] { "已取消" }
             }
-            (new_button(crate::routes::misc_request::MiscCreatePath::PATH, "新建请购"))
+            (new_drawer_button(PcMiscCreateDrawerPath::PATH, "#misc-create-drawer-body", "#misc-create-overlay", "新建请购"))
         }
         form id="pc-filter-form" class="hidden" {
             input type="hidden" name="status" value=(status.map(|s| s.to_string()).unwrap_or_default());

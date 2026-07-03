@@ -47,7 +47,7 @@ pub async fn get_misc_create(
  let nav_filter = ctx.nav_filter().await;
  let RequestContext { claims, .. } = ctx;
 
- let content = misc_create_page();
+ let content = misc_create_page(MiscCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx,
  "新建零星请购",
@@ -69,6 +69,59 @@ pub async fn get_misc_item_row(
  Ok(Html(empty_row_fragment().into_string()))
 }
 
+/// 请购创建核心逻辑（解析 MiscCreateForm → svc.create），创建页与 work_center drawer 共用。
+/// department_id 由调用方从 claims 提取传入（避免本函数依赖 Claims 类型）。
+pub async fn do_create_misc(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::context::ServiceContext,
+    department_id: i64,
+    form: MiscCreateForm,
+) -> Result<i64> {
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let svc = state.misc_request_service();
+
+    let request_date = chrono::NaiveDate::parse_from_str(&form.request_date, "%Y-%m-%d")
+        .map_err(|e| DomainError::validation(format!("无效请购日期格式: {e}")))?;
+
+    let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效明细数据: {e}")))?;
+
+    let items: Vec<CreateMiscItemRequest> = web_items
+        .into_iter()
+        .enumerate()
+        .map(|(idx, item)| CreateMiscItemRequest {
+            line_no: (idx as i32) + 1,
+            item_name: item.item_name,
+            specification: item.specification,
+            quantity: item
+                .quantity
+                .parse()
+                .unwrap_or(rust_decimal::Decimal::ZERO),
+            unit: item.unit,
+            estimated_price: item.estimated_price.and_then(|s| s.parse().ok()),
+            remark: item.item_remark,
+        })
+        .collect();
+
+    let create_req = CreateMiscRequestRequest {
+        department_id,
+        request_date,
+        purpose: form.purpose,
+        remark: form.remark.unwrap_or_default(),
+        items,
+    };
+
+    let id = svc.create(service_ctx, &mut tx, create_req, None).await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    Ok(id)
+}
+
 #[require_permission("MISC_REQUEST", "create")]
 pub async fn create_misc(
  _path: MiscCreatePath,
@@ -81,71 +134,29 @@ pub async fn create_misc(
  claims,
  ..
  } = ctx;
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let svc = state.misc_request_service();
-
- let request_date = chrono::NaiveDate::parse_from_str(&form.request_date, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效请购日期格式: {e}")))?;
-
- let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
- .map_err(|e| DomainError::validation(format!("无效明细数据: {e}")))?;
-
- let items: Vec<CreateMiscItemRequest> = web_items
- .into_iter()
- .enumerate()
- .map(|(idx, item)| CreateMiscItemRequest {
- line_no: (idx as i32) + 1,
- item_name: item.item_name,
- specification: item.specification,
- quantity: item
- .quantity
- .parse()
- .unwrap_or(rust_decimal::Decimal::ZERO),
- unit: item.unit,
- estimated_price: item.estimated_price.and_then(|s| s.parse().ok()),
- remark: item.item_remark,
- })
- .collect();
-
- let department_id = claims
- .department_ids
- .first()
- .copied()
- .unwrap_or(1);
-
- let create_req = CreateMiscRequestRequest {
- department_id,
- request_date,
- purpose: form.purpose,
- remark: form.remark.unwrap_or_default(),
- items,
- };
-
- let id = svc.create(&service_ctx, &mut tx, create_req, None).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-
+ let department_id = claims.department_ids.first().copied().unwrap_or(1);
+ let id = do_create_misc(&state, &service_ctx, department_id, form).await?;
  let redirect = MiscDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-fn misc_create_page() -> Markup {
+pub fn misc_create_page(post_path: &str, after_request_hs: &str, show_header: bool) -> Markup {
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
  html! {
     div id="misc-app" {
-        // ── Page Header ──
-        div class="flex items-center justify-between mb-6" {
-            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-                href=(format!("{}?restore=true", MiscListPath::PATH))
-            { (icon::arrow_left_icon("w-4 h-4")) "返回零星请购列表" }
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建零星请购" }
+        @if show_header {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", MiscListPath::PATH))
+                { (icon::arrow_left_icon("w-4 h-4")) "返回零星请购列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建零星请购" }
+            }
         }
 
-        form id="misc-form" hx-post=(MiscCreatePath::PATH) hx-swap="none" {
+        form id="misc-form" hx-post=(post_path) hx-swap="none" _=(after_request_hs) {
             input type="hidden" id="items-json" name="items_json" value="[]";
             // ── Basic Info ──
             div class="form-section" {

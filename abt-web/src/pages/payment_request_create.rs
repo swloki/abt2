@@ -101,6 +101,9 @@ pub async fn get_pay_create(
  &suppliers.items,
  &reconciliations.items,
  &applicant_name,
+ PayCreatePath::PATH,
+ "",
+ true,
  );
  let page_html = admin_page(
  is_htmx,
@@ -163,76 +166,89 @@ pub async fn get_supplier_info(
  Ok(Html(fragment.into_string()))
 }
 
+/// 付款申请创建核心逻辑（解析 PayCreateForm → svc.create），创建页与 work_center drawer 共用。
+pub async fn do_create_pay(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::context::ServiceContext,
+    form: PayCreateForm,
+) -> Result<i64> {
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let svc = state.payment_request_service();
+
+    let payment_date = chrono::NaiveDate::parse_from_str(&form.payment_date, "%Y-%m-%d")
+        .map_err(|e| DomainError::validation(format!("无效付款日期格式: {e}")))?;
+
+    let amount: rust_decimal::Decimal = form
+        .amount
+        .parse()
+        .map_err(|e| DomainError::validation(format!("无效金额格式: {e}")))?;
+
+    let payment_method = PaymentMethod::from_i16(form.payment_method)
+        .ok_or_else(|| DomainError::validation("无效付款方式".to_string()))?;
+
+    let invoice_amount = form
+        .invoice_amount
+        .and_then(|s| s.parse::<rust_decimal::Decimal>().ok());
+
+    let create_req = CreatePaymentRequestRequest {
+        supplier_id: form.supplier_id,
+        reconciliation_id: form.reconciliation_id,
+        payment_date,
+        amount,
+        payment_method,
+        bank_account_id: form.bank_account_id,
+        invoice_number: form.invoice_number,
+        invoice_amount,
+        remark: form.remark.unwrap_or_default(),
+    };
+
+    let id = svc.create(service_ctx, &mut tx, create_req, None).await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    Ok(id)
+}
+
 #[require_permission("PAYMENT_REQUEST", "create")]
 pub async fn create_pay(
  _path: PayCreatePath,
  ctx: RequestContext,
  axum::Form(form): axum::Form<PayCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- state,
- service_ctx,
- ..
- } = ctx;
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let svc = state.payment_request_service();
-
- let payment_date = chrono::NaiveDate::parse_from_str(&form.payment_date, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效付款日期格式: {e}")))?;
-
- let amount: rust_decimal::Decimal = form
- .amount
- .parse()
- .map_err(|e| DomainError::validation(format!("无效金额格式: {e}")))?;
-
- let payment_method = PaymentMethod::from_i16(form.payment_method)
- .ok_or_else(|| DomainError::validation("无效付款方式".to_string()))?;
-
- let invoice_amount = form
- .invoice_amount
- .and_then(|s| s.parse::<rust_decimal::Decimal>().ok());
-
- let create_req = CreatePaymentRequestRequest {
- supplier_id: form.supplier_id,
- reconciliation_id: form.reconciliation_id,
- payment_date,
- amount,
- payment_method,
- bank_account_id: form.bank_account_id,
- invoice_number: form.invoice_number,
- invoice_amount,
- remark: form.remark.unwrap_or_default(),
- };
-
- let id = svc.create(&service_ctx, &mut tx, create_req, None).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let id = do_create_pay(&state, &service_ctx, form).await?;
  let redirect = PayDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-fn pay_create_page(
+pub fn pay_create_page(
  suppliers: &[abt_core::master_data::supplier::model::Supplier],
  reconciliations: &[abt_core::purchase::reconciliation::model::PurchaseReconciliation],
  applicant_name: &str,
+ post_path: &str,
+ after_request_hs: &str,
+ show_header: bool,
 ) -> Markup {
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
  html! {
     div {
-        // ── Page Header ──
-        div class="flex items-center justify-between mb-6" {
-            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-                href=(format!("{}?restore=true", PayListPath::PATH))
-            { (icon::arrow_left_icon("w-4 h-4")) "返回付款申请列表" }
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建付款申请" }
+        @if show_header {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", PayListPath::PATH))
+                { (icon::arrow_left_icon("w-4 h-4")) "返回付款申请列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建付款申请" }
+            }
         }
 
-        form id="pay-form" hx-post=(PayCreatePath::PATH) hx-swap="none" {
+        form id="pay-form" hx-post=(post_path) hx-swap="none" _=(after_request_hs) {
             // ── 供应商信息 ──
             (supplier_section(suppliers, None, &[], &[]))
             // ── 付款信息 ──

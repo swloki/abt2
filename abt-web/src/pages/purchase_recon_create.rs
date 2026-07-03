@@ -82,7 +82,7 @@ pub async fn get_precon_create(
         .await?;
 
     let buyer_name = &claims.display_name;
-    let content = precon_create_page(&suppliers.items, buyer_name);
+    let content = precon_create_page(&suppliers.items, buyer_name, PreconCreatePath::PATH, "", true);
     let page_html = admin_page(
         is_htmx,
         "新建采购对账单",
@@ -98,28 +98,36 @@ pub async fn get_precon_create(
     Ok(Html(page_html.into_string()))
 }
 
+/// 对账单创建核心逻辑（按供应商+期间自动拉取该期间「未对账已收货」明细全量纳入），创建页与 work_center drawer 共用。
+pub async fn do_create_precon(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::context::ServiceContext,
+    form: PreconCreateForm,
+) -> Result<i64> {
+    let svc = state.purchase_reconciliation_service();
+
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let id = svc
+        .create(service_ctx, &mut tx, form.supplier_id, form.period, None)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    Ok(id)
+}
+
 #[require_permission("PURCHASE_RECON", "create")]
 pub async fn create_precon(
     _path: PreconCreatePath,
     ctx: RequestContext,
     axum::Form(form): axum::Form<PreconCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext {
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let svc = state.purchase_reconciliation_service();
-
-    // create 按供应商+期间自动拉取该期间「未对账已收货」明细全量纳入（设计文档约束）
-    let mut tx = state.pool.begin().await
-        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-    let id = svc
-        .create(&service_ctx, &mut tx, form.supplier_id, form.period, None)
-        .await?;
-    tx.commit().await
-        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let id = do_create_precon(&state, &service_ctx, form).await?;
     let redirect = PreconDetailPath { id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -205,24 +213,28 @@ pub async fn get_precon_preview(
 
 // ── Components ──
 
-fn precon_create_page(
+pub fn precon_create_page(
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     buyer_name: &str,
+    post_path: &str,
+    after_request_hs: &str,
+    show_header: bool,
 ) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let current_month = chrono::Local::now().format("%Y-%m").to_string();
 
     html! {
         div id="precon-app" {
-            // ── Page Header ──
-            div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-                  href=(format!("{}?restore=true", PreconListPath::PATH))
-                { (icon::arrow_left_icon("w-4 h-4")) "返回对账单列表" }
-                h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购对账单" }
+            @if show_header {
+                div class="flex items-center justify-between mb-6" {
+                    a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                      href=(format!("{}?restore=true", PreconListPath::PATH))
+                    { (icon::arrow_left_icon("w-4 h-4")) "返回对账单列表" }
+                    h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购对账单" }
+                }
             }
 
-            form id="precon-form" hx-post=(PreconCreatePath::PATH) hx-swap="none" {
+            form id="precon-form" hx-post=(post_path) hx-swap="none" _=(after_request_hs) {
                 // ── 对账基本信息 ──
                 div class="data-card mb-4" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"

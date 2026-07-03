@@ -86,6 +86,7 @@ pub mod role_edit;
 pub mod permission_config;
 pub mod wms_dashboard;
 pub mod wms_work_center;
+pub mod wms_ledger;
 pub mod wms_warehouse_list;
 pub mod wms_warehouse_create;
 pub mod wms_warehouse_detail;

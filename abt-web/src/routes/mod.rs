@@ -34,6 +34,7 @@ pub mod role;
 pub mod department;
 pub mod wms_dashboard;
 pub mod wms_work_center;
+pub mod wms_ledger;
 pub mod wms_warehouse;
 pub mod wms_bin;
 pub mod wms_stock;
@@ -107,6 +108,7 @@ pub fn router(state: AppState) -> Router {
                 // ── WMS (Inventory) ──
                 .merge(wms_dashboard::router())
                 .merge(wms_work_center::router())
+                .merge(wms_ledger::router())
                 .merge(wms_warehouse::router())
                 .merge(wms_bin::router())
                 .merge(wms_stock::router())

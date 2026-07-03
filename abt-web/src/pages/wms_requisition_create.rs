@@ -44,7 +44,7 @@ pub async fn get_requisition_create(
  .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
  .await?;
 
- let content = requisition_create_page(&warehouses.items);
+ let content = requisition_create_page(&warehouses.items, RequisitionCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx,
  "新建领料单",
@@ -89,6 +89,42 @@ pub struct RequisitionCreateForm {
  pub items_json: String,
 }
 
+/// 提取的业务逻辑，供独立页 POST 与作业中心 drawer POST 共用。
+pub async fn do_create_requisition(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    form: RequisitionCreateForm,
+) -> Result<()> {
+    let svc = state.picking_service();
+    let requisition_date = chrono::NaiveDate::parse_from_str(&form.requisition_date, "%Y-%m-%d")
+        .map_err(|e| DomainError::validation(format!("Invalid date: {e}")))?;
+    let warehouse_id = form.warehouse_id
+        .ok_or_else(|| DomainError::validation("Please select a warehouse"))?;
+    // work_order_id 提供则走 create_for_work_order
+    if let Some(wo_id) = form.work_order_id
+    && wo_id > 0 {
+        svc.create_for_work_order(service_ctx, db, wo_id).await
+            .map_err(|e| {
+                if matches!(e, DomainError::NotFound(_)) {
+                    DomainError::validation(format!("工单 {} 不存在", wo_id))
+                } else { e }
+            })?;
+        return Ok(());
+    }
+    // 否则手动建（带明细）
+    let web_items: Vec<RequisitionItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("Invalid item data: {e}")))?;
+    let items: Vec<CreateManualItemReq> = web_items.into_iter().map(|it| {
+        let product_id: i64 = it.product_id.parse().unwrap_or(0);
+        let requested_qty: Decimal = it.requested_qty.parse().unwrap_or(Decimal::ZERO);
+        CreateManualItemReq { product_id, requested_qty }
+    }).collect();
+    let req = CreateManualReq { warehouse_id, requisition_date, remark: None, items };
+    svc.create_manual(service_ctx, db, req).await?;
+    Ok(())
+}
+
 #[require_permission("INVENTORY", "create")]
 pub async fn create_requisition(
  _path: RequisitionCreatePath,
@@ -96,76 +132,41 @@ pub async fn create_requisition(
  axum::Form(form): axum::Form<RequisitionCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext { mut conn, state, service_ctx, .. } = ctx;
- let svc = state.picking_service();
-
- let requisition_date = chrono::NaiveDate::parse_from_str(&form.requisition_date, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("Invalid date: {e}")))?;
-
- let warehouse_id = form.warehouse_id
- .ok_or_else(|| DomainError::validation("Please select a warehouse"))?;
-
- // If work_order_id provided, use create_for_work_order
- if let Some(wo_id) = form.work_order_id
- && wo_id > 0 {
- let _id = svc.create_for_work_order(&service_ctx, &mut conn, wo_id).await
- .map_err(|e| {
- if matches!(e, DomainError::NotFound(_)) {
- DomainError::validation(format!("工单 {} 不存在", wo_id))
- } else {
- e
- }
- })?;
- let redirect = format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH);
- return Ok(([("HX-Redirect", redirect)], Html(String::new())));
- }
-
- // Otherwise, manual create with items
- let web_items: Vec<RequisitionItemWeb> = serde_json::from_str(&form.items_json)
- .map_err(|e| DomainError::validation(format!("Invalid item data: {e}")))?;
-
- let items: Vec<CreateManualItemReq> = web_items.into_iter().map(|it| {
- let product_id: i64 = it.product_id.parse().unwrap_or(0);
- let requested_qty: Decimal = it.requested_qty.parse().unwrap_or(Decimal::ZERO);
- CreateManualItemReq { product_id, requested_qty }
- }).collect();
-
- let req = CreateManualReq {
- warehouse_id,
- requisition_date,
- remark: None,
- items,
- };
-
- let _id = svc.create_manual(&service_ctx, &mut conn, req).await?;
-
+ do_create_requisition(&state, &service_ctx, &mut conn, form).await?;
  let redirect = format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH);
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-fn requisition_create_page(
+pub fn requisition_create_page(
  warehouses: &[abt_core::wms::warehouse::model::Warehouse],
+ post_path: &str,
+ after_request_hs: &str,
+ show_header: bool,
 ) -> Markup {
  html! {
     div {
-        // ── Back Link ──
-        a   href=(format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH))
-            class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
-        { (icon::chevron_left_icon("w-4 h-4")) "返回作业中心" }
-        // ── Page Header ──
-        div class="flex items-center justify-between mb-5" {
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建领料单" }
-            span class="text-xs text-muted flex items-center gap-2" {
-                (icon::clock_icon("w-3.5 h-3.5"))
-                "自动保存草稿"
+        @if show_header {
+            // ── Back Link ──
+            a   href=(format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH))
+                class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+            { (icon::chevron_left_icon("w-4 h-4")) "返回作业中心" }
+            // ── Page Header ──
+            div class="flex items-center justify-between mb-5" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建领料单" }
+                span class="text-xs text-muted flex items-center gap-2" {
+                    (icon::clock_icon("w-3.5 h-3.5"))
+                    "自动保存草稿"
+                }
             }
         }
         form
-            hx-post=(RequisitionCreatePath::PATH)
+            hx-post=(post_path)
             hx-swap="none"
             id="requisitionForm"
             onsubmit="return reqCollectItems()"
+            _=(after_request_hs)
         {
             // ── 工单信息 ──
             div class="form-section" {
@@ -267,9 +268,16 @@ fn requisition_create_page(
             {
                 div {}
                 div class="flex gap-3" {
-                    a   href=(format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH))
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    { "取消" }
+                    @if show_header {
+                        a   href=(format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH))
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        { "取消" }
+                    } @else {
+                        button type="button"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            _="on click remove .open from closest .drawer-overlay"
+                        { "取消" }
+                    }
                     button
                         type="submit"
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"

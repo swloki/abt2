@@ -181,6 +181,18 @@ impl CycleCountRepo {
             param_idx += 1;
             where_clauses.push(format!("cc.warehouse_id = ${param_idx}"));
         }
+        if filter.doc_number.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("cc.doc_number ILIKE ${param_idx}"));
+        }
+        if filter.date_from.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("cc.count_date >= ${param_idx}"));
+        }
+        if filter.date_to.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("cc.count_date <= ${param_idx}"));
+        }
 
         let where_sql = where_clauses.join(" AND ");
         let limit_idx = param_idx + 1;
@@ -204,6 +216,19 @@ impl CycleCountRepo {
             data_q = data_q.bind(v);
         }
         if let Some(v) = filter.warehouse_id {
+            count_q = count_q.bind(v);
+            data_q = data_q.bind(v);
+        }
+        if let Some(ref v) = filter.doc_number {
+            let pattern = format!("%{v}%");
+            count_q = count_q.bind(pattern.clone());
+            data_q = data_q.bind(pattern);
+        }
+        if let Some(v) = filter.date_from {
+            count_q = count_q.bind(v);
+            data_q = data_q.bind(v);
+        }
+        if let Some(v) = filter.date_to {
             count_q = count_q.bind(v);
             data_q = data_q.bind(v);
         }

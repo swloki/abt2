@@ -492,11 +492,6 @@ impl AppState {
         abt_core::mes::production_inspection::new_production_inspection_service(self.pool.clone())
     }
 
-    pub fn production_receipt_service(
-        &self,
-    ) -> impl abt_core::mes::production_receipt::ProductionReceiptService {
-        abt_core::mes::production_receipt::new_production_receipt_service(self.pool.clone())
-    }
     pub fn mes_dashboard_service(&self) -> impl abt_core::mes::dashboard::MesDashboardService {
         abt_core::mes::dashboard::new_mes_dashboard_service(self.pool.clone())
     }

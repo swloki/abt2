@@ -207,6 +207,30 @@ impl PickingRepo {
         Ok(result.rows_affected())
     }
 
+    /// 更新收货目标库位（IncomingWorkOrder receive_production 选仓：create 时不填，入库时由仓管指定）
+    pub async fn update_to_location(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        warehouse_id: i64,
+        zone_id: Option<i64>,
+        bin_id: Option<i64>,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            UPDATE stock_pickings
+            SET to_warehouse_id = $2, to_zone_id = $3, to_bin_id = $4, updated_at = NOW()
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .bind(warehouse_id)
+        .bind(zone_id)
+        .bind(bin_id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     /// 标记完成：status = Done + done_at = NOW()
     pub async fn set_done(
         executor: &mut sqlx::postgres::PgConnection,
@@ -430,6 +454,79 @@ impl PickingRepo {
             .iter()
             .filter_map(|r| StockPicking::from_row(r).ok())
             .collect();
+
+        let total_pages = if page_size == 0 {
+            0
+        } else {
+            (total as u64).div_ceil(page_size as u64) as u32
+        };
+
+        Ok(PaginatedResult {
+            items,
+            total: total as u64,
+            page,
+            page_size,
+            total_pages,
+        })
+    }
+
+    /// 生产入库分页列表（IncomingWorkOrder，带 join：work_orders/products/warehouses + items[0]）
+    /// 搬自 ProductionReceiptRepo::list，字段映射 receipt→picking（received_qty/batch_id/product_id 取 items[0]）
+    pub async fn list_productions(
+        executor: &mut sqlx::postgres::PgConnection,
+        filter: &super::model::ProductionReceiptFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<super::model::ProductionReceiptListItem>> {
+        let offset = page.saturating_sub(1) * page_size;
+
+        // picking_type = 2 (IncomingWorkOrder) 固定；keyword 过滤单号
+        let mut where_clauses = vec![
+            "p.deleted_at IS NULL".to_string(),
+            "p.picking_type = 2".to_string(),
+        ];
+        let mut param_idx = 0u32;
+        if filter.keyword.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("p.doc_number ILIKE ${param_idx}"));
+        }
+        let where_sql = where_clauses.join(" AND ");
+        let limit_idx = param_idx + 1;
+        let offset_idx = param_idx + 2;
+
+        let count_sql = format!("SELECT COUNT(*) FROM stock_pickings p WHERE {where_sql}");
+        // LATERAL 取 items[0]（ORDER BY id LIMIT 1）；COALESCE 保证 product_id/received_qty 非 NULL
+        let data_sql = format!(
+            "SELECT p.id, p.doc_number, wo.doc_number AS work_order_doc, \
+             pi.batch_id AS batch_id, COALESCE(pi.product_id, 0) AS product_id, \
+             pdt.pdt_name AS product_name, \
+             COALESCE(pi.qty_requested, 0) AS received_qty, wh.name AS warehouse_name, \
+             p.status, p.created_at \
+             FROM stock_pickings p \
+             LEFT JOIN work_orders wo ON p.source_id = wo.id \
+             LEFT JOIN LATERAL (SELECT product_id, batch_id, qty_requested FROM stock_picking_items WHERE picking_id = p.id ORDER BY id LIMIT 1) pi ON true \
+             LEFT JOIN products pdt ON pi.product_id = pdt.product_id \
+             LEFT JOIN warehouses wh ON p.to_warehouse_id = wh.id \
+             WHERE {where_sql} \
+             ORDER BY p.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
+        );
+
+        let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
+        let mut data_q =
+            sqlx::query_as::<_, super::model::ProductionReceiptListItem>(sqlx::AssertSqlSafe(
+                data_sql,
+            ));
+
+        if let Some(ref kw) = filter.keyword {
+            let pattern = format!("%{kw}%");
+            count_q = count_q.bind(pattern.clone());
+            data_q = data_q.bind(pattern);
+        }
+
+        data_q = data_q.bind(page_size as i64).bind(offset as i64);
+
+        let total: i64 = count_q.fetch_one(&mut *executor).await?;
+        let items = data_q.fetch_all(&mut *executor).await?;
 
         let total_pages = if page_size == 0 {
             0

@@ -4,7 +4,8 @@ use sqlx::postgres::PgPool;
 
 use super::model::{
     CreateFromOrderReq, CreateManualReq, CreatePickingItemReq, CreatePickingReq, DoneItemReq,
-    IssueMaterialReq, PickingFilter, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary,
+    FqcGate, IssueMaterialReq, PickingFilter, ProductionReceiptDetail, ProductionReceiptFilter,
+    ProductionReceiptListItem, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary,
     ShortageSignal, StockPicking, StockPickingItem,
 };
 use super::repo::PickingRepo;
@@ -1496,7 +1497,7 @@ impl PickingService for PickingServiceImpl {
         use crate::wms::stock_ledger::repo::StockLedgerRepo;
 
         let picking = self.get(ctx, db, id).await?;
-        if picking.status != PickingStatus::Confirmed {
+        if picking.status != PickingStatus::Draft && picking.status != PickingStatus::Confirmed {
             return Err(DomainError::InvalidStateTransition {
                 from: format!("{:?}", picking.status),
                 to: "Done".to_string(),
@@ -1504,6 +1505,12 @@ impl PickingService for PickingServiceImpl {
         }
         if warehouse_id <= 0 {
             return Err(DomainError::validation("确认入库必须指定目标仓库"));
+        }
+        // 生产入库一步入库体验：Draft → 先转 Confirmed（写入库位）再走 7 步
+        // （生产侧 create 建 Draft 不填仓库；仓库确认入库时指定目标库位 + 触发闭环）
+        PickingRepo::update_to_location(&mut *db, id, warehouse_id, zone_id, bin_id).await?;
+        if picking.status == PickingStatus::Draft {
+            PickingRepo::update_status(&mut *db, id, PickingStatus::Confirmed).await?;
         }
         let work_order_id = picking.source_id.ok_or_else(|| {
             DomainError::business_rule("入库 picking 缺少 source_id（work_order_id）")
@@ -1615,5 +1622,157 @@ impl PickingService for PickingServiceImpl {
 
         PickingRepo::set_done(&mut *db, id).await?;
         Ok(())
+    }
+
+    // ── 生产入库查询（IncomingWorkOrder，mes_receipt 页面用，搬自 ProductionReceiptService）──
+
+    async fn get_fqc_status(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        picking_id: i64,
+    ) -> Result<FqcGate> {
+        use crate::mes::production_batch::repo::WorkOrderRoutingRepo;
+        use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
+        use crate::qms::inspection_result::{
+            model::InspectionResultFilter, new_inspection_result_service,
+            service::InspectionResultService,
+        };
+        use crate::shared::types::pagination::PageParams;
+
+        let picking = self.get(ctx, db, picking_id).await?;
+        let work_order_id = picking.source_id.ok_or_else(|| {
+            DomainError::business_rule("入库 picking 缺少 source_id（work_order_id）")
+        })?;
+
+        // 仅当工单工序含报检点时才要求 FQC
+        let wo_routings = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, work_order_id)
+            .await
+            .unwrap_or_default();
+        if !wo_routings.iter().any(|r| r.is_inspection_point) {
+            return Ok(FqcGate::NotRequired);
+        }
+
+        // 两次轻量 count 判定（source_id = picking.id），替代拉全量
+        let insp_svc = new_inspection_result_service(self.pool.clone());
+        let one = PageParams::new(1, 1);
+        let total = insp_svc
+            .list_by_source(
+                ctx,
+                db,
+                InspectionResultFilter {
+                    source_type: Some(InspectionSourceType::ProductionReceipt),
+                    source_id: Some(picking_id),
+                    ..Default::default()
+                },
+                one.clone(),
+            )
+            .await
+            .map(|p| p.total)
+            .unwrap_or(0);
+        if total == 0 {
+            return Ok(FqcGate::PendingInspection);
+        }
+        let passed = insp_svc
+            .list_by_source(
+                ctx,
+                db,
+                InspectionResultFilter {
+                    source_type: Some(InspectionSourceType::ProductionReceipt),
+                    source_id: Some(picking_id),
+                    status: Some(InspectionStatus::Completed),
+                    result: Some(InspectionResultType::Pass),
+                    ..Default::default()
+                },
+                one,
+            )
+            .await
+            .map(|p| p.total)
+            .unwrap_or(0);
+        Ok(if passed == total {
+            FqcGate::AllPassed
+        } else {
+            FqcGate::HasFailed
+        })
+    }
+
+    async fn get_production_detail(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        picking_id: i64,
+    ) -> Result<ProductionReceiptDetail> {
+        use crate::wms::stock_ledger::repo::StockLedgerRepo;
+
+        let picking = self.get(ctx, db, picking_id).await?;
+        let work_order_id = picking.source_id.ok_or_else(|| {
+            DomainError::business_rule("入库 picking 缺少 source_id（work_order_id）")
+        })?;
+        let items = PickingRepo::get_items(&mut *db, picking_id).await?;
+        let item = items
+            .first()
+            .ok_or_else(|| DomainError::business_rule("入库 picking 无明细"))?;
+        let product_id = item.product_id;
+        let received_qty = item.qty_requested;
+        let batch_id = item.batch_id;
+
+        // 关联名查询（work_order_doc / batch_no / product_name / warehouse_name）
+        let wo_doc: Option<(String,)> =
+            sqlx::query_as("SELECT doc_number FROM work_orders WHERE id = $1")
+                .bind(work_order_id)
+                .fetch_optional(&mut *db)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+        let batch_no: Option<(String,)> = if let Some(bid) = batch_id {
+            sqlx::query_as("SELECT batch_no FROM production_batches WHERE id = $1")
+                .bind(bid)
+                .fetch_optional(&mut *db)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?
+        } else {
+            None
+        };
+        let product_name: Option<(String,)> =
+            sqlx::query_as("SELECT pdt_name FROM products WHERE product_id = $1")
+                .bind(product_id)
+                .fetch_optional(&mut *db)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+        let warehouse_name: Option<(String,)> = if let Some(wid) = picking.to_warehouse_id {
+            sqlx::query_as("SELECT name FROM warehouses WHERE id = $1")
+                .bind(wid)
+                .fetch_optional(&mut *db)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?
+        } else {
+            None
+        };
+
+        let unit_cost = StockLedgerRepo::last_known_unit_cost(&mut *db, product_id)
+            .await
+            .unwrap_or(Decimal::ZERO);
+
+        Ok(ProductionReceiptDetail {
+            picking,
+            work_order_id,
+            product_id,
+            batch_id,
+            received_qty,
+            work_order_doc: wo_doc.map(|r| r.0),
+            batch_no: batch_no.map(|r| r.0),
+            product_name: product_name.map(|r| r.0),
+            warehouse_name: warehouse_name.map(|r| r.0),
+            unit_cost,
+        })
+    }
+
+    async fn list_productions(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        filter: ProductionReceiptFilter,
+        page: PageParams,
+    ) -> Result<PaginatedResult<ProductionReceiptListItem>> {
+        PickingRepo::list_productions(&mut *db, &filter, page.page, page.page_size).await
     }
 }

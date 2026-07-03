@@ -273,3 +273,50 @@ pub struct ReceivePurchaseReq {
     pub remark: Option<String>,
     pub idempotency_key: Option<String>,
 }
+
+// ── 生产入库专用查询（IncomingWorkOrder，从 production_receipt 迁入，#146 阶段 5b）──
+
+/// FQC 门控状态（供 UI 查询，不触发入库）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FqcGate {
+    NotRequired,
+    PendingInspection,
+    AllPassed,
+    HasFailed,
+}
+
+/// 生产入库详情（mes_receipt 详情页字段解析：picking 头 + items[0] + 关联名 + 单位成本）
+#[derive(Debug, Clone)]
+pub struct ProductionReceiptDetail {
+    pub picking: StockPicking,
+    pub work_order_id: i64,
+    pub product_id: i64,
+    pub batch_id: Option<i64>,
+    pub received_qty: Decimal,
+    pub work_order_doc: Option<String>,
+    pub batch_no: Option<String>,
+    pub product_name: Option<String>,
+    pub warehouse_name: Option<String>,
+    pub unit_cost: Decimal,
+}
+
+/// 生产入库列表行（带 join，对应原 ReceiptListItem）
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct ProductionReceiptListItem {
+    pub id: i64,
+    pub doc_number: String,
+    pub work_order_doc: Option<String>,
+    pub batch_id: Option<i64>,
+    pub product_id: i64,
+    pub product_name: Option<String>,
+    pub received_qty: Decimal,
+    pub warehouse_name: Option<String>,
+    /// PickingStatus as i16
+    pub status: i16,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ProductionReceiptFilter {
+    pub keyword: Option<String>,
+}

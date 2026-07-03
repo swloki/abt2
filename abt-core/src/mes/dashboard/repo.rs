@@ -10,10 +10,12 @@ impl DashboardRepo {
             "SELECT \
              (SELECT COUNT(*) FROM work_orders WHERE status IN (2,3)) AS active_order_count, \
              (SELECT COUNT(*) FROM production_batches WHERE status IN (1,2,3,4)) AS active_batch_count, \
-             (SELECT COUNT(*) FROM production_receipts WHERE status = 1) AS pending_receipt_count, \
-             (SELECT COALESCE(SUM(r.received_qty),0) FROM production_receipts r \
-                WHERE r.status = 2 AND EXTRACT(MONTH FROM r.created_at) = EXTRACT(MONTH FROM CURRENT_DATE) \
-                AND EXTRACT(YEAR FROM r.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)) AS completed_qty"
+             (SELECT COUNT(*) FROM stock_pickings WHERE picking_type = 2 AND status = 1 AND deleted_at IS NULL) AS pending_receipt_count, \
+             (SELECT COALESCE(SUM(pi.qty_requested),0) FROM stock_pickings p \
+                JOIN stock_picking_items pi ON pi.picking_id = p.id \
+                WHERE p.picking_type = 2 AND p.status = 3 AND p.deleted_at IS NULL \
+                AND EXTRACT(MONTH FROM p.created_at) = EXTRACT(MONTH FROM CURRENT_DATE) \
+                AND EXTRACT(YEAR FROM p.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)) AS completed_qty"
         ).fetch_one(&mut *executor).await?;
         Ok(stats)
     }
@@ -107,7 +109,7 @@ impl DashboardRepo {
                 .fetch_one(&mut *executor)
                 .await?;
         let receipt_pending: (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM production_receipts WHERE status = 1")
+            sqlx::query_as("SELECT COUNT(*) FROM stock_pickings WHERE picking_type = 2 AND status = 1 AND deleted_at IS NULL")
                 .fetch_one(&mut *executor)
                 .await?;
         let batch_total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM production_batches")
@@ -142,11 +144,13 @@ impl DashboardRepo {
                LEFT JOIN products p ON p.product_id = wo.product_id \
                LEFT JOIN users u ON u.user_id = wr.operator_id \
              UNION ALL \
-             SELECT pr.created_at, '完工入库', pr.doc_number, \
-               p.pdt_name, u.display_name \
-               FROM production_receipts pr \
-               LEFT JOIN products p ON p.product_id = pr.product_id \
-               LEFT JOIN users u ON u.user_id = pr.operator_id \
+             SELECT p.created_at, '完工入库', p.doc_number, \
+               pdt.pdt_name, u.display_name \
+               FROM stock_pickings p \
+               LEFT JOIN LATERAL (SELECT product_id FROM stock_picking_items WHERE picking_id = p.id ORDER BY id LIMIT 1) pi ON true \
+               LEFT JOIN products pdt ON pdt.product_id = pi.product_id \
+               LEFT JOIN users u ON u.user_id = p.operator_id \
+               WHERE p.picking_type = 2 AND p.deleted_at IS NULL \
              UNION ALL \
              SELECT pi.created_at, '生产报检', pi.doc_number, \
                p.pdt_name, u.display_name \

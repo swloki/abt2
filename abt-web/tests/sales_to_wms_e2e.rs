@@ -17,14 +17,14 @@ use abt_core::shared::inventory_reservation::{new_inventory_reservation_service,
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::sales::sales_order::{model::SalesOrderItem, SalesOrderService};
 use abt_core::mes::work_order::{model::WorkOrderFilter, WorkOrderService};
-use abt_core::mes::production_receipt::{model::ReceiptListFilter, ProductionReceiptService};
 use abt_core::master_data::bom::{
     model::{CreateBomReq, NewBomNode},
     BomCommandService, BomNodeService,
 };
 use abt_core::wms::inventory_transaction::InventoryTransactionService;
 use abt_core::wms::picking::{
-    IssueItemReq, IssueMaterialReq, PickingFilter, PickingService, ReturnItemReq, ReturnMaterialReq,
+    IssueItemReq, IssueMaterialReq, model::ProductionReceiptFilter, PickingFilter, PickingService,
+    ReturnItemReq, ReturnMaterialReq,
 };
 use abt_core::wms::enums::PickingType;
 
@@ -204,13 +204,13 @@ async fn find_wo_id(app: &TestApp, product: i64) -> i64 {
     res.items.first().map(|w| w.id).unwrap_or(0)
 }
 
-/// Receipt create 重定向到列表，故按 product 查最新入库单 id
+/// 生产入库 picking（IncomingWorkOrder）按 product 查最新入库单 id
 async fn find_receipt_id(app: &TestApp, product: i64) -> i64 {
-    let svc = app.state.production_receipt_service();
+    let svc = app.state.picking_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     let res = svc
-        .list(&ctx, &mut conn, ReceiptListFilter { keyword: None }, 1, 50)
+        .list_productions(&ctx, &mut conn, ProductionReceiptFilter { keyword: None }, abt_core::shared::types::PageParams::new(1, 50))
         .await
         .unwrap();
     res.items.into_iter().find(|r| r.product_id == product).map(|r| r.id).unwrap_or(0)

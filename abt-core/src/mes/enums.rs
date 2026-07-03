@@ -118,13 +118,6 @@ define_mes_enum!(InspectionResultType {
     Conditional = 3,
 });
 
-// -- Receipt --
-define_mes_enum!(ReceiptStatus {
-    Draft = 1,
-    Confirmed = 2,
-    Cancelled = 3,
-});
-
 // -- Defect Reason --
 define_mes_enum!(DefectReason {
     MaterialDefect = 1,

@@ -214,4 +214,45 @@ pub trait PickingService: Send + Sync {
         db: PgExecutor<'_>,
         req: super::model::ReceivePurchaseReq,
     ) -> Result<i64>;
+
+    // ── 生产入库（IncomingWorkOrder，#146 阶段 5b）──
+
+    /// 生产入库 done（confirm 7 步：FQC 门 → record ProductionReceipt → 成本 → backflush →
+    /// batch Completed → 多批次守卫 WO Closed → 预留释放）。搬自 ProductionReceiptService::confirm。
+    /// `id` = IncomingWorkOrder picking.id；FQC source_id = picking.id。
+    /// 接受 Draft 或 Confirmed（Draft 时内部先转 Confirmed 再走 7 步，一步入库与原 confirm 体验一致）。
+    async fn receive_production(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        warehouse_id: i64,
+        zone_id: Option<i64>,
+        bin_id: Option<i64>,
+    ) -> Result<()>;
+
+    /// 生产入库 FQC 门控状态（InspectionResult source_id = picking.id）
+    async fn get_fqc_status(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        picking_id: i64,
+    ) -> Result<super::model::FqcGate>;
+
+    /// 生产入库详情（picking 头 + items[0] + 关联名 + 单位成本，mes_receipt 详情页用）
+    async fn get_production_detail(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        picking_id: i64,
+    ) -> Result<super::model::ProductionReceiptDetail>;
+
+    /// 生产入库分页列表（IncomingWorkOrder，带 join）
+    async fn list_productions(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        filter: super::model::ProductionReceiptFilter,
+        page: PageParams,
+    ) -> Result<PaginatedResult<super::model::ProductionReceiptListItem>>;
 }

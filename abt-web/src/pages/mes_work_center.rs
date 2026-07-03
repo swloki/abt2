@@ -23,8 +23,7 @@ use abt_core::mes::production_batch::{
     BatchListFilter, BatchListItem, ProductionBatch, ProductionBatchService, SplitReq,
     StepConfirmationReq, WorkOrderRouting,
 };
-use abt_core::mes::production_receipt::{CreateReceiptReq, ProductionReceiptService};
-use abt_core::wms::picking::PickingService;
+use abt_core::wms::picking::{CreatePickingItemReq, CreatePickingReq, PickingService};
 use abt_core::mes::work_center::{MesWorkCenterService, MesWorkCenterSummary};
 use abt_core::sales::sales_order::{SalesOrder, SalesOrderItem, SalesOrderService, SalesOrderStatus};
 use abt_core::master_data::customer::CustomerService;
@@ -3374,20 +3373,35 @@ pub async fn batch_receipt(
         .work_order_service()
         .find_by_id(&service_ctx, &mut tx, batch.work_order_id)
         .await?;
-    let rcpt_svc = state.production_receipt_service();
-    let req = CreateReceiptReq {
-        work_order_id: batch.work_order_id,
-        batch_id: Some(path.batch_id),
-        product_id: order.product_id,
-        received_qty,
-        warehouse_id: None,
-        zone_id: None,
-        bin_id: None,
-        receipt_date: form.receipt_date,
+    let pick_svc = state.picking_service();
+    let req = CreatePickingReq {
+        picking_type: abt_core::wms::enums::PickingType::IncomingWorkOrder,
+        source_type: Some("work_order".to_string()),
+        source_id: Some(batch.work_order_id),
+        partner_id: None,
+        from_warehouse_id: None,
+        from_zone_id: None,
+        from_bin_id: None,
+        to_warehouse_id: None,
+        to_zone_id: None,
+        to_bin_id: None,
+        scheduled_date: Some(form.receipt_date),
+        work_order_id: Some(batch.work_order_id),
         remark: form.remark,
+        items: vec![CreatePickingItemReq {
+            product_id: order.product_id,
+            batch_no: None,
+            qty_requested: received_qty,
+            from_bin_id: None,
+            to_bin_id: None,
+            operation_id: None,
+            batch_id: Some(path.batch_id),
+            source_item_id: None,
+            remark: None,
+        }],
     };
-    // 两步流程：生产侧只创建 Draft 申请单（不填仓库），由仓库在「完工入库」确认入库
-    let _receipt_id = rcpt_svc.create(&service_ctx, &mut tx, req).await?;
+    // 两步流程：生产侧只创建 Draft 入库 picking（不填仓库），由仓库在「完工入库」receive_production
+    let _picking_id = pick_svc.create(&service_ctx, &mut tx, req).await?;
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;

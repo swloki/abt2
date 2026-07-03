@@ -4,10 +4,8 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
-use abt_core::mes::production_receipt::{
-    model::{FqcGate, ProductionReceipt},
-    ProductionReceiptService,
-};
+use abt_core::wms::enums::PickingStatus;
+use abt_core::wms::picking::{model::FqcGate, model::ProductionReceiptDetail, PickingService};
 use abt_core::wms::warehouse::model::{Bin, Zone};
 use abt_core::wms::warehouse::{WarehouseFilter, WarehouseService};
 
@@ -21,11 +19,12 @@ use crate::routes::mes_receipt::{
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
-fn receipt_status_label(s: &abt_core::mes::enums::ReceiptStatus) -> (&'static str, &'static str) {
+fn picking_status_label(s: &PickingStatus) -> (&'static str, &'static str) {
  match s {
- abt_core::mes::enums::ReceiptStatus::Draft => ("草稿", "status-draft"),
- abt_core::mes::enums::ReceiptStatus::Confirmed => ("已确认", "status-completed"),
- abt_core::mes::enums::ReceiptStatus::Cancelled => ("已取消", "status-cancelled"),
+ PickingStatus::Draft => ("草稿", "status-draft"),
+ PickingStatus::Confirmed => ("已确认", "status-completed"),
+ PickingStatus::Done => ("已完成", "status-completed"),
+ PickingStatus::Cancelled => ("已取消", "status-cancelled"),
  }
 }
 
@@ -46,22 +45,21 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
  let is_htmx = ctx.is_htmx();
  let nav_filter = ctx.nav_filter().await;
  let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
- let svc = state.production_receipt_service();
- let receipt = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
- let lookups = svc.get_detail_lookups(&mut conn, &receipt).await?;
- let (sl, sc) = receipt_status_label(&receipt.status);
+ let svc = state.picking_service();
+ let detail = svc.get_production_detail(&service_ctx, &mut conn, path.id).await?;
+ let (sl, sc) = picking_status_label(&detail.picking.status);
 
- let wo = lookups.wo_doc_number.as_deref().unwrap_or("—");
- let batch = lookups.batch_no.as_deref().unwrap_or("—");
- let product = lookups.product_name.as_deref().unwrap_or("—");
- let warehouse = lookups.warehouse_name.as_deref().unwrap_or("—");
+ let wo = detail.work_order_doc.as_deref().unwrap_or("—");
+ let batch = detail.batch_no.as_deref().unwrap_or("—");
+ let product = detail.product_name.as_deref().unwrap_or("—");
+ let warehouse = detail.warehouse_name.as_deref().unwrap_or("—");
 
  // FQC 状态
  let fqc_status = svc.get_fqc_status(&service_ctx, &mut conn, path.id).await.unwrap_or(FqcGate::NotRequired);
 
- // 单位成本
- let unit_cost = svc.get_unit_cost(&mut conn, receipt.product_id).await.unwrap_or(rust_decimal::Decimal::ZERO);
- let total_cost = receipt.received_qty * unit_cost;
+ // 单位成本（detail 已含，get_unit_cost 已废）
+ let unit_cost = detail.unit_cost;
+ let total_cost = detail.received_qty * unit_cost;
 
  let wh_picker_config = EntityPickerConfig {
   modal_id: "wh-picker",
@@ -84,7 +82,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
         // 标题行：单号 + 状态 pill + FQC badge
         div class="flex items-center justify-between flex-wrap gap-3 mb-5" {
             h1 class="text-xl font-bold text-fg tracking-tight" {
-                "入库单 " span class="font-mono" { (receipt.doc_number) }
+                "入库单 " span class="font-mono" { (detail.picking.doc_number) }
             }
             div class="flex items-center gap-2" {
                 span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
@@ -92,8 +90,8 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
             }
         }
         // 确认入库（仅 Draft：仓库指定目标库位后触发倒冲/成本/FQC）
-        @if receipt.status == abt_core::mes::enums::ReceiptStatus::Draft {
-            (confirm_card_inner(&receipt, &fqc_status))
+        @if detail.picking.status == PickingStatus::Draft {
+            (confirm_card_inner(&detail, &fqc_status))
         }
         // 基本信息（多列网格）
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
@@ -103,7 +101,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
             div class="grid grid-cols-2 lg:grid-cols-4 gap-5" {
                 div {
                     div class="text-xs text-muted mb-1.5" { "单号" }
-                    div class="text-sm text-fg font-mono tabular-nums" { (receipt.doc_number) }
+                    div class="text-sm text-fg font-mono tabular-nums" { (detail.picking.doc_number) }
                 }
                 div {
                     div class="text-xs text-muted mb-1.5" { "工单" }
@@ -120,7 +118,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
                 div {
                     div class="text-xs text-muted mb-1.5" { "入库数量" }
                     div class="text-sm text-fg font-mono tabular-nums" {
-                        (crate::utils::fmt_qty(receipt.received_qty))
+                        (crate::utils::fmt_qty(detail.received_qty))
                     }
                 }
                 div {
@@ -129,24 +127,26 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
                 }
                 div {
                     div class="text-xs text-muted mb-1.5" { "入库日期" }
-                    div class="text-sm text-fg font-mono" { (receipt.receipt_date) }
+                    div class="text-sm text-fg font-mono" {
+                        (detail.picking.scheduled_date.map(|d| d.to_string()).unwrap_or_else(|| "—".to_string()))
+                    }
                 }
                 div {
                     div class="text-xs text-muted mb-1.5" { "倒冲触发" }
                     div class="text-sm text-fg" {
-                        (if receipt.backflush_triggered { "是" } else { "否" })
+                        (if detail.picking.status == PickingStatus::Done { "是" } else { "否" })
                     }
                 }
                 div {
                     div class="text-xs text-muted mb-1.5" { "创建时间" }
                     div class="text-sm text-fg font-mono" {
-                        (receipt.created_at.format("%Y-%m-%d %H:%M"))
+                        (detail.picking.created_at.format("%Y-%m-%d %H:%M"))
                     }
                 }
-                @if !receipt.remark.is_empty() {
+                @if !detail.picking.remark.is_empty() {
                     div class="col-span-2 lg:col-span-4" {
                         div class="text-xs text-muted mb-1.5" { "备注" }
-                        div class="text-sm text-fg-2" { (receipt.remark) }
+                        div class="text-sm text-fg-2" { (detail.picking.remark) }
                     }
                 }
             }
@@ -214,8 +214,8 @@ pub async fn confirm_receipt(
  let mut tx = state.pool.begin().await
  .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  state
-     .production_receipt_service()
-     .confirm(&service_ctx, &mut tx, path.receipt_id, form.warehouse_id, form.zone_id, form.bin_id)
+     .picking_service()
+     .receive_production(&service_ctx, &mut tx, path.receipt_id, form.warehouse_id, form.zone_id, form.bin_id)
      .await?;
  tx.commit().await
  .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
@@ -377,12 +377,12 @@ fn bin_select_fragment(bins: &[Bin]) -> Markup {
 }
 
 /// 确认入库卡片（仅 Draft）：仓库指定目标库位 + 确认按钮；受 FQC 门控
-fn confirm_card_inner(receipt: &ProductionReceipt, fqc_status: &FqcGate) -> Markup {
+fn confirm_card_inner(detail: &ProductionReceiptDetail, fqc_status: &FqcGate) -> Markup {
  html! {
   div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
    div class="text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "确认入库" }
    @if matches!(fqc_status, FqcGate::AllPassed | FqcGate::NotRequired) {
-    form hx-post=({ ReceiptConfirmPath { receipt_id: receipt.id }.to_string() }) hx-swap="none" {
+    form hx-post=({ ReceiptConfirmPath { receipt_id: detail.picking.id }.to_string() }) hx-swap="none" {
      (entity_picker::entity_picker_field(
       "warehouse_id", "warehouse_id", "wh-display", "wh-picker",
       "目标仓库", true, "点击选择仓库…",

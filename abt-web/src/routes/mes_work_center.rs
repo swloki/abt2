@@ -136,7 +136,7 @@ pub struct WcBatchReceiptModalPath {
     pub batch_id: i64,
 }
 
-/// 批次入库提交（ProductionReceipt.create+confirm）。
+/// 批次入库提交（picking.create IncomingWorkOrder Draft，仓库后续 receive_production 入库）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/batches/{batch_id}/receipt")]
 pub struct WcBatchReceiptPath {

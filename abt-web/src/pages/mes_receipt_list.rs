@@ -4,9 +4,11 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
-use abt_core::mes::enums::ReceiptStatus;
-use abt_core::mes::production_receipt::{ReceiptListItem, ReceiptListFilter};
-use abt_core::mes::production_receipt::ProductionReceiptService;
+use abt_core::wms::enums::PickingStatus;
+use abt_core::wms::picking::{
+    model::{ProductionReceiptFilter, ProductionReceiptListItem},
+    PickingService,
+};
 use abt_core::shared::types::PaginatedResult;
 
 use crate::components::icon;
@@ -17,11 +19,12 @@ use crate::routes::mes_receipt::ReceiptListPath;
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
-fn receipt_status_label(s: &ReceiptStatus) -> (&'static str, &'static str, &'static str) {
+fn picking_status_label(s: &PickingStatus) -> (&'static str, &'static str, &'static str) {
  match s {
- ReceiptStatus::Draft => ("草稿", "rgba(0,0,0,0.04)", "var(--muted)"),
- ReceiptStatus::Confirmed => ("已确认", "rgba(82,196,26,0.08)", "var(--success)"),
- ReceiptStatus::Cancelled => ("已取消", "rgba(245,63,63,0.06)", "#f53f3f"),
+ PickingStatus::Draft => ("草稿", "rgba(0,0,0,0.04)", "var(--muted)"),
+ PickingStatus::Confirmed => ("已确认", "rgba(82,196,26,0.08)", "var(--success)"),
+ PickingStatus::Done => ("已完成", "rgba(82,196,26,0.08)", "var(--success)"),
+ PickingStatus::Cancelled => ("已取消", "rgba(245,63,63,0.06)", "#f53f3f"),
  }
 }
 
@@ -39,16 +42,16 @@ pub async fn get_receipt_list(
  let is_htmx = ctx.is_htmx();
  let nav_filter = ctx.nav_filter().await;
  let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
- let svc = state.production_receipt_service();
+ let svc = state.picking_service();
  let page = params.page.unwrap_or(1);
- let filter = ReceiptListFilter { keyword: params.keyword.clone() };
- let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
+ let filter = ProductionReceiptFilter { keyword: params.keyword.clone() };
+ let result = svc.list_productions(&service_ctx, &mut conn, filter, abt_core::shared::types::PageParams::new(page, 20)).await?;
  let content = receipt_list_page(&result, &params);
  Ok(Html(admin_page(is_htmx, "完工入库", &claims, "production", ReceiptListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 fn receipt_list_page(
- result: &PaginatedResult<ReceiptListItem>,
+ result: &PaginatedResult<ProductionReceiptListItem>,
  params: &ReceiptQueryParams,
 ) -> Markup {
  html! {
@@ -62,7 +65,7 @@ fn receipt_list_page(
 }
 
 fn receipt_table_fragment(
- result: &PaginatedResult<ReceiptListItem>,
+ result: &PaginatedResult<ProductionReceiptListItem>,
  params: &ReceiptQueryParams,
 ) -> Markup {
  html! {
@@ -76,7 +79,7 @@ fn receipt_table_fragment(
             hx-select="#receipt-data-card"
             hx-swap="outerHTML"
             hx-include="#filter-form"
-           
+
         {
             div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
             {
@@ -95,7 +98,7 @@ fn receipt_table_fragment(
 }
 
 fn receipt_data_card(
- result: &PaginatedResult<ReceiptListItem>,
+ result: &PaginatedResult<ProductionReceiptListItem>,
 ) -> Markup {
  html! {
     div class="data-card" id="receipt-data-card" {
@@ -114,9 +117,9 @@ fn receipt_data_card(
                 }
                 tbody {
                     @for item in &result.items {
-                        @let status = ReceiptStatus::from_i16(item.status)
-                            .unwrap_or(ReceiptStatus::Draft);
-                        @let (sl, sb, sc) = receipt_status_label(&status);
+                        @let status = PickingStatus::from_i16(item.status)
+                            .unwrap_or(PickingStatus::Draft);
+                        @let (sl, sb, sc) = picking_status_label(&status);
                         @let dp = format!("/admin/mes/receipts/{}", item.id);
                         @let wo_doc = item.work_order_doc.as_deref().unwrap_or("—");
                         @let wh_name = item.warehouse_name.as_deref().unwrap_or("—");

@@ -8,7 +8,6 @@ use super::super::enums::{RoutingStatus, WorkOrderStatus};
 use super::model::*;
 use super::repo::WorkOrderRepo;
 use super::service::WorkOrderService;
-use crate::mes::production_receipt::{new_production_receipt_service, service::ProductionReceiptService};
 use crate::mes::work_report::{new_work_report_service, service::WorkReportService};
 use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::master_data::work_center::{new_work_center_service, service::WorkCenterService};
@@ -340,9 +339,9 @@ impl WorkOrderService for WorkOrderServiceImpl {
             });
         }
 
-        // 校验：已确认的完工入库记录阻止取消
+        // 校验：已完工入库的 picking 阻止取消（IncomingWorkOrder=2, Done=3）
         let receipt_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM production_receipts WHERE work_order_id = $1 AND deleted_at IS NULL AND status = 2",
+            "SELECT COUNT(*) FROM stock_pickings WHERE source_id = $1 AND picking_type = 2 AND deleted_at IS NULL AND status = 3",
         )
         .bind(id)
         .fetch_one(&mut *db)
@@ -492,13 +491,33 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 4. 入库（用于 received_qty 聚合 + receipts disclosure）
-        let receipts = new_production_receipt_service(self.pool.clone())
-            .list_by_work_order(ctx, db, work_order_id)
-            .await?;
+        // 4. 入库 picking（IncomingWorkOrder=2，用于 received_qty 聚合 + receipts disclosure）
+        #[derive(sqlx::FromRow)]
+        struct HubReceipt {
+            doc_number: String,
+            batch_id: Option<i64>,
+            received_qty: Decimal,
+            warehouse_name: Option<String>,
+            status: i16,
+        }
+        let receipts: Vec<HubReceipt> = sqlx::query_as(
+            "SELECT p.doc_number, pi.batch_id AS batch_id, \
+             COALESCE(pi.qty_requested, 0) AS received_qty, \
+             wh.name AS warehouse_name, p.status \
+             FROM stock_pickings p \
+             LEFT JOIN LATERAL (SELECT batch_id, qty_requested FROM stock_picking_items WHERE picking_id = p.id ORDER BY id LIMIT 1) pi ON true \
+             LEFT JOIN warehouses wh ON p.to_warehouse_id = wh.id \
+             WHERE p.source_id = $1 AND p.picking_type = 2 AND p.deleted_at IS NULL \
+             ORDER BY p.created_at DESC",
+        )
+        .bind(work_order_id)
+        .fetch_all(&mut *db)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        // Done(3) = 已入库（原 receipt Confirmed(2) 语义）
         let received_qty: Decimal = receipts
             .iter()
-            .filter(|r| r.status == crate::mes::enums::ReceiptStatus::Confirmed.as_i16())
+            .filter(|r| r.status == 3)
             .map(|r| r.received_qty)
             .sum();
 
@@ -569,9 +588,9 @@ impl WorkOrderService for WorkOrderServiceImpl {
             team_label: None,
         };
 
-        // 11. receipts disclosure（fqc/backflush 聚合）
-        let fqc_passed = receipts.iter().any(|r| r.status == 2);
-        let backflush_done = receipts.iter().any(|r| r.status == 2);
+        // 11. receipts disclosure（fqc/backflush 聚合；Done=3）
+        let fqc_passed = receipts.iter().any(|r| r.status == 3);
+        let backflush_done = receipts.iter().any(|r| r.status == 3);
         let receipt_items: Vec<HubReceiptRow> = receipts
             .iter()
             .map(|r| HubReceiptRow {
@@ -579,8 +598,8 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 batch_no: r.batch_id.map(|_| "—".to_string()).unwrap_or_default(),
                 received_qty: r.received_qty,
                 warehouse_name: r.warehouse_name.clone().unwrap_or_default(),
-                fqc_label: if r.status == 2 { "通过".into() } else { "待检".into() },
-                backflush_label: if r.status == 2 { "已倒冲".into() } else { "—".into() },
+                fqc_label: if r.status == 3 { "通过".into() } else { "待检".into() },
+                backflush_label: if r.status == 3 { "已倒冲".into() } else { "—".into() },
             })
             .collect();
         let receipts_block = HubReceipts {

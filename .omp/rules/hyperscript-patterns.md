@@ -1,3 +1,8 @@
+---
+description: "ABT Hyperscript 语法用法正文：心智模型、命令体系、项目高频模式、AI 易错点纠错（halt/set-vs-put/closest query/HTMX 事件名）、Surreal 迁移"
+globs: ["abt-web/**/*.rs"]
+---
+
 # Hyperscript 语法与用法
 
 > 本文档是 abt-web 前端 **Hyperscript 的系统性语法与用法正文**，解决「写 hyperscript 时生涩、不确定语法」的问题。[`abt-web/CLAUDE.md`](../../abt-web/CLAUDE.md) 保留命令速查入口，本文是其展开：心智模型 → 语法体系 → 项目高频模式 → **AI 易错点纠错**。

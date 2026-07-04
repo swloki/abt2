@@ -50,12 +50,12 @@ pub async fn get_misc_create(
  let content = misc_create_page(MiscCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx,
- "新建零星请购",
+ "新建零星采购",
  &claims,
  "purchase",
  MiscCreatePath::PATH,
  "采购管理",
- Some("新建零星请购"),
+ Some("新建零星采购"),
  content, &nav_filter, );
 
  Ok(Html(page_html.into_string()))
@@ -151,8 +151,8 @@ pub fn misc_create_page(post_path: &str, after_request_hs: &str, show_header: bo
             div class="flex items-center justify-between mb-6" {
                 a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
                     href=(format!("{}?restore=true", MiscListPath::PATH))
-                { (icon::arrow_left_icon("w-4 h-4")) "返回零星请购列表" }
-                h1 class="text-xl font-bold text-fg tracking-tight" { "新建零星请购" }
+                { (icon::arrow_left_icon("w-4 h-4")) "返回零星采购列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建零星采购" }
             }
         }
 
@@ -230,9 +230,15 @@ pub fn misc_create_page(post_path: &str, after_request_hs: &str, show_header: bo
             // ── Action Bar ──
             div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
             {
-                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    href=(format!("{}?restore=true", MiscListPath::PATH))
-                { "取消" }
+                @if show_header {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href=(format!("{}?restore=true", MiscListPath::PATH))
+                    { "取消" }
+                } @else {
+                    button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        _="on click remove .open from closest .drawer-overlay"
+                    { "取消" }
+                }
                 div class="flex gap-3" {
                     button
                         type="button"

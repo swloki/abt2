@@ -8,7 +8,7 @@
 //! - drawer 就地操作：订单审批 / 付款审批。
 
 use axum::extract::Query;
-use axum::response::{Html, IntoResponse};
+use axum::response::{Html, IntoResponse, Response};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
@@ -54,10 +54,12 @@ use abt_core::purchase::quotation::model::{
 };
 use abt_core::purchase::quotation::PurchaseQuotationService;
 use axum::Form;
+use crate::components::alert;
 use crate::components::icon;
 use crate::components::overlay::drawer_shell;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
+use crate::toast::{add_toast, ToastType};
 use crate::layout::page::admin_page;
 use crate::routes::purchase_work_center::*;
 use crate::utils::{empty_as_none, RequestContext};
@@ -130,7 +132,7 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
         (render_drawer_overlay("quotation-detail-overlay", "quotation-detail-drawer", "quotation-detail-drawer-body", "报价详情", "w-[680px] max-w-[92vw]"))
         (render_drawer_overlay("quotation-create-overlay", "quotation-create-drawer", "quotation-create-drawer-body", "新建报价", "w-[860px] max-w-[94vw]"))
         (render_drawer_overlay("return-create-overlay", "return-create-drawer", "return-create-drawer-body", "新建退货", "w-[1000px] max-w-[94vw]"))
-        (render_drawer_overlay("misc-create-overlay", "misc-create-drawer", "misc-create-drawer-body", "新建零星请购", "w-[900px] max-w-[94vw]"))
+        (render_drawer_overlay("misc-create-overlay", "misc-create-drawer", "misc-create-drawer-body", "新建零星采购", "w-[900px] max-w-[94vw]"))
         (render_drawer_overlay("recon-create-overlay", "recon-create-drawer", "recon-create-drawer-body", "新建采购对账单", "w-[1000px] max-w-[94vw]"))
         (render_drawer_overlay("pay-create-overlay", "pay-create-drawer", "pay-create-drawer-body", "新建付款申请", "w-[680px] max-w-[94vw]"))
         // 转单成功后自动切草稿订单列表：后端广播 convertDone → htmx 原生 hx-get 切订单 card
@@ -524,7 +526,7 @@ pub async fn get_quotation_card(
     ))
 }
 
-// ── ⑥ 零星请购 ──
+// ── ⑥ 零星采购 ──
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct MiscCardParams {
@@ -667,7 +669,7 @@ pub async fn get_convert_po_drawer(
     let supplier_ids: Vec<i64> = quotes.iter().map(|q| q.supplier_id).collect();
     let names = supplier_names(&state, &service_ctx, &mut conn, &supplier_ids).await;
     Ok(Html(
-        render_convert_po_body(path.product_id, &demands.items, &quotes, &names).into_string(),
+        render_convert_po_body(path.product_id, &demands.items, &quotes, &names, None).into_string(),
     ))
 }
 
@@ -713,7 +715,7 @@ pub async fn get_batch_convert_drawer(
         .cloned()
         .unwrap_or_default();
     Ok(Html(
-        render_batch_convert_body(path.supplier_id, &supplier, &demands).into_string(),
+        render_batch_convert_body(path.supplier_id, &supplier, &demands, None).into_string(),
     ))
 }
 
@@ -731,19 +733,20 @@ pub struct ConvertPoForm {
 }
 
 /// 转采购单核心逻辑（单物料 drawer / 批量 drawer 共用）：解析 demand_ids →
-/// `create_order_from_demands`（按物料聚合成同一供应商一张 PO）→ 广播 demandChanged + poChanged。
+/// `create_order_from_demands`（按物料聚合成同一供应商一张 PO）。
+/// 错误处理（校验失败重渲染 form）上移到 post handler，这里只返回 DomainError。
 async fn convert_demands_to_po(
     state: &crate::state::AppState,
     service_ctx: &abt_core::shared::types::context::ServiceContext,
-    form: ConvertPoForm,
-) -> Result<([(&'static str, &'static str); 1], Html<String>)> {
+    form: &ConvertPoForm,
+) -> Result<(), DomainError> {
     let demand_ids: Vec<i64> = form
         .demand_ids
         .split(',')
         .filter_map(|s| s.trim().parse::<i64>().ok())
         .collect();
     if demand_ids.is_empty() {
-        return Err(DomainError::validation("demand_ids 不能为空").into());
+        return Err(DomainError::validation("demand_ids 不能为空"));
     }
     let expected_delivery_date = form
         .expected_delivery_date
@@ -753,7 +756,7 @@ async fn convert_demands_to_po(
         demand_ids,
         supplier_id: form.supplier_id,
         expected_delivery_date,
-        remark: form.remark,
+        remark: form.remark.clone(),
     };
     let mut tx = state
         .pool
@@ -768,17 +771,67 @@ async fn convert_demands_to_po(
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
     invalidate_purchase_summary(state);
-    Ok(([("HX-Trigger", "demandChanged, poChanged, convertDone")], Html(String::new())))
+    Ok(())
 }
 
 #[require_permission("PURCHASE_ORDER", "update")]
 pub async fn post_convert_po(
-    _path: PcConvertPoPath,
+    path: PcConvertPoPath,
     ctx: RequestContext,
     Form(form): Form<ConvertPoForm>,
-) -> Result<impl IntoResponse> {
-    let RequestContext { state, service_ctx, .. } = ctx;
-    convert_demands_to_po(&state, &service_ctx, form).await
+) -> Result<Response> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+    Ok(match convert_demands_to_po(&state, &service_ctx, &form).await {
+        Ok(_) => {
+            add_toast(
+                claims.sub,
+                "PO 草稿已生成，已切到草稿订单列表",
+                ToastType::Success,
+            );
+            (
+                [("HX-Trigger", "demandChanged, poChanged, convertDone, showToast")],
+                Html(String::new()),
+            )
+                .into_response()
+        }
+        Err(DomainError::Validation(m) | DomainError::BusinessRule(m)) => {
+            // 校验失败：re-fetch 数据 + 重渲染 form（顶部 alert），不 toast、不关 drawer
+            let errors = HashMap::from([("__all__", m)]);
+            let demands = state
+                .purchase_demand_service()
+                .list_pending_demands(
+                    &service_ctx,
+                    &mut conn,
+                    DemandPoolQuery {
+                        product_id: Some(path.product_id),
+                        ..Default::default()
+                    },
+                    PageParams::new(1, 100),
+                )
+                .await
+                .map(|r| r.items)
+                .unwrap_or_default();
+            let quotes = state
+                .purchase_quotation_service()
+                .compare(&service_ctx, &mut conn, path.product_id)
+                .await
+                .unwrap_or_default();
+            let supplier_ids: Vec<i64> = quotes.iter().map(|q| q.supplier_id).collect();
+            let names = supplier_names(&state, &service_ctx, &mut conn, &supplier_ids).await;
+            Html(
+                render_convert_po_body(path.product_id, &demands, &quotes, &names, Some(&errors))
+                    .into_string(),
+            )
+            .into_response()
+        }
+        Err(e) => return Err(e.into()),
+    })
 }
 
 /// 批量转采购单（采购明细 tab：同供应商多物料多选 → 一张 PO）。复用 convert_demands_to_po。
@@ -787,17 +840,75 @@ pub async fn post_batch_convert(
     _path: PcBatchConvertPath,
     ctx: RequestContext,
     Form(form): Form<ConvertPoForm>,
-) -> Result<impl IntoResponse> {
-    let RequestContext { state, service_ctx, .. } = ctx;
-    convert_demands_to_po(&state, &service_ctx, form).await
+) -> Result<Response> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+    Ok(match convert_demands_to_po(&state, &service_ctx, &form).await {
+        Ok(_) => {
+            add_toast(
+                claims.sub,
+                "PO 草稿已生成，已切到草稿订单列表",
+                ToastType::Success,
+            );
+            (
+                [("HX-Trigger", "demandChanged, poChanged, convertDone, showToast")],
+                Html(String::new()),
+            )
+                .into_response()
+        }
+        Err(DomainError::Validation(m) | DomainError::BusinessRule(m)) => {
+            let errors = HashMap::from([("__all__", m)]);
+            let demand_ids: Vec<i64> = form
+                .demand_ids
+                .split(',')
+                .filter_map(|s| s.trim().parse::<i64>().ok())
+                .collect();
+            let demands = if demand_ids.is_empty() {
+                vec![]
+            } else {
+                state
+                    .purchase_demand_service()
+                    .get_demands_by_ids(&service_ctx, &mut conn, &demand_ids)
+                    .await
+                    .unwrap_or_default()
+            };
+            let supplier = supplier_names(&state, &service_ctx, &mut conn, &[form.supplier_id])
+                .await
+                .get(&form.supplier_id)
+                .cloned()
+                .unwrap_or_default();
+            Html(
+                render_batch_convert_body(form.supplier_id, &supplier, &demands, Some(&errors))
+                    .into_string(),
+            )
+            .into_response()
+        }
+        Err(e) => return Err(e.into()),
+    })
+}
+
+/// 字段 input class：有错 danger 边框（转采购单 drawer 校验失败标红）。
+fn convert_field_cls(field: &str, errors: Option<&HashMap<&str, String>>) -> &'static str {
+    match errors.and_then(|e| e.get(field)) {
+        Some(_) => "w-full px-2.5 py-1.5 border border-danger rounded-sm text-sm bg-white text-fg outline-none focus:border-danger",
+        None => "w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent",
+    }
 }
 
 /// 转采购单 drawer body：物料信息 + 供应商报价选择 + 交期/备注 + 提交表单。
+/// form 包裹全部内容（hx-target="this" hx-swap="outerHTML" 校验失败重渲染整 form）；
+/// errors 用于校验失败标红（顶部 alert __all__ + supplier/交期/备注字段）。
 fn render_convert_po_body(
     product_id: i64,
     demands: &[DemandSummary],
     quotes: &[QuotationComparison],
     supplier_names: &HashMap<i64, String>,
+    errors: Option<&HashMap<&str, String>>,
 ) -> Markup {
     let demand_ids: Vec<String> = demands.iter().map(|d| d.id.to_string()).collect();
     let demand_ids_str = demand_ids.join(",");
@@ -816,25 +927,37 @@ fn render_convert_po_body(
     let default_name = preferred
         .and_then(|q| supplier_names.get(&q.supplier_id))
         .cloned();
+    let sup_err = errors.and_then(|e| e.get("supplier_id"));
     html! {
-        div class="mb-4" {
-            div class="font-semibold text-fg text-sm" { (product_name) }
-            div class="text-xs text-muted font-mono" { (product_code) }
-        }
-        div class="grid grid-cols-2 gap-4 mb-4" {
-            (field_readonly("待转需求数", &format!("{}", demands.len())));
-            (field_readonly("总需求量", &fmt_plain(total_qty)));
-        }
-        div class="mb-1.5 text-xs text-muted font-medium" { "选择供应商 *" }
         form hx-post=(PcConvertPoPath { product_id }.to_string())
-            hx-target="this" hx-swap="none"
-            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #convert-po-overlay then call showToast('PO 草稿已生成，已切到草稿订单列表')" {
+            hx-target="this" hx-swap="outerHTML"
+            _="on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #convert-po-overlay" {
+            // 物料信息
+            div class="mb-4" {
+                div class="font-semibold text-fg text-sm" { (product_name) }
+                div class="text-xs text-muted font-mono" { (product_code) }
+            }
+            div class="grid grid-cols-2 gap-4 mb-4" {
+                (field_readonly("待转需求数", &format!("{}", demands.len())));
+                (field_readonly("总需求量", &fmt_plain(total_qty)));
+            }
+            // 顶部兜底 alert（校验失败重渲染显示）
+            @if let Some(m) = errors.and_then(|e| e.get("__all__")) {
+                div class="mb-4" { (alert::alert_error(m)) }
+            }
+            div class="mb-1.5 text-xs text-muted font-medium" { "选择供应商 *" }
             input type="hidden" name="demand_ids" value=(demand_ids_str) {};
-            (crate::components::supplier_search::supplier_search_field(
-                "pc-convert-sup", "pc-convert-sup-display", "pc-convert-sup-panel", "pc-convert-sup-results",
-                "supplier_id", &default_sid, default_name.as_deref(), "供应商",
-                true, "w-full", None,
-            ))
+            // supplier_search_field 不支持 errors，外层 div 标红 + 错误文本
+            div class=(if sup_err.is_some() { "mb-4 rounded-sm border border-danger p-2" } else { "mb-4" }) {
+                (crate::components::supplier_search::supplier_search_field(
+                    "pc-convert-sup", "pc-convert-sup-display", "pc-convert-sup-panel", "pc-convert-sup-results",
+                    "supplier_id", &default_sid, default_name.as_deref(), "供应商",
+                    true, "w-full", None,
+                ))
+                @if let Some(m) = sup_err {
+                    div class="mt-1 text-xs text-danger" { (m) }
+                }
+            }
             // 报价参考（辅助决策，不限制选择）
             @if !quotes.is_empty() {
                 div class="mt-2 flex flex-col gap-1" {
@@ -860,12 +983,12 @@ fn render_convert_po_body(
                 div {
                     label class="block text-xs text-muted font-medium mb-1.5" { "期望交期（可选）" }
                     input type="date" name="expected_delivery_date"
-                        class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+                        class=(convert_field_cls("expected_delivery_date", errors)) {};
                 }
                 div {
                     label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
                     input type="text" name="remark"
-                        class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+                        class=(convert_field_cls("remark", errors)) {};
                 }
             }
             div class="p-3 mb-3 bg-surface-raised border border-border-soft rounded-sm text-xs text-muted leading-relaxed" {
@@ -883,7 +1006,12 @@ fn render_convert_po_body(
 }
 
 /// 批量转单 drawer body：供应商只读 + 待转需求/物料/总量汇总 + 交期/备注 + 提交表单。
-fn render_batch_convert_body(supplier_id: i64, supplier: &str, demands: &[DemandSummary]) -> Markup {
+fn render_batch_convert_body(
+    supplier_id: i64,
+    supplier: &str,
+    demands: &[DemandSummary],
+    errors: Option<&HashMap<&str, String>>,
+) -> Markup {
     let demand_ids: Vec<String> = demands.iter().map(|d| d.id.to_string()).collect();
     let demand_ids_str = demand_ids.join(",");
     let product_count = demands
@@ -893,29 +1021,32 @@ fn render_batch_convert_body(supplier_id: i64, supplier: &str, demands: &[Demand
         .len();
     let total_qty: rust_decimal::Decimal = demands.iter().map(|d| d.quantity).sum();
     html! {
-        div class="mb-4" {
-            (field_readonly("供应商", supplier));
-        }
-        div class="grid grid-cols-3 gap-4 mb-4" {
-            (field_readonly("待转需求", &format!("{} 条", demands.len())));
-            (field_readonly("涉及物料", &format!("{} 个", product_count)));
-            (field_readonly("总量", &fmt_plain(total_qty)));
-        }
         form hx-post=(PcBatchConvertPath::PATH)
-            hx-target="this" hx-swap="none"
-            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #convert-po-overlay then call showToast('PO 草稿已生成，已切到草稿订单列表')" {
+            hx-target="this" hx-swap="outerHTML"
+            _="on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #convert-po-overlay" {
+            div class="mb-4" {
+                (field_readonly("供应商", supplier));
+            }
+            div class="grid grid-cols-3 gap-4 mb-4" {
+                (field_readonly("待转需求", &format!("{} 条", demands.len())));
+                (field_readonly("涉及物料", &format!("{} 个", product_count)));
+                (field_readonly("总量", &fmt_plain(total_qty)));
+            }
+            @if let Some(m) = errors.and_then(|e| e.get("__all__")) {
+                div class="mb-4" { (alert::alert_error(m)) }
+            }
             input type="hidden" name="demand_ids" value=(demand_ids_str) {};
             input type="hidden" name="supplier_id" value=(supplier_id) {};
             div class="grid grid-cols-2 gap-4 mb-4" {
                 div {
                     label class="block text-xs text-muted font-medium mb-1.5" { "期望交期（可选）" }
                     input type="date" name="expected_delivery_date"
-                        class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+                        class=(convert_field_cls("expected_delivery_date", errors)) {};
                 }
                 div {
                     label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
                     input type="text" name="remark"
-                        class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+                        class=(convert_field_cls("remark", errors)) {};
                 }
             }
             div class="p-3 mb-3 bg-surface-raised border border-border-soft rounded-sm text-xs text-muted leading-relaxed" {
@@ -1780,7 +1911,9 @@ pub async fn get_quotation_create_drawer(
         .await
         .map(|r| r.items)
         .unwrap_or_default();
-    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-create-overlay then call showToast('报价已创建')";
+    // 提交成功（空 body）广播 quotationChanged → quotation card 局部刷新，tab 保持 active=quotation；
+    // form afterRequest 凭 responseText 空 关 drawer（供应商联系人子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #quotation-create-overlay";
     Ok(Html(
         crate::pages::purchase_quotation_create::pq_create_page(
             &suppliers,
@@ -1802,10 +1935,9 @@ pub async fn post_quotation_create(
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::purchase_quotation_create::do_create_pq(&state, &service_ctx, form).await?;
     invalidate_purchase_summary(&state);
-    // 创建成功后整页刷新 work-center（drawer 关 + 列表刷新看新建）。
-    // 局部关 drawer 不可靠：form afterRequest 不触发（程序化提交坑）+ OOB 替换 overlay 又触发
-    // overlay_hs afterSettle add .open（overlay.rs 统一显隐机制，单一来源不宜改）。
-    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+    // 局部刷新保 tab：广播 quotationChanged → quotation card 刷新（pc_tab_bar active 仍为 quotation）。
+    // drawer 关闭由 form afterRequest（responseText 空）负责；空 body 不替换 overlay，不触发 afterSettle 重开。
+    Ok(([("HX-Trigger", "quotationChanged")], Html(String::new())))
 }
 
 // ── 退货创建 drawer ──
@@ -1842,7 +1974,9 @@ pub async fn get_return_create_drawer(
             .await?;
         all_orders.extend(result.items);
     }
-    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #return-create-overlay then call showToast('退货已创建')";
+    // 提交成功（空 body）广播 returnChanged → returns card 局部刷新（保 tab）；
+    // form afterRequest 凭 responseText 空 关 drawer（PO 明细子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #return-create-overlay";
     Ok(Html(
         crate::pages::purchase_return_create::pr_create_page(
             &all_orders,
@@ -1863,7 +1997,7 @@ pub async fn post_return_create(
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::purchase_return_create::do_create_pr(&state, &service_ctx, form).await?;
     invalidate_purchase_summary(&state);
-    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+    Ok(([("HX-Trigger", "returnChanged")], Html(String::new())))
 }
 
 // ── 请购创建 drawer ──
@@ -1873,7 +2007,9 @@ pub async fn get_misc_create_drawer(
     _path: PcMiscCreateDrawerPath,
     _ctx: RequestContext,
 ) -> Result<Html<String>> {
-    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #misc-create-overlay then call showToast('请购已创建')";
+    // 提交成功（空 body）广播 demandChanged → misc card 局部刷新（保 tab）；
+    // form afterRequest 凭 responseText 空 关 drawer（明细行子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #misc-create-overlay";
     Ok(Html(
         crate::pages::misc_request_create::misc_create_page(
             PcMiscCreatePath::PATH,
@@ -1905,7 +2041,7 @@ pub async fn post_misc_create(
     )
     .await?;
     invalidate_purchase_summary(&state);
-    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+    Ok(([("HX-Trigger", "demandChanged")], Html(String::new())))
 }
 
 // ── 对账创建 drawer ──
@@ -1936,7 +2072,9 @@ pub async fn get_recon_create_drawer(
         )
         .await?
         .items;
-    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #recon-create-overlay then call showToast('对账单已创建')";
+    // 提交成功（空 body）广播 reconChanged → settlement card 局部刷新（保 tab）；
+    // form afterRequest 凭 responseText 空 关 drawer（preview 子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #recon-create-overlay";
     Ok(Html(
         crate::pages::purchase_recon_create::precon_create_page(
             &suppliers,
@@ -1958,7 +2096,7 @@ pub async fn post_recon_create(
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::purchase_recon_create::do_create_precon(&state, &service_ctx, form).await?;
     invalidate_purchase_summary(&state);
-    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+    Ok(([("HX-Trigger", "reconChanged")], Html(String::new())))
 }
 
 // ── 付款创建 drawer ──
@@ -2005,7 +2143,10 @@ pub async fn get_pay_create_drawer(
         .await
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| claims.display_name.clone());
-    let after_hs = "on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #pay-create-overlay then call showToast('付款申请已创建')";
+    // 提交成功（空 body）广播 reconChanged → settlement card 局部刷新（hx-include filter-form
+    // 带 tab=payment，保 payment 子tab）；form afterRequest 凭 responseText 空 关 drawer
+    // （供应商信息子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #pay-create-overlay";
     Ok(Html(
         crate::pages::payment_request_create::pay_create_page(
             &suppliers,
@@ -2028,7 +2169,7 @@ pub async fn post_pay_create(
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::payment_request_create::do_create_pay(&state, &service_ctx, form).await?;
     invalidate_purchase_summary(&state);
-    Ok(([("HX-Redirect", PurchaseWorkCenterPath::PATH)], Html(String::new())))
+    Ok(([("HX-Trigger", "reconChanged")], Html(String::new())))
 }
 
 #[require_permission("PURCHASE_QUOTATION", "read")]
@@ -2375,11 +2516,11 @@ fn pc_tab_bar(active: &str, s: &PurchaseWorkCenterSummary) -> Markup {
         div class="flex items-center gap-1 flex-wrap px-5 pt-3 border-b border-border-soft" {
             (tab("demand-detail", PcDemandPath::PATH, r#"{"view":"detail"}"#, icon::rows_icon("w-4 h-4"), "采购明细", s.demand_detail_total))
             (tab("demand-material", PcDemandPath::PATH, r#"{"view":"material"}"#, icon::grid_4_icon("w-4 h-4"), "物料汇总", s.pending_demand))
-            (tab("orders", PcOrdersPath::PATH, "{}", icon::clipboard_list_icon("w-4 h-4"), "采购订单", s.total_orders))
-            (tab("settlement", PcSettlementPath::PATH, "{}", icon::payment_icon("w-4 h-4"), "对账付款", s.total_recon))
-            (tab("returns", PcReturnsPath::PATH, "{}", icon::return_arrow_icon("w-4 h-4"), "采购退货", s.total_returns))
             (tab("quotation", PcQuotationPath::PATH, "{}", icon::clipboard_document_icon("w-4 h-4"), "供应商报价", s.total_quotations))
-            (tab("misc", PcMiscPath::PATH, "{}", icon::clipboard_module_icon("w-4 h-4"), "零星请购", s.total_misc))
+            (tab("orders", PcOrdersPath::PATH, "{}", icon::clipboard_list_icon("w-4 h-4"), "采购订单", s.total_orders))
+            (tab("misc", PcMiscPath::PATH, "{}", icon::clipboard_module_icon("w-4 h-4"), "零星采购", s.total_misc))
+            (tab("returns", PcReturnsPath::PATH, "{}", icon::return_arrow_icon("w-4 h-4"), "采购退货", s.total_returns))
+            (tab("settlement", PcSettlementPath::PATH, "{}", icon::payment_icon("w-4 h-4"), "对账付款", s.total_recon))
         }
     }
 }
@@ -3100,7 +3241,7 @@ fn quotation_status_pill(status: PurchaseQuotationStatus) -> Markup {
     }
 }
 
-// ── 零星请购 card 渲染 ──
+// ── 零星采购 card 渲染 ──
 
 fn misc_filter_bar(status: Option<i16>) -> Markup {
     html! {

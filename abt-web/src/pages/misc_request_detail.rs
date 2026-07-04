@@ -63,9 +63,9 @@ pub async fn get_misc_detail(
 
  let content = misc_detail_page(&req, &items, &department_name, &operator_name, total_amount);
  let page_html = admin_page(
- is_htmx, "零星请购详情", &claims, "purchase",
+ is_htmx, "零星采购详情", &claims, "purchase",
  &format!("{}/{}", MiscListPath::PATH, path.id),
- "采购管理", Some("零星请购详情"), content, &nav_filter,
+ "采购管理", Some("零星采购详情"), content, &nav_filter,
  );
 
  Ok(Html(page_html.into_string()))
@@ -180,7 +180,7 @@ fn misc_detail_page(
         // ── Back Link ──
         a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
             href=(format!("{}?restore=true", MiscListPath::PATH))
-        { (icon::chevron_left_icon("w-4 h-4")) "返回零星请购列表" }
+        { (icon::chevron_left_icon("w-4 h-4")) "返回零星采购列表" }
         // ── Detail Header ──
         div class="block bg-bg border border-border-soft rounded-lg p-6" {
             div {
@@ -199,12 +199,12 @@ fn misc_detail_page(
                     button
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
                         hx-post=(MiscApprovePath { id: req.id }.to_string())
-                        hx-confirm="确认审批此零星请购？"
+                        hx-confirm="确认审批此零星采购？"
                     { (icon::check_circle_icon("w-4 h-4")) "审批" }
                     button
                         class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                         hx-post=(MiscCancelPath { id: req.id }.to_string())
-                        hx-confirm="确认取消此零星请购？取消后不可恢复。"
+                        hx-confirm="确认取消此零星采购？取消后不可恢复。"
                     { "取消" }
                 }
             }

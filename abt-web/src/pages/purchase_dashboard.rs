@@ -447,7 +447,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                         todo_item(
                             "status-progress",
                             "待审批",
-                            &format!("{} 笔零星请购待审批", stats.pending_misc),
+                            &format!("{} 笔零星采购待审批", stats.pending_misc),
                             "需处理",
                             false,
                         )
@@ -517,7 +517,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 ({
                     quick_link_card(
                         "/admin/purchase/misc-requests",
-                        "零星请购",
+                        "零星采购",
                         "请购管理",
                     )
                 })
@@ -622,7 +622,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                     path
                         d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" {}
                 }
-                "零星请购（非生产物资）"
+                "零星采购（非生产物资）"
             }
         }
     }
@@ -684,7 +684,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 activity_row(
                     "status-progress",
                     "请购",
-                    "零星请购 MISC-2026-05-00031 已审批通过",
+                    "零星采购 MISC-2026-05-00031 已审批通过",
                     "",
                     "3 天前",
                     true,

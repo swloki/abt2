@@ -7,7 +7,7 @@ use crate::shared::types::{PgExecutor, Result};
 use super::model::{
     CreateFromOrderReq, CreateManualReq, CreatePickingReq, DoneItemReq, IssueMaterialReq,
     PickingFilter, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary, StockPicking,
-    StockPickingItem,
+    StockPickingItem, ShipRowReq,
 };
 
 /// 统一库存作业单据 Service（Issue #146）
@@ -165,6 +165,16 @@ pub trait PickingService: Send + Sync {
         id: i64,
         warehouse_id: i64,
         bin_id: Option<i64>,
+    ) -> Result<()>;
+
+    /// 行级发货（对齐 Odoo stock.move.line）：每行独立库位/批次/数量，warehouse 全局。
+    async fn direct_ship_rows(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        warehouse_id: i64,
+        rows: Vec<ShipRowReq>,
     ) -> Result<()>;
 
     /// 发货 Hub 摘要（缺货 ATP 判定）

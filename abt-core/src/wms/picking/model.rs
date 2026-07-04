@@ -108,11 +108,17 @@ pub struct DoneItemReq {
 pub struct PickingFilter {
     pub doc_number: Option<String>,
     pub picking_type: Option<PickingType>,
+    /// 多值 OR 查询（优先于 `picking_type`；单据台账「收货」tab 合并 IncomingPurchase + IncomingWorkOrder）
+    pub picking_types: Option<Vec<PickingType>>,
     pub status: Option<PickingStatus>,
     pub source_type: Option<String>,
     pub source_id: Option<i64>,
     pub work_order_id: Option<i64>,
     pub partner_id: Option<i64>,
+    /// 计划日期范围：scheduled_date >=
+    pub date_from: Option<NaiveDate>,
+    /// 计划日期范围：scheduled_date <=
+    pub date_to: Option<NaiveDate>,
 }
 
 // ── 领料专用请求（从 material_requisition 迁入，字段保持兼容调用方）──
@@ -188,6 +194,17 @@ pub struct CreateShippingItemReq {
 pub struct RequestShippingItemReq {
     pub order_item_id: i64,
     pub requested_qty: Decimal,
+}
+
+/// 发货 Hub 摘要（首屏轻量查询，含缺货 ATP 判定）
+/// 行级发货请求（对齐 Odoo stock.move.line：每行独立库位/批次/数量）
+#[derive(Debug, Clone)]
+pub struct ShipRowReq {
+    pub picking_item_id: i64,
+    pub warehouse_id: i64,
+    pub bin_id: Option<i64>,
+    pub batch_no: Option<String>,
+    pub qty: Decimal,
 }
 
 /// 发货 Hub 摘要（首屏轻量查询，含缺货 ATP 判定）

@@ -47,10 +47,7 @@ pub async fn search_material_requisitions(
                 doc_number: params.keyword.filter(|s| !s.is_empty()),
                 picking_type: Some(PickingType::InternalIssue),
                 status,
-                source_type: None,
-                source_id: None,
-                work_order_id: None,
-                partner_id: None,
+                ..Default::default()
             },
             abt_core::shared::types::pagination::PageParams::new(1, 30),
         )

@@ -1,3 +1,8 @@
+---
+description: "ABT HTMX 范式正文：单端点原则、组件三原则、列表页三大控件、HX-Trigger 多组件联动、Modal/Drawer 三模式、AI 易错点纠错"
+globs: ["abt-web/**/*.rs"]
+---
+
 # HTMX 开发范式说明
 
 > 本文档是 abt-web 前端交互的**系统性范式正文**。[`abt-web/CLAUDE.md`](../../abt-web/CLAUDE.md) 是强约束入口（必读速查），本文是其展开：写页面 / 组件遇到交互决策时，来这里查「用哪种模式、为什么、踩过哪些坑」。

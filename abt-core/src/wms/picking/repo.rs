@@ -372,9 +372,28 @@ impl PickingRepo {
             param_idx += 1;
             where_clauses.push(format!("p.doc_number ILIKE ${param_idx}"));
         }
-        if filter.picking_type.is_some() {
+        if let Some(ref types) = filter.picking_types {
+            if !types.is_empty() {
+                let placeholders: Vec<String> = types
+                    .iter()
+                    .map(|_| {
+                        param_idx += 1;
+                        format!("${param_idx}")
+                    })
+                    .collect();
+                where_clauses.push(format!("p.picking_type IN ({})", placeholders.join(", ")));
+            }
+        } else if filter.picking_type.is_some() {
             param_idx += 1;
             where_clauses.push(format!("p.picking_type = ${param_idx}"));
+        }
+        if filter.date_from.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("p.scheduled_date >= ${param_idx}"));
+        }
+        if filter.date_to.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("p.scheduled_date <= ${param_idx}"));
         }
         if filter.status.is_some() {
             param_idx += 1;
@@ -421,7 +440,20 @@ impl PickingRepo {
             count_q = count_q.bind(pattern.clone());
             data_q = data_q.bind(pattern);
         }
-        if let Some(v) = filter.picking_type {
+        if let Some(ref types) = filter.picking_types {
+            for t in types {
+                count_q = count_q.bind(*t);
+                data_q = data_q.bind(*t);
+            }
+        } else if let Some(v) = filter.picking_type {
+            count_q = count_q.bind(v);
+            data_q = data_q.bind(v);
+        }
+        if let Some(v) = filter.date_from {
+            count_q = count_q.bind(v);
+            data_q = data_q.bind(v);
+        }
+        if let Some(v) = filter.date_to {
             count_q = count_q.bind(v);
             data_q = data_q.bind(v);
         }

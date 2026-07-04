@@ -2,7 +2,7 @@
 
 Rust 全栈前端，Axum + Maud + HTMX + Hyperscript + UnoCSS，直接调用 `abt-core` Service trait。
 
-> **本文档是前端强约束入口（必读速查）。** HTMX / 交互的系统性范式（决策树、组合模式、反模式、踩坑固化）见 [`docs/frontend/htmx-patterns.md`](../docs/frontend/htmx-patterns.md)。
+> **本文档是前端强约束入口（必读速查）。** HTMX / 交互的系统性范式（决策树、组合模式、反模式、踩坑固化）见 omp rulebook rule [`../.omp/rules/htmx-patterns.md`](../.omp/rules/htmx-patterns.md)（会话中也可 `rule://htmx-patterns` 访问）。
 
 ## Constraints（必须遵守）
  **Rust 2024 Maud 陷阱**：字符串 `"xxx-yyy"` 后直接跟属性名（如 `style`）会被 Rust 2024 lexer 解析为 prefix literal，编译报错 `prefix 'yyy' is unknown`。解法：字符串末尾加空格 `"xxx-yyy "`。
@@ -145,7 +145,7 @@ html! {
 }
 ```
 
-> 详见 [`docs/frontend/htmx-patterns.md` §1.2](../docs/frontend/htmx-patterns.md)（含 `vals_json()` 辅助函数、现存脆弱写法清单）。
+> 详见 [`../.omp/rules/htmx-patterns.md` §1.2](../.omp/rules/htmx-patterns.md)（`rule://htmx-patterns`；含 `vals_json()` 辅助函数、现存脆弱写法清单）。
 
 ### 3. 视觉闭环 — `hx-indicator` 将 Loading HTML 写在组件内部
 
@@ -241,7 +241,7 @@ form class="filter-bar filter-form" id="xxx-filter-form"
 pagination(ListPath::PATH, "#order-data-card", "#filter-form", total, page, total_pages)
 ```
 
-链接自带 `hx-get` + `hx-target` + `hx-select` + `hx-vals={"page":N}` + `hx-include`（status_tabs 同款），page 经 `hx-vals` 传，**无需 hidden input / hyperscript**。`target_sel` 指定替换区域，`form_sel` 指定携带筛选的 form（同页多 form 各传各的）。约定：filter-form `id="filter-form"`；切 tab 由 `status_tabs` 的 `hx-vals` 强制 `page=1`；搜索不带 page → handler 默认 page=1（自动回首页）。详见 [`docs/frontend/htmx-patterns.md` §2.2](../docs/frontend/htmx-patterns.md#2-列表页单端点模式)。
+链接自带 `hx-get` + `hx-target` + `hx-select` + `hx-vals={"page":N}` + `hx-include`（status_tabs 同款），page 经 `hx-vals` 传，**无需 hidden input / hyperscript**。`target_sel` 指定替换区域，`form_sel` 指定携带筛选的 form（同页多 form 各传各的）。约定：filter-form `id="filter-form"`；切 tab 由 `status_tabs` 的 `hx-vals` 强制 `page=1`；搜索不带 page → handler 默认 page=1（自动回首页）。详见 [`../.omp/rules/htmx-patterns.md` §2.2](../.omp/rules/htmx-patterns.md#2-列表页单端点模式)。
 
 #### 关键约束
 
@@ -250,7 +250,7 @@ pagination(ListPath::PATH, "#order-data-card", "#filter-form", total, page, tota
 - **`TypedPath::PATH` 需要 trait 在 scope 中**：页面文件必须 `use axum_extra::routing::TypedPath;`，否则报 `no associated item named PATH`
 - **`Serialize` 与 `TypedPath` derive 冲突**：`#[derive(TypedPath, Serialize, ...)]` 会阻止 `PATH` 常量生成，去掉 `Serialize`
 
-> 完整控件签名、扩展 OOB（多区域联动）、`hx-push-url` 禁用理由等见 [`docs/frontend/htmx-patterns.md` §2 列表页单端点模式](../docs/frontend/htmx-patterns.md#2-列表页单端点模式)。
+> 完整控件签名、扩展 OOB（多区域联动）、`hx-push-url` 禁用理由等见 [`../.omp/rules/htmx-patterns.md` §2 列表页单端点模式](../.omp/rules/htmx-patterns.md#2-列表页单端点模式)。
 
 ---
 
@@ -261,7 +261,7 @@ pagination(ListPath::PATH, "#order-data-card", "#filter-form", total, page, tota
 1. 主动组件 POST → 后端响应头 `HX-Trigger: "cartUpdated"`
 2. 被动组件声明 `hx-trigger="cartUpdated from:body"` 指向各自的强类型路径
 
-> 真实案例、JSON 多事件组合、`HX-Trigger` vs `HX-Trigger-After-Settle` 时序决策见 [`docs/frontend/htmx-patterns.md` §4 HX-Trigger 多组件联动](../docs/frontend/htmx-patterns.md#4-hx-trigger-多组件联动核心范式)。
+> 真实案例、JSON 多事件组合、`HX-Trigger` vs `HX-Trigger-After-Settle` 时序决策见 [`../.omp/rules/htmx-patterns.md` §4 HX-Trigger 多组件联动](../.omp/rules/htmx-patterns.md#4-hx-trigger-多组件联动核心范式)。
 
 ---
 

@@ -201,7 +201,7 @@ pub fn new_audit_log_service(pool: PgPool) -> impl AuditLogService {
 
 ### Web Frontend Patterns
 
-> **Authoritative source for HTMX / interaction patterns:** [`docs/frontend/htmx-patterns.md`](docs/frontend/htmx-patterns.md) (decision trees, composition modes, anti-patterns, gotchas). This section keeps the English cross-cutting constraints and the Surreal→Hyperscript migration table; for full worked examples, the attribute quick-reference, and the `HX-Trigger` vs `HX-Trigger-After-Settle` timing decision, refer to the authoritative doc.
+> **Authoritative source for HTMX / interaction patterns:** [`.omp/rules/htmx-patterns.md`](.omp/rules/htmx-patterns.md) — an omp **rulebook rule**, accessible in-session via `rule://htmx-patterns` (decision trees, composition modes, anti-patterns, gotchas). This section keeps the English cross-cutting constraints and the Surreal→Hyperscript migration table; for full worked examples, the attribute quick-reference, and the `HX-Trigger` vs `HX-Trigger-After-Settle` timing decision, read the rule via `rule://htmx-patterns` or open the file directly. The two sibling rules `rule://hyperscript-patterns` and `rule://unocss-patterns` cover the script and style layers; the four TTSR rules (`rule://no-fetch-submit`, `rule://no-onclick-ui`, `rule://no-surreal-me`, `rule://maud-prefix-literal`) enforce the red lines mid-stream.
 
 #### Data Access Layer (Mandatory)
 

@@ -4,7 +4,7 @@
 //! modal / drawer / picker 全部基于本组件 → 显隐 / 关闭 / 动画以后只改这里一处。
 //! body 由调用方传入（静态插槽）或动态 `hx-get` swap（模式 B 保留）。
 //!
-//! 详见 `docs/frontend/htmx-patterns.md` §3。
+//! 详见 `.omp/rules/htmx-patterns.md` §3（omp rulebook rule，`rule://htmx-patterns`）。
 
 use maud::{Markup, html};
 

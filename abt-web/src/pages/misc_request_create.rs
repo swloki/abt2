@@ -50,12 +50,12 @@ pub async fn get_misc_create(
  let content = misc_create_page(MiscCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx,
- "新建零星请购",
+ "新建零星采购",
  &claims,
  "purchase",
  MiscCreatePath::PATH,
  "采购管理",
- Some("新建零星请购"),
+ Some("新建零星采购"),
  content, &nav_filter, );
 
  Ok(Html(page_html.into_string()))
@@ -151,8 +151,8 @@ pub fn misc_create_page(post_path: &str, after_request_hs: &str, show_header: bo
             div class="flex items-center justify-between mb-6" {
                 a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
                     href=(format!("{}?restore=true", MiscListPath::PATH))
-                { (icon::arrow_left_icon("w-4 h-4")) "返回零星请购列表" }
-                h1 class="text-xl font-bold text-fg tracking-tight" { "新建零星请购" }
+                { (icon::arrow_left_icon("w-4 h-4")) "返回零星采购列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建零星采购" }
             }
         }
 

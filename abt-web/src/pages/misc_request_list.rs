@@ -161,12 +161,12 @@ pub async fn get_misc_list(
  let content = misc_list_page(&result, &params, &operator_map, &dept_name_map, can_create);
  let page_html = admin_page(
  is_htmx,
- "零星请购",
+ "零星采购",
  &claims,
  "purchase",
  MiscListPath::PATH,
  "采购管理",
- Some("零星请购"),
+ Some("零星采购"),
  content, &nav_filter, );
 
  Ok(Html(page_html.into_string()))
@@ -185,12 +185,12 @@ fn misc_list_page(
     div {
         // ── Page Header ──
         div class="flex items-center justify-between mb-6" {
-            h1 class="text-xl font-bold text-fg tracking-tight" { "零星请购" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "零星采购" }
             div class="flex gap-3" {
                 @if can_create {
                     a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
                         href=(MiscCreatePath::PATH)
-                    { (icon::plus_icon("w-4 h-4")) "新建零星请购" }
+                    { (icon::plus_icon("w-4 h-4")) "新建零星采购" }
                 }
             }
         }

@@ -191,7 +191,7 @@ fn modules() -> Vec<NavModule> {
                     permission: Some(("PURCHASE_ORDER", "read")),
                 },
                 NavItem {
-                    name: "零星请购",
+                    name: "零星采购",
                     path: "/admin/purchase/misc-requests",
                     icon: NavIcon::Sliders,
                     permission: Some(("PURCHASE_ORDER", "read")),

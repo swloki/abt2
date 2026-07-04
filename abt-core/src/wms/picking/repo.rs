@@ -356,6 +356,31 @@ impl PickingRepo {
         Ok(ids)
     }
 
+    /// 按工单聚合各产品已申请领料量（InternalIssue + 未取消），供前端「选工单→加载 BOM 行」算待领差额。
+    pub async fn sum_issued_qty_by_work_order(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+    ) -> Result<std::collections::HashMap<i64, rust_decimal::Decimal>> {
+        let rows: Vec<(i64, rust_decimal::Decimal)> = sqlx::query_as(
+            r#"
+            SELECT i.product_id, COALESCE(SUM(i.qty_requested), 0) AS issued_qty
+            FROM stock_picking_items i
+            JOIN stock_pickings p ON p.id = i.picking_id
+            WHERE p.work_order_id = $1
+              AND p.picking_type = $2
+              AND p.deleted_at IS NULL
+              AND p.status <> $3
+            GROUP BY i.product_id
+            "#,
+        )
+        .bind(work_order_id)
+        .bind(crate::wms::enums::PickingType::InternalIssue)
+        .bind(PickingStatus::Cancelled)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows.into_iter().collect())
+    }
+
     /// 分页查询作业单据列表（自动过滤软删除）
     pub async fn list(
         executor: &mut sqlx::postgres::PgConnection,

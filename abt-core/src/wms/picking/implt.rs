@@ -453,9 +453,9 @@ impl PickingService for PickingServiceImpl {
             .iter()
             .map(|it| CreatePickingItemReq {
                 product_id: it.product_id,
-                batch_no: None,
+                batch_no: it.batch_no.clone(),
                 qty_requested: it.requested_qty,
-                from_bin_id: None,
+                from_bin_id: it.bin_id,
                 to_bin_id: None,
                 operation_id: None,
                 batch_id: None,
@@ -463,10 +463,15 @@ impl PickingService for PickingServiceImpl {
                 remark: None,
             })
             .collect();
+        // work_order_id=Some 时关联工单（source_type/source_id/work_order_id），否则纯手动
+        let source_type = match req.work_order_id {
+            Some(_) => Some("work_order".to_string()),
+            None => Some("none".to_string()),
+        };
         let picking_req = CreatePickingReq {
             picking_type: PickingType::InternalIssue,
-            source_type: Some("none".into()),
-            source_id: None,
+            source_type,
+            source_id: req.work_order_id,
             partner_id: None,
             from_warehouse_id: Some(req.warehouse_id),
             from_zone_id: None,
@@ -475,12 +480,52 @@ impl PickingService for PickingServiceImpl {
             to_zone_id: None,
             to_bin_id: None,
             scheduled_date: Some(req.requisition_date),
-            work_order_id: None,
+            work_order_id: req.work_order_id,
             remark: req.remark.clone(),
             items,
         };
         let picking = PickingRepo::insert(&mut *db, &doc_number, &picking_req, ctx.operator_id).await?;
         Ok(picking.id)
+    }
+
+    /// 按工单聚合各产品已申请领料量（InternalIssue + 未取消）
+    async fn sum_issued_qty_by_work_order(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<std::collections::HashMap<i64, rust_decimal::Decimal>> {
+        PickingRepo::sum_issued_qty_by_work_order(&mut *db, work_order_id).await
+    }
+
+    /// 工单领料预览：BOM leaf_nodes × planned_qty 算需求量，附已领量（前端算待领差额 + 查可用量）
+    async fn list_wo_requisition_preview(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<Vec<super::model::WoReqPreviewItem>> {
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, db, work_order_id).await?;
+        let snapshot_id = wo.bom_snapshot_id.ok_or_else(|| {
+            DomainError::BusinessRule("工单无 BOM 快照，请先确保 release 时 BOM 快照创建成功".into())
+        })?;
+        let snapshot = new_bom_query_service(self.pool.clone())
+            .get_snapshot_by_id(ctx, db, snapshot_id).await?
+            .ok_or_else(|| DomainError::not_found("BomSnapshot"))?;
+        let planned = wo.planned_qty;
+        let issued = PickingRepo::sum_issued_qty_by_work_order(&mut *db, work_order_id).await?;
+        let items = snapshot
+            .bom_detail
+            .leaf_nodes()
+            .iter()
+            .map(|node| super::model::WoReqPreviewItem {
+                product_id: node.product_id,
+                bom_qty: node.quantity * planned,
+                issued_qty: *issued.get(&node.product_id).unwrap_or(&rust_decimal::Decimal::ZERO),
+            })
+            .collect();
+        Ok(items)
     }
 
     /// 发料（Confirmed → Done/Confirmed）：写 MaterialIssue 流水 + 消耗 HARD 预留 + 记工单成本 + 审计

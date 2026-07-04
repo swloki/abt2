@@ -417,7 +417,55 @@ _="on change call toggleAllDemands(me, closest <table/>)"        // 全选
 
 ---
 
+## 9. 响应式特性（live / when / bind）— 值变化自动联动
+
+hyperscript 的 **Features 层**（写在 `_=` 里的顶层特性，区别于 `on` 事件处理器）有三个响应式特性，适合「值变化时自动联动」，比 `on input ... then set ...` 链式更声明式。源自官方 [reference §Features](https://hyperscript.org/reference/#features)。
+
+> ⚠ **版本**：`live`/`when`/`bind` 是 hyperscript 较新特性（0.9.x 后期加入核心）。ABT 加载 `static/hyperscript.min.js`，使用前**先在小元素实测**——若不生效说明当前版本未编译这些特性，回退到 `on input call fn()` 经典范式（§5.8）。本项目优先 HTMX + 经典 Hyperscript，响应式仅在前述模式别扭时用。
+
+### 9.1 `live` — 派生值自动重算
+
+依赖变化时自动重跑命令，适合「总价 = 单价 × 数量」这类派生值。`live` 块里读到的 `$var`（带 `$` 前缀的元素/全局变量）被追踪，任一变化触发整块重跑：
+
+```rust
+// 总价随单价/数量自动重算（$price/$qty 变化 → live 块重跑）
+span _="live set my innerHTML to ($price * $qty as Number)" { "0" }
+```
+
+### 9.2 `when` — 值变化触发副作用
+
+跟 `live` 一样追踪依赖，但 `when` 强调「变化时做副作用」（异步 / 多命令 / 触发事件），不只是重算值：
+
+```rust
+// 库存 ≤ 0 时切红框
+input _="when $qty changes if $qty <= 0 then add .border-danger to me end"
+```
+
+### 9.3 `bind` — 两值双向同步
+
+任一侧变化，另一侧自动跟上。适合「checkbox ↔ 主题 class」「input ↔ 显示值」这类镜像关系：
+
+```rust
+// 复选框勾选 ↔ body 加 .dark（双向）
+input type="checkbox" _="bind my checked and .dark on body"
+```
+
+### 9.4 何时用响应式 vs 经典 `on`
+
+| 场景 | 推荐 |
+|---|---|
+| 派生值（总价=单价×数量） | `live` 声明式；行项目计算复杂仍用 `app.js`（§6.7） |
+| 值变化的副作用 | `when` 或经典 `on change` |
+| 两值镜像（checkbox↔class） | `bind` |
+| 涉及服务端状态 | 仍用 HTMX（响应式只管前端） |
+
+> 红线不变：响应式是**纯前端**联动，涉及服务端状态必走 HTMX（§8）。
+
+---
+
 ## 附录 A：命令速查（完整）
+
+**项目高频**（§3 / §5 详述）：
 
 | 命令 | 用途 |
 |---|---|
@@ -434,13 +482,84 @@ _="on change call toggleAllDemands(me, closest <table/>)"        // 全选
 | `wait <time>` / `settle` / `transition <prop> to <val>` | 等待 / 等动画 / 过渡 |
 | `halt [the event]` | 阻止事件（默认 + 冒泡，见 §6.1） |
 | `exit` / `return <val>` / `throw <msg>` | 退出 / 返回 / 抛错 |
-| `log <expr>` / `beep` | 调试 |
+| `log <expr>` / `beep` / `breakpoint` | 调试（`breakpoint` = DevTools 断点） |
 | `tell <target>` | 切换隐式目标（`you`） |
 | `make a <Type> from ...` / `measure <el>` | 构造 / 测量 |
 
+**补充命令**（reference 收录，项目暂未用，按需取）：
+
+| 命令 | 用途 | 示例 |
+|---|---|---|
+| `append <val> to <x>` | 追加到字符串/数组/元素 | `append ",end" to myStr` |
+| `increment <var>` / `decrement <var>` | 增/减变量（默认步长 1） | `increment counter` |
+| `default <var> to <val>` | 仅未定义时设默认 | `default x to 0` |
+| `empty <el>` / `clear <input>` | 清空内容/输入值/集合 | `empty #results`、`clear #search` |
+| `focus <el>` / `blur <el>` | 聚焦 / 失焦 | `focus #search-input` |
+| `scroll to/by ...` | 滚动 | `scroll to #section smoothly` |
+| `morph <el> to <content>` | morph DOM 保留身份 | `morph #target to newHtml` |
+| `pick first N of / match of` | 选取 | `pick first 3 of arr` |
+| `render <tpl> with <data>` | 渲染模板 | `render #tpl with items: data` |
+| `swap <a> with <b>` | 交换两值 | `swap x with y` |
+| `open` / `close` | 打开/关闭 dialog/popover/fullscreen | `open #dialog`、`close fullscreen` |
+| `select <input>` | 选中文本 | `select #search-input` |
+| `ask` / `answer` | prompt / alert·confirm 对话框 | `ask "名字?"`（结果在 `it`） |
+| `start a view transition` | View Transition API（很新，实测） | `start a view transition using "fade" ... end` |
+| `fetch <url>` | ⚠ **ABT 禁用**（提交走 HTMX，§8） | — |
+
 ## 附录 B：Magic Values 速查
 
-`me`（当前元素）· `you`（tell 目标）· `it`/`result`（上次结果）· `event`/`target`/`detail`/`sender`（事件）· `body` · `cookies[...]`
+`me`（当前元素）· `you`（tell 目标）· `it`/`result`（上次结果）· `event`/`target`/`detail`/`sender`（事件）· `body` · `cookies[...]` · `clipboard`（系统剪贴板，读写）· `selection`（当前选中文本）
+
+## 附录 C：表达式与操作符速查（含集合表达式）
+
+### 集合表达式（数组/字符串）
+
+| 表达式 | 用途 | 示例 |
+|---|---|---|
+| `where` | 过滤 | `items where its active` |
+| `sorted by` | 排序 | `items sorted by its name descending` |
+| `mapped to` | 投影 | `items mapped to its id` |
+| `split by` | 字符串拆数组 | `"a,b" split by ","` |
+| `joined by` | 数组接字符串 | `items joined by ", "` |
+| `pick first N of` | 取前 N | `pick first 3 of arr` |
+
+### 操作符
+
+| 操作符 | 用途 | 示例 |
+|---|---|---|
+| `no` | 空检查 | `no element.children` |
+| `some` | 存在检查（`no` 的反） | `some <.results/>` |
+| `in` | 包含 | `"foo" in myArray` |
+| `starts with` / `ends with` | 前缀 / 后缀 | `url starts with "https"` |
+| `is between X and Y` | 范围（闭区间） | `qty is between 1 and 10` |
+| `ignoring case` | 大小写无关（修饰符） | `x contains "hi" ignoring case` |
+| `precedes` / `follows` | DOM 文档顺序 | `#a precedes #b` |
+| `<val> as <Type>` | 类型转换 | `"10" as Int`、表单 `as Values` |
+| `<val> \| <conv>` | pipe 链式转换 | `x as Values \| JSONString` |
+| `x:String` / `x:Int!` | 类型断言（`!` 非空，不匹配抛错） | `event.detail:String` |
+
+### 字面量补充（reference 新增）
+
+| 字面量 | 示例 |
+|---|---|
+| 模板字符串（插值） | `"Hello ${name}"` |
+| 时间 | `200ms` / `2s` |
+| CSS 单位 | `10px` / `2em` / `50%` |
+| block literal（匿名函数） | `\ x -> x * x` |
+
+## 附录 D：扩展特性（需扩展脚本，ABT 暂不可用）
+
+以下 Features 需额外的 hyperscript 扩展脚本（核心 `hyperscript.min.js` 之外）。ABT 仅加载核心，**未加载扩展**，故不可用；需要时先在 `layout/page.rs` 加载对应扩展脚本：
+
+| 特性 | 用途 | ABT 是否需要 |
+|---|---|---|
+| `components` | 自定义元素 + 响应式模板 | ❌ 走 Maud SSR + HTMX，不需要 |
+| `socket` | WebSocket 实时 | ⚠ 需服务端推送时考虑（目前 HTMX 轮询/事件够用） |
+| `eventsource` | SSE 服务端推送 | ⚠ 同上 |
+| `worker` | Web Worker 后台计算 | ⚠ 重计算时（目前无需求） |
+| `intercept` | Service Worker 缓存/离线 | ❌ PWA 离线（目前无需求） |
+
+> 即便加载扩展，`fetch` 命令仍**禁用于提交表单**（ABT 红线：用 HTMX，见 §8）。
 
 ## 关联文档
 

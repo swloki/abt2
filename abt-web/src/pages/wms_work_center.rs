@@ -1,4 +1,4 @@
-use axum::response::{Html, IntoResponse};
+﻿use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
@@ -26,10 +26,10 @@ use rust_decimal::Decimal;
 use std::collections::HashMap;
 
 use crate::components::icon;
-use crate::components::overlay::{drawer_shell, modal_shell};
+use crate::components::overlay::drawer_shell;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_oob, TabItem};
-use abt_core::wms::picking::model::{PoReceiveRow, ReceivePurchaseReq};
+use abt_core::wms::picking::model::{PoReceiveRow, ReceivePurchaseReq, ShipRowReq};
 use abt_core::wms::inventory_transaction::{model::RecordTransactionReq, InventoryTransactionService};
 use abt_core::mes::work_order::WorkOrderService;
 use crate::errors::Result;
@@ -928,7 +928,16 @@ async fn dispatch_action(
         "direct_ship" => {
             // 直接发（Confirmed 待发货单）：仓库由选仓 drawer 传入
             let warehouse_id = parse_warehouse(form)?;
-            state.picking_service().direct_ship(ctx, db, form.id, warehouse_id, None).await?;
+            // 行级库位/批次/数量：drawer items_json → ShipRowReq；batch_ship 走旧 direct_ship
+            let ship_rows: Vec<ShipRowJson> = parse_items_json(form)?;
+            let rows: Vec<ShipRowReq> = ship_rows.into_iter().map(|r| ShipRowReq {
+                picking_item_id: r.picking_item_id.parse().unwrap_or(0),
+                warehouse_id: r.warehouse_id.parse().unwrap_or(0),
+                qty: r.qty.parse().unwrap_or(Decimal::ZERO),
+                bin_id: r.bin_id.and_then(|s| s.parse().ok()),
+                batch_no: r.batch_no.filter(|s| !s.is_empty()),
+            }).collect();
+            state.picking_service().direct_ship_rows(ctx, db, form.id, warehouse_id, rows).await?;
         }
         "batch_ship" => {
             // 批量直接发（待发货单）：循环 direct_ship，外层 tx 任一失败 → 整体回滚
@@ -1038,6 +1047,16 @@ fn parse_opt_i64(s: &Option<String>, label: &str) -> Result<Option<i64>> {
 // 对齐 quotation/sales_order 的 ItemWeb 范式（见 static/app.js lineItemCalc.collectItems）
 /// 收货 drawer 行级明细（直入库：每行带目标仓库/库位，提交走 stock_in_from_notice）
 #[derive(Debug, Deserialize)]
+/// 行级发货明细（direct_ship drawer items_json）
+struct ShipRowJson {
+    picking_item_id: String,
+    warehouse_id: String,
+    qty: String,
+    bin_id: Option<String>,
+    batch_no: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct ReceiveRowJson {
     /// 采购明细行 id（receive_po 必填；receive_wo 工单入库不用 = None）
     order_item_id: Option<String>,
@@ -1122,8 +1141,8 @@ async fn render_work_center_page(
             (render_drawer_overlay("wc-transfer-create-overlay", "wc-transfer-create-drawer-body", "新建调拨单", "w-[1000px] max-w-[94vw]"))
             (render_drawer_overlay("wc-shipping-create-overlay", "wc-shipping-create-drawer-body", "新建发货单", "w-[1000px] max-w-[94vw]"))
             (render_drawer_overlay("wc-stock-in-create-overlay", "wc-stock-in-create-drawer-body", "新建入库单", "w-[1000px] max-w-[94vw]"))
-            // 库位选择弹窗（复用 stock-in/create 的 suggest_bins 端点；收货 drawer 选目标库位）
-            (wc_bin_picker_shell())
+            // 库位选择弹窗（左仓库 + 右库位；3 drawer 的 warehouse_bin_cell 共用此页面级 shell）
+            (crate::components::bin_search::bin_picker_modal("bin-picker-modal", &warehouses))
         }
     };
 
@@ -1228,10 +1247,10 @@ fn render_domain_card(
         (s.overdue, s.soon)
     };
     html! {
-        div id="wc-domain-card"
-            hx-get=(format!("{}?domain={}", WmsWorkCenterPath::PATH, domain_slug(active)))
-            hx-trigger="wcChanged from:body"
-            hx-include="#wc-domain-filter"
+       div id="wc-domain-card"
+           hx-get=(WmsWorkCenterPath::PATH)
+           hx-trigger="wcChanged from:body"
+           hx-include="#wc-domain-filter"
             hx-target="this" hx-select="#wc-domain-card" hx-swap="outerHTML"
             class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
             // card 头（图标 + 紧急度角标 + domain 标题 + meta），对齐 MES render_card_shell 范式
@@ -1524,8 +1543,8 @@ fn drawer_btn(label: &str, action: &str, doc_id: i64, ic: Markup, open_hs: &str)
 /// 共享 drawer overlay 壳：页面渲染一次，各域 GET ?drawer=&id= 填 #wc-drawer-body。
 /// 显隐由 .drawer-overlay 的 .open class 控制（uno.config.ts preflight，经 drawer_shell 统一）；× / 背景点击关闭。
 fn wc_drawer_shell() -> Markup {
-    drawer_shell("wc-drawer-overlay", "w-[460px]", html! {
-        div id="wc-drawer-body" class="flex-1 overflow-y-auto" {}
+    drawer_shell("wc-drawer-overlay", "w-[720px]", html! {
+        div id="wc-drawer-body" class="flex-1 flex flex-col overflow-hidden" {}
     })
 }
 
@@ -1714,13 +1733,22 @@ pub async fn post_shipping_create(
 #[require_permission("INVENTORY", "read")]
 pub async fn get_stock_in_create_drawer(
     _path: crate::routes::wms_work_center::WcStockInCreateDrawerPath,
-    _ctx: RequestContext,
+    ctx: RequestContext,
 ) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length==0 and detail.xhr.status<400] remove .open from #wc-stock-in-create-overlay";
+    let warehouses = state
+        .warehouse_service()
+        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
     Ok(Html(
         crate::pages::wms_stock_in_create::stock_in_create_content(
             crate::routes::wms_work_center::WcStockInCreatePath::PATH,
             after_hs,
+            false,
+            &warehouses,
             false,
         )
         .into_string(),
@@ -1736,24 +1764,6 @@ pub async fn post_stock_in_create(
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::wms_stock_in_create::do_create_stock_in(&state, &service_ctx, form).await?;
     Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
-}
-
-/// 库位选择弹窗壳：复用 stock-in/create 的 suggest_bins 端点（按产品+仓库 SameMerge 推荐）。
-/// z-[1001] 盖在 drawer overlay（z-[1000]）之上；× / 背景点击关闭。
-fn wc_bin_picker_shell() -> Markup {
-    modal_shell("bin-picker", "z-[1001]", html! {
-            div class="modal bg-bg rounded-xl w-[520px] max-h-[80vh] flex flex-col overflow-hidden shadow-xl" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
-                    h2 class="font-bold text-base text-fg" { "选择入库库位" }
-                    button type="button"
-                        class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
-                        _="on click remove .is-open from #bin-picker" { "×" }
-                }
-                div id="bin-picker-results" class="overflow-y-auto flex-1 min-h-0" {
-                    div class="text-center text-muted py-10 text-sm" { "点击物料行的「自动分配」加载推荐库位…" }
-                }
-            }
-        })
 }
 
 // ── drawer body（GET ?drawer=&id=）：按 action 渲染表单，提交走单端点 POST ──
@@ -1784,9 +1794,11 @@ fn drawer_form(
     confirm: &str,
     onsubmit: &str,
     inner: Markup,
+    footer_label: &str,
 ) -> Markup {
+    let footer = drawer_footer(footer_label);
     html! {
-        div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
+       div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
             div class="font-bold text-base text-fg" { (title) }
             button type="button"
                 class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
@@ -1794,18 +1806,21 @@ fn drawer_form(
                 (icon::x_icon("w-4 h-4"))
             }
         }
-        form id=(format!("wc-{action}-form"))
+      form id=(format!("wc-{action}-form"))
             hx-post=(WmsWorkCenterPath::PATH)
             hx-target="#wc-domain-card"
             hx-select="#wc-domain-card"
             hx-swap="outerHTML"
             hx-confirm=(confirm)
             onsubmit=(onsubmit)
-            _="on 'htmx:afterRequest'[detail.xhr.status<400] remove .open from #wc-drawer-overlay"
-            class="px-6 py-5" {
+            _="on 'htmx:afterRequest'[detail.xhr.status<400 and detail.elt is me] remove .open from #wc-drawer-overlay"
+            class="flex-1 flex flex-col overflow-hidden" {
             input type="hidden" name="action" value=(action);
             input type="hidden" name="id" value=(id);
-            (inner)
+            div class="flex-1 overflow-y-auto px-6 py-5" {
+                (inner)
+            }
+            (footer)
         }
     }
 }
@@ -1847,7 +1862,7 @@ fn drawer_message(
 /// drawer 底部取消/提交（提交按钮在 form 内，type=submit）
 fn drawer_footer(submit_label: &str) -> Markup {
     html! {
-        div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
+        div class="shrink-0 flex justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
             button type="button"
                 class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm font-medium cursor-pointer hover:bg-surface"
                 _="on click remove .open from #wc-drawer-overlay" { "取消" }
@@ -1883,61 +1898,50 @@ async fn po_receive_drawer_body(
         .collect();
 
     let mut rows = html! {};
-    for (idx, it) in items.iter().enumerate() {
+    let mut pending_count: i32 = 0;
+    let mut total_pending: Decimal = Decimal::ZERO;
+    for it in items.iter() {
         let pending = it.quantity - it.received_qty;
         if pending <= Decimal::ZERO {
             continue; // 已收完的行跳过
         }
+        pending_count += 1;
+        total_pending += pending;
+        let unit = product_map.get(&it.product_id).map(|p| p.unit.clone()).unwrap_or_default();
+        let prod_name = product_map.get(&it.product_id).map(|p| p.pdt_name.clone()).unwrap_or_else(|| format!("产品 #{}", it.product_id));
+        let prod_code = product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default();
+        let auto_wh = if warehouses.len() == 1 { warehouses[0].id.to_string() } else { String::new() };
+        let bid = format!("rcv-bin-{}", it.id);
         rows = html! {
             (rows)
-            div class="border-b border-border-soft py-3" data-row {
-                div class="flex items-start justify-between mb-2 gap-2" {
-                    div class="min-w-0" {
-                        div class="text-sm text-fg font-medium truncate" {
-                            (product_map.get(&it.product_id).map(|p| p.pdt_name.clone()).unwrap_or_else(|| format!("产品 #{}", it.product_id)))
-                        }
-                        div class="text-xs text-muted truncate" {
-                            (product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default())
-                        }
-                    }
-                    span class="text-xs text-muted shrink-0 mt-0.5" { "待收 " (fmt_qty(pending)) }
-                }
-                input type="hidden" data-k="order_item_id" name=(format!("items[{idx}][order_item_id]")) value=(it.id);
-                input type="hidden" data-k="product_id" name=(format!("items[{idx}][product_id]")) value=(it.product_id);
-                div class="grid grid-cols-2 gap-2 mb-2" {
-                    div {
-                        label class="block text-xs text-muted mb-1" { "实收" }
-                        input type="number" data-k="received_qty" name=(format!("items[{idx}][received_qty]"))
-                            value=(fmt_qty(pending)) min="0" step="any"
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm font-mono text-right bg-bg";
-                    }
-                    div {
-                        label class="block text-xs text-muted mb-1" { "批次" }
-                        input type="text" data-k="batch_no" name=(format!("items[{idx}][batch_no]"))
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm font-mono bg-bg";
+            tr class="hover:bg-surface transition-colors duration-100" data-row data-unit=(unit) {
+                input type="hidden" data-k="order_item_id" value=(it.id);
+                input type="hidden" data-k="product_id" value=(it.product_id);
+                // 产品
+                td class="py-2 px-2.5 min-w-0" {
+                    div class="text-sm text-fg font-medium leading-tight truncate w-[180px]" title=(prod_name) { (prod_name) }
+                    @if !prod_code.is_empty() {
+                        div class="text-xs text-muted font-mono truncate w-[180px]" { (prod_code) }
                     }
                 }
-                div class="grid grid-cols-2 gap-2" {
-                    div {
-                        label class="block text-xs text-muted mb-1" { "目标仓库 " span class="text-danger" { "*" } }
-                        select data-k="warehouse_id" name=(format!("items[{idx}][warehouse_id]"))
-                            _="on change call wcResetBin(me)"
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg" {
-                            option value="" disabled selected { "选择仓库" }
-                            @for w in &warehouses {
-                                option value=(w.id) { (w.name) }
-                            }
-                        }
-                    }
-                    div {
-                        label class="block text-xs text-muted mb-1" { "目标库位" }
-                        input type="hidden" data-k="bin_id" name=(format!("items[{idx}][bin_id]")) value="";
-                        button type="button"
-                            _="on click call wcOpenBinPicker(me)"
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg text-fg-2 hover:bg-surface truncate text-left" {
-                            span class="bin-label" { "自动分配" }
-                        }
-                    }
+                // 待收
+                td class="py-2 px-2 text-right whitespace-nowrap" {
+                    span class="text-xs text-muted font-mono" { (fmt_qty(pending)) " " (unit) }
+                }
+                // 仓库 + 库位（弹窗式：左仓库 + 右库位，排除他物料占用 + 同物料推荐）
+                td class="py-1.5 px-1.5 w-[140px]" {
+                    (crate::components::bin_search::warehouse_bin_cell(&bid, it.product_id, &warehouses, &auto_wh, "inbound"))
+                }
+                // 批次
+                td class="py-1.5 px-1.5" {
+                    input type="text" data-k="batch_no"
+                        placeholder="可选"
+                        class="w-[70px] px-1.5 py-1.5 border border-border rounded-sm text-xs font-mono bg-white focus:border-accent focus:shadow-[var(--shadow-focus)] outline-none transition-all duration-150";
+                }
+                // 实收
+                td class="py-1.5 px-1.5" {
+                    input type="number" data-k="received_qty" value=(fmt_qty(pending)) min="0" step="any"
+                        class="w-[64px] px-2 py-1.5 border border-border rounded-sm text-xs font-mono text-right bg-white focus:border-accent focus:shadow-[var(--shadow-focus)] outline-none transition-all duration-150";
                 }
             }
         };
@@ -1946,19 +1950,50 @@ async fn po_receive_drawer_body(
     let inner = html! {
         // 幂等键：drawer body 加载时生成（防双击重复入库），顶层字段不进 items_json
         input type="hidden" name="idempotency_key"
-            _="on load js me.value = crypto.randomUUID?.() || (Date.now()+Math.random()).toString(36) end" {};
+            _="on load call wcGenIdempotencyKey(me)" {};
         input type="hidden" name="items_json" value="[]";
-        div class="mb-3" {
-            span class="text-xs text-muted font-medium" { "采购订单 " }
-            span class="text-sm font-mono font-semibold text-fg" { (po.doc_number) }
+        // 单号信息条（对齐发货 drawer）
+        div class="flex items-center justify-between mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2" {
+                (icon::truck_icon("w-4 h-4 text-muted"))
+                span class="text-xs text-muted" { "采购订单" }
+                span class="text-sm font-mono font-semibold text-fg" { (po.doc_number) }
+            }
+            span class="text-xs text-muted" { (pending_count) " 项 · " (fmt_qty(total_pending)) }
         }
-        div class="mb-4 p-3 rounded-sm bg-accent-bg border border-accent/30" {
-            p class="text-xs text-accent font-medium leading-relaxed" {
-                "确认后直接入库，并自动回写采购订单收货量、立应付账款。"
+        // 统一仓库
+        div class="mb-3 flex items-center gap-2" {
+            select
+                _="on change call wcApplyWarehouseAll(me)"
+                class="flex-1 px-2.5 py-2 border border-border rounded-sm text-sm bg-surface text-muted focus:border-accent outline-none transition-all duration-150" {
+                option value="" selected { "统一仓库：应用到所有行…" }
+                @for w in &warehouses {
+                    option value=(w.id) { (w.name) }
+                }
             }
         }
-        (rows)
-        (drawer_footer("确认入库"))
+        // 产品明细表格
+        div class="mb-4 overflow-visible" {
+            table class="w-full text-sm border-collapse" {
+                thead {
+                    tr class="border-b border-border-soft text-xs text-muted" {
+                        th class="py-2 px-2.5 text-left font-semibold" { "产品" }
+                        th class="py-2 px-2 text-right font-semibold whitespace-nowrap" { "待收" }
+                        th class="py-2 px-1.5 text-left font-semibold whitespace-nowrap" { "仓库 / 库位" }
+                        th class="py-2 px-1.5 text-left font-semibold whitespace-nowrap" { "批次" }
+                        th class="py-2 px-1.5 text-right font-semibold whitespace-nowrap" { "实收" }
+                    }
+                }
+                tbody class="divide-y divide-border-soft" { (rows) }
+            }
+        }
+        // 提示
+        div class="mb-4 p-3 rounded-md bg-accent-bg border border-accent/20 flex items-start gap-2" {
+            (icon::clock_icon("w-3.5 h-3.5 text-accent mt-0.5 shrink-0"))
+            p class="text-xs text-accent leading-relaxed" {
+                "确认后直接入库，并自动回写采购订单收货量、立应付账款"
+            }
+        }
     };
     Ok(drawer_form(
         "采购收货入库",
@@ -1968,6 +2003,7 @@ async fn po_receive_drawer_body(
         "确认收货入库？将直接入库并回写采购订单",
         "wcReceiveSubmit(this)",
         inner,
+        "确认入库",
     ))
 }
 
@@ -1996,71 +2032,88 @@ async fn wo_receive_drawer_body(
         .map(|r| r.items)
         .unwrap_or_default();
 
-    let body = html! {
+    let auto_wh = if warehouses.len() == 1 { warehouses[0].id.to_string() } else { String::new() };
+    let bid = format!("wo-bin-{}", wo.product_id);
+
+    let inner = html! {
         input type="hidden" name="items_json" value="[]";
-        div class="mb-3" {
-            span class="text-xs text-muted font-medium" { "生产工单 " }
-            span class="text-sm font-mono font-semibold text-fg" { (wo.doc_number) }
-        }
-        div class="mb-3 text-xs text-muted" {
-            "完工 " (fmt_qty(wo.completed_qty)) " · 已入库 " (fmt_qty(received)) " · 待入库 "
-            span class="text-fg font-medium" { (fmt_qty(pending)) }
+        // 单号信息条（对齐收货/发货 drawer）
+        div class="flex items-center justify-between mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2" {
+                (icon::package_icon("w-4 h-4 text-muted"))
+                span class="text-xs text-muted" { "生产工单" }
+                span class="text-sm font-mono font-semibold text-fg" { (wo.doc_number) }
+            }
+            span class="text-xs text-muted" {
+                "完工 " (fmt_qty(wo.completed_qty)) " · 已入库 " (fmt_qty(received)) " · 待入库 "
+                span class="text-fg font-semibold" { (fmt_qty(pending)) }
+            }
         }
         @if pending <= Decimal::ZERO {
-            div class="mb-4 p-3 rounded-sm bg-warn-bg border border-warn/30" {
-                p class="text-xs text-warn font-medium" { "该工单完工产品已全部入库，无需操作。" }
+            div class="mb-4 p-3 rounded-md bg-warn-bg border border-warn/20 flex items-start gap-2" {
+                (icon::clock_icon("w-3.5 h-3.5 text-warn mt-0.5 shrink-0"))
+                p class="text-xs text-warn font-medium leading-relaxed" {
+                    "该工单完工产品已全部入库，无需操作。"
+                }
             }
         } @else {
-            div class="border-b border-border-soft py-3" data-row {
-                div class="flex items-start justify-between mb-2 gap-2" {
-                    div class="min-w-0" {
-                        div class="text-sm text-fg font-medium truncate" { (product.pdt_name) }
-                        div class="text-xs text-muted truncate" { (product.product_code) }
+            // 统一仓库
+            div class="mb-3 flex items-center gap-2" {
+                select
+                    _="on change call wcApplyWarehouseAll(me)"
+                    class="flex-1 px-2.5 py-2 border border-border rounded-sm text-sm bg-surface text-muted focus:border-accent outline-none transition-all duration-150" {
+                    option value="" selected { "统一仓库：应用到所有行…" }
+                    @for w in &warehouses {
+                        option value=(w.id) { (w.name) }
                     }
                 }
-                input type="hidden" data-k="product_id" name="items[0][product_id]" value=(wo.product_id);
-                div class="grid grid-cols-2 gap-2 mb-2" {
-                    div {
-                        label class="block text-xs text-muted mb-1" { "入库量" }
-                        input type="number" data-k="received_qty" name="items[0][received_qty]"
-                            value=(fmt_qty(pending)) min="0" step="any"
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm font-mono text-right bg-bg";
+            }
+            // 产品明细表格
+            div class="mb-4 overflow-visible" {
+                table class="w-full text-sm border-collapse" {
+                    thead {
+                        tr class="border-b border-border-soft text-xs text-muted" {
+                            th class="py-2 px-2.5 text-left font-semibold" { "产品" }
+                            th class="py-2 px-2 text-right font-semibold whitespace-nowrap" { "待入库" }
+                            th class="py-2 px-1.5 text-left font-semibold whitespace-nowrap" { "仓库 / 库位" }
+                            th class="py-2 px-1.5 text-left font-semibold whitespace-nowrap" { "批次" }
+                            th class="py-2 px-1.5 text-right font-semibold whitespace-nowrap" { "入库量" }
+                        }
                     }
-                    div {
-                        label class="block text-xs text-muted mb-1" { "批次" }
-                        input type="text" data-k="batch_no" name="items[0][batch_no]"
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm font-mono bg-bg";
-                    }
-                }
-                div class="grid grid-cols-2 gap-2" {
-                    div {
-                        label class="block text-xs text-muted mb-1" { "目标仓库 " span class="text-danger" { "*" } }
-                        select data-k="warehouse_id" name="items[0][warehouse_id]"
-                            _="on change call wcResetBin(me)"
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg" {
-                            option value="" disabled selected { "选择仓库" }
-                            @for w in &warehouses {
-                                option value=(w.id) { (w.name) }
+                    tbody class="divide-y divide-border-soft" {
+                        tr class="hover:bg-surface transition-colors duration-100" data-row data-unit=(product.unit) {
+                            input type="hidden" data-k="product_id" value=(wo.product_id);
+                            td class="py-2 px-2.5 min-w-0" {
+                                div class="text-sm text-fg font-medium leading-tight truncate w-[180px]" title=(product.pdt_name) { (product.pdt_name) }
+                                div class="text-xs text-muted font-mono truncate w-[180px]" { (product.product_code) }
+                            }
+                            td class="py-2 px-2 text-right whitespace-nowrap" {
+                                span class="text-xs text-muted font-mono" { (fmt_qty(pending)) " " (product.unit) }
+                            }
+                            // 仓库 + 库位（弹窗式）
+                            td class="py-1.5 px-1.5 w-[140px]" {
+                                (crate::components::bin_search::warehouse_bin_cell(&bid, wo.product_id, &warehouses, &auto_wh, "inbound"))
+                            }
+                            td class="py-1.5 px-1.5" {
+                                input type="text" data-k="batch_no"
+                                    placeholder="可选"
+                                    class="w-[70px] px-1.5 py-1.5 border border-border rounded-sm text-xs font-mono bg-white focus:border-accent focus:shadow-[var(--shadow-focus)] outline-none transition-all duration-150";
+                            }
+                            td class="py-1.5 px-1.5" {
+                                input type="number" data-k="received_qty" value=(fmt_qty(pending)) min="0" step="any"
+                                    class="w-[64px] px-2 py-1.5 border border-border rounded-sm text-xs font-mono text-right bg-white focus:border-accent focus:shadow-[var(--shadow-focus)] outline-none transition-all duration-150";
                             }
                         }
                     }
-                    div {
-                        label class="block text-xs text-muted mb-1" { "目标库位" }
-                        input type="hidden" data-k="bin_id" name="items[0][bin_id]" value="";
-                        button type="button"
-                            _="on click call wcOpenBinPicker(me)"
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg text-fg-2 hover:bg-surface truncate text-left" {
-                            span class="bin-label" { "自动分配" }
-                        }
-                    }
                 }
             }
-            div class="mb-4 p-3 rounded-sm bg-accent-bg border border-accent/30" {
-                p class="text-xs text-accent font-medium leading-relaxed" {
-                    "生产入库仅登记库存（不计应付、不回写工单完工量——报工时已累加）。"
+            // 提示
+            div class="mb-4 p-3 rounded-md bg-accent-bg border border-accent/20 flex items-start gap-2" {
+                (icon::clock_icon("w-3.5 h-3.5 text-accent mt-0.5 shrink-0"))
+                p class="text-xs text-accent leading-relaxed" {
+                    "生产入库仅登记库存（不计应付、不回写工单完工量——报工时已累加）"
                 }
             }
-            (drawer_footer("确认入库"))
         }
     };
     Ok(drawer_form(
@@ -2070,7 +2123,8 @@ async fn wo_receive_drawer_body(
         WorkCenterDomain::Arrival,
         "确认生产入库？",
         "wcReceiveSubmit(this)",
-        body,
+        inner,
+        "确认入库",
     ))
 }
 
@@ -2101,6 +2155,12 @@ async fn direct_ship_drawer_body(
         .into_iter()
         .map(|p| (p.product_id, p))
         .collect();
+    // 可用库存（全仓库 ATP），选仓库后通过 HTMX 端点动态刷新
+    let inv_svc = state.inventory_transaction_service();
+    let avail_map: HashMap<i64, Decimal> = inv_svc
+        .query_available_batch(ctx, db, &items.iter().map(|i| i.product_id).collect::<Vec<_>>(), None)
+        .await
+        .unwrap_or_default();
     let warehouses = state
         .warehouse_service()
         .list(ctx, db, WarehouseFilter::default(), 1, 200)
@@ -2110,44 +2170,115 @@ async fn direct_ship_drawer_body(
     let total_qty: Decimal = items.iter().map(|i| i.qty_requested).sum();
 
     let mut rows = html! {};
+    let mut shortage_count: i32 = 0;
     for it in &items {
         let prod_name = product_map
             .get(&it.product_id)
             .map(|p| p.pdt_name.clone())
             .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+        let avail = avail_map.get(&it.product_id).copied().unwrap_or(Decimal::ZERO);
+        let is_shortage = avail < it.qty_requested;
+        if is_shortage { shortage_count += 1; }
+        let unit = product_map.get(&it.product_id).map(|p| p.unit.clone()).unwrap_or_default();
+        let prod_code = product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default();
         rows = html! {
             (rows)
-            div class="flex items-center justify-between px-3 py-2 gap-2" {
-                div class="text-sm text-fg-2 truncate" { (prod_name) }
-                span class="text-sm font-mono text-muted shrink-0" { (fmt_qty(it.qty_requested)) }
+            tr class="hover:bg-surface transition-colors duration-100" data-row data-pid=(it.product_id) data-need=(it.qty_requested) data-unit=(unit) {
+                input type="hidden" data-k="picking_item_id" value=(it.id);
+                input type="hidden" data-k="product_id" value=(it.product_id);
+                // 产品
+                td class="py-2 px-2.5 min-w-0" {
+                    div class="text-sm text-fg font-medium leading-tight truncate w-[160px]" title=(prod_name) { (prod_name) }
+                    @if !prod_code.is_empty() {
+                        div class="text-xs text-muted font-mono truncate w-[160px]" { (prod_code) }
+                    }
+                }
+                // 需求量
+                td class="py-2 px-2 text-right whitespace-nowrap" {
+                    span class="text-xs text-muted font-mono" { (fmt_qty(it.qty_requested)) }
+                }
+                // 可用库存
+                td class="py-2 px-2 text-right whitespace-nowrap" {
+                    span class="text-xs font-mono" data-avail {
+                        @if is_shortage {
+                            span class="text-danger" { (fmt_qty(avail)) " 缺" }
+                        } @else {
+                            span class="text-muted" { (fmt_qty(avail)) }
+                        }
+                    }
+                }
+                // 仓库 + 库位（弹窗式，出库：只列该物料有实物存量的库位 + 可用量）
+                td class="py-1.5 px-1.5 w-[200px]" {
+                    @let bid = format!("bin-{}", it.id);
+                    (crate::components::bin_search::warehouse_bin_cell(&bid, it.product_id, &warehouses, "", "outbound"))
+                }
+                // 批次
+                td class="py-1.5 px-1.5" {
+                    input type="text" data-k="batch_no"
+                        class="w-[70px] px-1.5 py-1.5 border border-border rounded-sm text-xs font-mono bg-white focus:border-accent focus:shadow-[var(--shadow-focus)] outline-none transition-all duration-150";
+                }
+                // 实发
+                td class="py-1.5 px-1.5" {
+                    input type="number" data-k="qty" value=(fmt_qty(it.qty_requested)) min="0" step="any"
+                        class="w-[64px] px-2 py-1.5 border border-border rounded-sm text-xs font-mono text-right bg-white focus:border-accent focus:shadow-[var(--shadow-focus)] outline-none transition-all duration-150";
+                }
             }
         };
     }
 
     let inner = html! {
-        div class="mb-3 flex items-baseline gap-2 flex-wrap" {
-            span class="text-xs text-muted font-medium" { "发货单 " }
-            span class="text-sm font-mono font-semibold text-fg" { (s.doc_number) }
-        }
-        div class="mb-4 rounded-sm border border-border-soft divide-y divide-border-soft" { (rows) }
-        div class="mb-2 text-xs text-muted font-medium" { "发货仓库 *" }
-        select name="warehouse_id" required
-            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg mb-4" {
-            option value="" disabled selected { "选择发货仓库" }
-            @for w in &warehouses {
-                option value=(w.id) { (w.name) }
+        // 隐藏 items_json（wcShipCollectRows 填充）
+        input type="hidden" name="items_json" value="[]" {};
+        // 单号信息条
+        div class="flex items-center justify-between mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2" {
+                (icon::truck_icon("w-4 h-4 text-muted"))
+                span class="text-xs text-muted" { "发货单" }
+                span class="text-sm font-mono font-semibold text-fg" { (s.doc_number) }
+            }
+            div class="flex items-center gap-2" {
+                @if shortage_count > 0 {
+                    span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-danger-bg text-danger" {
+                        (shortage_count) " 项缺货"
+                    }
+                }
+                span class="text-xs text-muted" { (items.len()) " 项 · " (fmt_qty(total_qty)) }
             }
         }
-        div class="mb-4 p-3 rounded-sm bg-warn-bg border border-warn/30" {
-            p class="text-xs text-warn font-medium leading-relaxed" {
-                "确认发出将按所选仓库扣减库存、立应收账款并回写销售订单。"
+        // 统一仓库（批量应用到所有行）
+        div class="mb-3 flex items-center gap-2" {
+            select id="ship-warehouse"
+                _="on change call wcApplyWarehouseAll(me) then wcShipRefreshStock(me)"
+                class="flex-1 px-2.5 py-2 border border-border rounded-sm text-sm bg-surface text-muted focus:border-accent outline-none transition-all duration-150" {
+                option value="" selected { "统一仓库：应用到所有行…" }
+                @for w in &warehouses {
+                    option value=(w.id) { (w.name) }
+                }
             }
         }
-        div class="mt-3 flex items-center justify-between text-xs text-muted" {
-            span { "共 " (items.len()) " 项" }
-            span class="font-mono" { "合计 " (fmt_qty(total_qty)) }
+        // 产品明细表格
+        div class="mb-4 overflow-visible" {
+            table class="w-full text-sm border-collapse" {
+                thead {
+                    tr class="border-b border-border-soft text-xs text-muted" {
+                        th class="py-2 px-2.5 text-left font-semibold" { "产品" }
+                        th class="py-2 px-2 text-right font-semibold whitespace-nowrap" { "需求" }
+                        th class="py-2 px-2 text-right font-semibold whitespace-nowrap" { "可用" }
+                        th class="py-2 px-1.5 text-left font-semibold whitespace-nowrap" { "仓库 / 库位" }
+                        th class="py-2 px-1.5 text-left font-semibold whitespace-nowrap" { "批次" }
+                        th class="py-2 px-1.5 text-right font-semibold whitespace-nowrap" { "实发" }
+                    }
+                }
+                tbody class="divide-y divide-border-soft" { (rows) }
+            }
         }
-        (drawer_footer("确认发出"))
+        // 操作提示
+        div class="mb-4 p-3 rounded-md bg-warn-bg border border-warn/20 flex items-start gap-2" {
+            (icon::clock_icon("w-3.5 h-3.5 text-warn mt-0.5 shrink-0"))
+            p class="text-xs text-warn leading-relaxed" {
+                "确认发出将从所选仓库扣减库存、立应收账款并回写销售订单"
+            }
+        }
     };
     Ok(drawer_form(
         "直接发货",
@@ -2155,9 +2286,36 @@ async fn direct_ship_drawer_body(
         id,
         WorkCenterDomain::Outbound,
         "确认直接发出？将从所选仓库扣库存并立应收",
-        "",
+        "return wcShipCollectRows(this)",
         inner,
+        "确认发出",
     ))
+}
+
+/// 发货 drawer 选仓库后查询各产品可用库存 → JSON {pid: qty}。
+#[require_permission("SHIPPING", "read")]
+pub async fn get_ship_stock_avail(
+    _path: crate::routes::wms_work_center::WcShipStockAvailPath,
+    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
+    ctx: RequestContext,
+) -> Result<axum::Json<serde_json::Value>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let warehouse_id: Option<i64> = params.get("warehouse_id")
+        .and_then(|s| s.parse().ok())
+        .filter(|&v: &i64| v > 0);
+    let product_ids: Vec<i64> = params.get("product_ids")
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default();
+    let inv_svc = state.inventory_transaction_service();
+    let avail_map = inv_svc
+        .query_available_batch(&service_ctx, &mut conn, &product_ids, warehouse_id)
+        .await
+        .unwrap_or_default();
+    let json_map: std::collections::HashMap<String, String> = avail_map
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    Ok(axum::Json(serde_json::json!(json_map)))
 }
 
 async fn issue_drawer_body(
@@ -2202,7 +2360,6 @@ async fn issue_drawer_body(
             }
             p class="text-sm text-muted mb-4" { "共 " (items.len()) " 项，将按申请量全量发料。" }
             div class="rounded-sm border border-border-soft divide-y divide-border-soft mb-4" { (rows) }
-            (drawer_footer("确认发料"))
         };
         Ok(drawer_form(
             "发料",
@@ -2212,6 +2369,7 @@ async fn issue_drawer_body(
             "确认全量发料？将扣减库存并计入工单成本",
             "",
             inner,
+            "确认发料",
         ))
     } else {
         // PartiallyIssued：issue 记绝对量，就地重复发料会重复扣库存。detail 页已收口删除，
@@ -2248,7 +2406,6 @@ async fn transfer_drawer_body(
         }
         p class="text-sm text-muted mb-2" { "仓 " (trf.from_warehouse_id.unwrap_or(0)) " → " (trf.to_warehouse_id.unwrap_or(0)) " · 共 " (items.len()) " 项" }
         p class="text-sm text-muted mb-5" { (hint) }
-        (drawer_footer(btn_label))
     };
     Ok(drawer_form(
         title,
@@ -2258,5 +2415,6 @@ async fn transfer_drawer_body(
         "确认执行此调拨操作？",
         "",
         inner,
+        btn_label,
     ))
 }

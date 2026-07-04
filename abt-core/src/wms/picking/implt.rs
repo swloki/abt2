@@ -6,7 +6,7 @@ use super::model::{
     CreateFromOrderReq, CreateManualReq, CreatePickingItemReq, CreatePickingReq, DoneItemReq,
     FqcGate, IssueMaterialReq, PickingFilter, ProductionReceiptDetail, ProductionReceiptFilter,
     ProductionReceiptListItem, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary,
-    ShortageSignal, StockPicking, StockPickingItem,
+    ShortageSignal, ShipRowReq, StockPicking, StockPickingItem,
 };
 use super::repo::PickingRepo;
 use super::service::PickingService;
@@ -1031,6 +1031,29 @@ impl PickingService for PickingServiceImpl {
         warehouse_id: i64,
         bin_id: Option<i64>,
     ) -> Result<()> {
+        // 委托 direct_ship_rows：每行 qty=qty_requested, bin_id 全局, batch_no=None
+        let items = PickingRepo::get_items(&mut *db, id).await?;
+       let rows: Vec<ShipRowReq> = items
+           .iter()
+           .map(|item| ShipRowReq {
+               picking_item_id: item.id,
+                warehouse_id,
+               bin_id,
+               batch_no: None,
+               qty: item.qty_requested,
+           })
+           .collect();
+        self.direct_ship_rows(ctx, db, id, warehouse_id, rows).await
+    }
+
+    async fn direct_ship_rows(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        warehouse_id: i64,
+        rows: Vec<ShipRowReq>,
+    ) -> Result<()> {
         let picking = self.get(ctx, db, id).await?;
         if picking.status != PickingStatus::Confirmed {
             return Err(DomainError::InvalidStateTransition {
@@ -1041,30 +1064,34 @@ impl PickingService for PickingServiceImpl {
         let order_id = picking.source_id.ok_or_else(|| {
             DomainError::business_rule("发货单缺少关联订单，无法发货")
         })?;
-        // 选仓：销售申请时 from_warehouse=None，发货时填入
         PickingRepo::update_from_warehouse(&mut *db, id, warehouse_id).await?;
         let items = PickingRepo::get_items(&mut *db, id).await?;
+        let item_map: std::collections::HashMap<i64, &StockPickingItem> =
+            items.iter().map(|i| (i.id, i)).collect();
         let tx_svc = new_inventory_transaction_service(self.pool.clone());
-        for item in &items {
-            // 行级 qty_done = qty_requested（全发）
-            PickingRepo::update_item_done(&mut *db, item.id, item.qty_requested, None, None, bin_id).await?;
-            // 释放预留
+        for row in &rows {
+            let item = item_map.get(&row.picking_item_id).ok_or_else(|| {
+                DomainError::validation(format!("发货明细行 {} 不属于此发货单", row.picking_item_id))
+            })?;
+            PickingRepo::update_item_done(
+                &mut *db, row.picking_item_id, row.qty,
+                row.batch_no.as_deref(), None, row.bin_id,
+            ).await?;
             new_inventory_reservation_service(self.pool.clone())
                 .fulfill_by_source_line(ctx, db, DocumentType::SalesOrder, item.source_item_id.unwrap_or(0))
                 .await?;
-            // SalesShipment 流水（-qty，source_type="shipping" 保持事件链/handler 兼容）
             tx_svc
                 .record(ctx, db, RecordTransactionReq {
                     doc_number: None,
                     delivery_no: None,
                     source_doc_number: Some(picking.doc_number.clone()),
-                    transaction_type: TransactionType::SalesShipment,
-                    product_id: item.product_id,
-                    warehouse_id,
+                   transaction_type: TransactionType::SalesShipment,
+                   product_id: item.product_id,
+                    warehouse_id: row.warehouse_id,
                     zone_id: None,
-                    bin_id,
-                    batch_no: None,
-                    quantity: -item.qty_requested,
+                    bin_id: row.bin_id,
+                    batch_no: row.batch_no.clone(),
+                    quantity: -row.qty,
                     unit_cost: None,
                     source_type: "shipping".to_string(),
                     source_id: id,
@@ -1073,10 +1100,12 @@ impl PickingService for PickingServiceImpl {
                 .await?;
         }
         PickingRepo::set_done(&mut *db, id).await?;
-        // 回写 SO shipped_qty + recalc（超发校验在 record_shipment 内）
-        let lines: Vec<ShipmentLineQty> = items
+        let lines: Vec<ShipmentLineQty> = rows
             .iter()
-            .map(|i| ShipmentLineQty { order_item_id: i.source_item_id.unwrap_or(0), shipped_qty: i.qty_requested })
+            .filter_map(|r| item_map.get(&r.picking_item_id).map(|item| ShipmentLineQty {
+                order_item_id: item.source_item_id.unwrap_or(0),
+                shipped_qty: r.qty,
+            }))
             .collect();
         new_sales_order_service(self.pool.clone())
             .record_shipment(ctx, db, order_id, &lines)

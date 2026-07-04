@@ -123,11 +123,12 @@ pub struct PickingFilter {
 
 // ── 领料专用请求（从 material_requisition 迁入，字段保持兼容调用方）──
 
-/// 手动创建领料单请求（非工单驱动）
+/// 手动创建领料单请求（work_order_id=Some 时关联工单：前端按 BOM 预填行 + 用户可调量后提交）
 #[derive(Debug, Clone)]
 pub struct CreateManualReq {
     pub warehouse_id: i64,
     pub requisition_date: NaiveDate,
+    pub work_order_id: Option<i64>,
     pub remark: Option<String>,
     pub items: Vec<CreateManualItemReq>,
 }
@@ -137,6 +138,16 @@ pub struct CreateManualReq {
 pub struct CreateManualItemReq {
     pub product_id: i64,
     pub requested_qty: Decimal,
+    pub bin_id: Option<i64>,
+    pub batch_no: Option<String>,
+}
+
+/// 工单领料预览行（前端「选工单→加载 BOM 行」用：BOM 需求量 + 已领量，前端算待领差额 + 查可用量）
+#[derive(Debug, Clone)]
+pub struct WoReqPreviewItem {
+    pub product_id: i64,
+    pub bom_qty: Decimal,
+    pub issued_qty: Decimal,
 }
 
 /// 发料请求（整单）

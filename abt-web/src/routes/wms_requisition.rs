@@ -22,10 +22,15 @@ pub struct RequisitionProductsPath;
 #[typed_path("/admin/wms/requisitions/create/item-row")]
 pub struct RequisitionItemRowPath;
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/requisitions/create/wo-items")]
+pub struct RequisitionWoItemsPath;
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
     Router::new()
                 .route(RequisitionItemRowPath::PATH, get(wms_requisition_create::get_item_row))
+        .route(RequisitionWoItemsPath::PATH, get(wms_requisition_create::get_requisition_wo_items))
         .route(RequisitionCreatePath::PATH, get(wms_requisition_create::get_requisition_create).post(wms_requisition_create::create_requisition))
 }

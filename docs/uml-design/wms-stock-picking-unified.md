@@ -160,6 +160,8 @@ pub trait PickingService: Send + Sync {
 
 `done()` 内部按 `picking_type` 分发具体业务逻辑（库存扣增、成本、应收应付立账、来源回写）——这些逻辑从现有 4 个 service 搬入。
 
+> **领料落地工单关联 + 行级 bin/batch**（`create_manual`）：`CreateManualReq` 含 `work_order_id: Option<i64>`（Some 时 picking.source_id / work_order_id 关联工单，替代黑盒 `create_for_work_order` 全量展开，前端展示 BOM + 用户调量后提交具体行）；`CreateManualItemReq` 含 `bin_id` / `batch_no`（行级库位 + 批次，落 `from_bin_id` / `batch_no`）。前端「选工单→加载 BOM 行」经 `list_wo_requisition_preview`（BOM `leaf_nodes` × `planned_qty` − `sum_issued_qty_by_work_order` 已领量）算待领差额 + `query_available_batch` 可用量 → 渲染整组行 fragment（`HX-Trigger-After-Settle: woItemsLoaded`）；统一领料仓取首行 `warehouse_id`（对齐 `receive_purchase` 头仓范式）。
+
 ## 7. 迁移策略（数据 + 类型 + 状态映射）
 
 **类型映射**：

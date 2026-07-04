@@ -7,7 +7,7 @@ use crate::shared::types::{PgExecutor, Result};
 use super::model::{
     CreateFromOrderReq, CreateManualReq, CreatePickingReq, DoneItemReq, IssueMaterialReq,
     PickingFilter, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary, StockPicking,
-    StockPickingItem, ShipRowReq,
+    StockPickingItem, ShipRowReq, WoReqPreviewItem,
 };
 
 /// 统一库存作业单据 Service（Issue #146）
@@ -99,6 +99,22 @@ pub trait PickingService: Send + Sync {
         db: PgExecutor<'_>,
         req: CreateManualReq,
     ) -> Result<i64>;
+
+    /// 按工单聚合各产品已申请领料量（InternalIssue + 未取消），供前端「选工单→加载 BOM 行」算待领差额
+    async fn sum_issued_qty_by_work_order(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<std::collections::HashMap<i64, rust_decimal::Decimal>>;
+
+    /// 工单领料预览：按 BOM 快照 leaf_nodes × planned_qty 算需求量，减已领量得待领差额
+    async fn list_wo_requisition_preview(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<Vec<WoReqPreviewItem>>;
 
     /// 发料（Confirmed/PartiallyIssued → Issued/PartiallyIssued）：
     /// 写 MaterialIssue 流水（负数）+ 消耗 HARD 预留 + 记工单材料成本分录 + 审计

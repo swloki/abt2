@@ -20,8 +20,6 @@ fn document(title: &str, body: Markup) -> Markup {
                 script src="/htmx.min.js" {}
                 script src="/Sortable.min.js" {}
                 script src="/hyperscript.min.js" {}
-                script src="/tom-select.complete.min.js" {}
-                link rel="stylesheet" href="/tom-select.bootstrap5.min.css" {}
                 script src=(cache_url("/app.js")) {}
             }
             body { (body) (toast_container()) (global_confirm_dialog()) }

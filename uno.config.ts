@@ -226,8 +226,6 @@ select:disabled {
 .grp-chev { transition: transform var(--motion-base) var(--ease-standard); }
 .grp.open > .grp-head .grp-chev { transform: rotate(180deg); }
 
-/* Tom Select 覆盖：搜索输入 min-width:7rem 在窄列里会撑开控件宽度 */
-.ts-control > input { min-width: 0 !important; }
 /* 行展开 chevron（tr.open 时旋转 90°）*/
 .expand-btn svg { transition: transform var(--motion-base) var(--ease-standard); }
 tr.open .expand-btn svg { transform: rotate(90deg); }

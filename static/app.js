@@ -1,44 +1,5 @@
 ﻿htmx.config.disableInheritance=true;
 
-// ── Tom Select 自动初始化（库位搜索选择器）──
-// bin_search 组件返回普通 <select data-tom-select>，Tom Select 接管为可搜索下拉。
-// 下拉列表渲染到 body，不受 drawer overflow/transform 裁剪。
-// HTMX swap 进来的新 select 由 htmx:afterSettle 自动初始化。
-function initTomSelect(scope) {
-  var sels = (scope || document).querySelectorAll('select[data-tom-select]:not([data-ts-ready])');
-  sels.forEach(function (sel) {
-    sel.setAttribute('data-ts-ready', ''); // 防重复初始化
-    var hiddenId = sel.getAttribute('data-input-id');
-    var instance = new TomSelect(sel, {
-      maxItems: 1,
-      valueField: 'value',
-      labelField: 'text',
-      searchField: 'text',
-      placeholder: '搜索库位…',
-      allowEmptyOption: true,
-      plugins: ['clear_button'],
-      // drawer form 的 overflow-y-auto 会裁剪 absolute dropdown
-      // 打开时切成 fixed → 脱离 overflow（drawer 无 transform，fixed 正确锚定视口）
-      onDropdownOpen: function (dropdown) {
-        var rect = this.control.getBoundingClientRect();
-        dropdown.style.position = 'fixed';
-        dropdown.style.top = (rect.bottom + 2) + 'px';
-        dropdown.style.left = rect.left + 'px';
-        dropdown.style.width = rect.width + 'px';
-        dropdown.style.zIndex = '99999';
-      },
-      onChange: function (val) {
-        if (hiddenId) {
-          var h = document.querySelector('input[data-input-id="' + hiddenId + '"]');
-          if (h) h.value = val;
-        }
-      }
-    });
-  });
-}
-document.addEventListener('htmx:afterSettle', function () { initTomSelect(document); });
-document.addEventListener('DOMContentLoaded', function () { initTomSelect(document); });
-
 // ── Smooth scroll to anchor (nav_chip 锚点条) ──
 // hyperscript 不支持 JS 可选链 ?./对象字面量，故滚动逻辑放此，hyperscript 只 call 函数名。
 window.scrollToAnchor = function (sel) {

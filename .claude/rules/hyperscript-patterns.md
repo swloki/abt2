@@ -425,12 +425,18 @@ hyperscript 的 **Features 层**（写在 `_=` 里的顶层特性，区别于 `o
 
 ### 9.1 `live` — 派生值自动重算
 
-依赖变化时自动重跑命令，适合「总价 = 单价 × 数量」这类派生值。`live` 块里读到的 `$var`（带 `$` 前缀的元素/全局变量）被追踪，任一变化触发整块重跑：
+依赖变化时自动重跑命令，适合「折合人民币 = 原币 × 汇率」「总价 = 单价 × 数量」这类派生值。`live` 块内读取的值（DOM 引用 `#x's value` 或 `$var`）被自动追踪，任一变化触发整块重跑。
+
+**ABT 真实落地**（`pages/fms_journal_create.rs` 折合人民币实时计算，已替代旧 `cjCalcCny` JS）：
 
 ```rust
-// 总价随单价/数量自动重算（$price/$qty 变化 → live 块重跑）
-span _="live set my innerHTML to ($price * $qty as Number)" { "0" }
+// 折合人民币 = 原币金额 × 汇率；live 自动追踪 #amount / #exchange_rate 的 value
+div id="amount_cny"
+    _="live get ((#amount's value as Number) * (#exchange_rate's value as Number)) then call it.toFixed(2) then set my innerHTML to '¥' + it"
+{ "¥0.00" }
 ```
+
+多命令 `live`（`get → call → set` then 链）：每条命令独立追踪依赖，链式 `it` 传递。**实测 0.9.91 工作**（fms 凭证页：填金额 / 改汇率 / 切币种，折合人民币实时更新）。联动点：`#currency` 的 `on change call cjUpdateRate() then trigger input on #exchange_rate`——`cjUpdateRate` 改汇率值后 `trigger input` 让 `live` 重算。
 
 ### 9.2 `when` — 值变化触发副作用
 

@@ -907,7 +907,7 @@ pub fn stock_in_create_content(
         @if with_picker {
             (crate::components::bin_search::bin_picker_modal("bin-picker-modal", warehouses))
         }
-       script src="/wms-stock-in-create.js" {}
+       script src=(crate::layout::page::cache_url("/wms-stock-in-create.js")) {}
     }
 }
 fn source_pick_fragment(options: &[SourceOption]) -> Markup {

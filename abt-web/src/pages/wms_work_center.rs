@@ -1143,6 +1143,9 @@ async fn render_work_center_page(
             (render_drawer_overlay("wc-stock-in-create-overlay", "wc-stock-in-create-drawer-body", "新建入库单", "w-[1000px] max-w-[94vw]"))
             // 库位选择弹窗（左仓库 + 右库位；3 drawer 的 warehouse_bin_cell 共用此页面级 shell）
             (crate::components::bin_search::bin_picker_modal("bin-picker-modal", &warehouses))
+            // drawer 交互脚本（drawer body 经 innerHTML swap 不执行 script[src]，由宿主页预载）
+            script src=(crate::layout::page::cache_url("/shipping-create.js")) {}
+            script src=(crate::layout::page::cache_url("/wms-stock-in-create.js")) {}
         }
     };
 

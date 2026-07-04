@@ -135,7 +135,7 @@ fn global_confirm_dialog() -> Markup {
 }
 
 /// Cache-busting URL: appends `?v=<startup_unix_secs>` so static assets refresh every server restart.
-fn cache_url(path: &str) -> String {
+pub fn cache_url(path: &str) -> String {
     use std::sync::OnceLock;
     static TS: OnceLock<String> = OnceLock::new();
     let ts = TS.get_or_init(|| {

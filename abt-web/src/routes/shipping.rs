@@ -69,6 +69,11 @@ pub struct ShippingCustomerContactsPath;
 #[typed_path("/admin/wms/shipping/order-search")]
 pub struct ShippingOrderSearchPath;
 
+/// HTMX: 选中订单后加载发货明细行（替代旧 selectOrder JS 拼 DOM），对齐 stock_in confirm 端点范式。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/shipping/order-items")]
+pub struct ShippingOrderItemsPath;
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -81,6 +86,7 @@ pub fn router() -> Router<AppState> {
         .route(ShippingDeletePath::PATH, post(shipping_list::delete_shipping))
         .route(ShippingCustomerContactsPath::PATH, get(shipping_create::get_customer_contacts))
         .route(ShippingOrderSearchPath::PATH, get(shipping_create::get_order_search))
+        .route(ShippingOrderItemsPath::PATH, get(shipping_create::get_order_items))
         .route(ConfirmShippingPath::PATH, post(shipping_detail::confirm_shipping))
         .route(CancelShippingPath::PATH, post(shipping_detail::cancel_shipping))
         .route(ShippingFragmentPath::PATH, get(shipping_detail::get_shipping_fragment))

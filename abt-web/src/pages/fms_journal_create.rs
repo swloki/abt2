@@ -290,13 +290,12 @@ fn journal_create_page() -> Markup {
                                     name="amount"
                                     id="amount"
                                     required
-                                    placeholder="0.00"
-                                    _="on input call cjCalcCny()";
+                                    placeholder="0.00";
                                 select
                                     class="!w-24 shrink-0 px-2 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
                                     name="currency"
                                     id="currency"
-                                    _="on change call cjUpdateRate() then call cjCalcCny()"
+                                    _="on change call cjUpdateRate() then trigger input on #exchange_rate"
                                 {
                                     option value="CNY" selected { "CNY ¥" }
                                     option value="USD" { "USD $" }
@@ -320,8 +319,7 @@ fn journal_create_page() -> Markup {
                                 name="exchange_rate"
                                 id="exchange_rate"
                                 value="1"
-                                readonly
-                                _="on input call cjCalcCny()";
+                                readonly;
                         }
                         // 折合人民币（只读实时计算，issue #69）
                         div class="form-field" {
@@ -333,6 +331,7 @@ fn journal_create_page() -> Markup {
                             div
                                 class="w-full px-3 py-2 border border-border-soft rounded-sm text-sm bg-surface text-fg font-mono text-right"
                                 id="amount_cny"
+                                _="live get ((#amount's value as Number) * (#exchange_rate's value as Number)) then call it.toFixed(2) then set my innerHTML to '¥' + it"
                             { "¥0.00" }
                         }
                         // 银行账户（预设 + 手动）
@@ -522,15 +521,8 @@ function cjUpdateRate() {
         rate.classList.add('bg-white', 'text-fg');
     }
 }
-function cjCalcCny() {
-    var amt = parseFloat(document.getElementById('amount').value) || 0;
-    var rate = parseFloat(document.getElementById('exchange_rate').value) || 0;
-    var box = document.getElementById('amount_cny');
-    if (box) box.textContent = '¥' + (amt * rate).toFixed(2);
-}
-// 初始化
+// 初始化（#amount_cny 的折合人民币由其上的 live 块自动接管，无需手动调用）
 cjUpdateRate();
-cjCalcCny();
 </script>"#,
             )
         })

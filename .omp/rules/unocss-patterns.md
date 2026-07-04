@@ -1,3 +1,8 @@
+---
+description: "ABT UnoCSS 项目约定正文：颜色 token 体系、图标体系、自定义 variants、shortcuts、token 变量、preflights、AI 高发易错点"
+globs: ["abt-web/**/*.rs", "uno.config.ts"]
+---
+
 # UnoCSS 项目约定与易错点
 
 > 本文档是 abt-web **样式层的系统性正文**，与 [`htmx-patterns.md`](htmx-patterns.md)（交互）、[`hyperscript-patterns.md`](hyperscript-patterns.md)（脚本）并列，凑成前端三件套。

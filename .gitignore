@@ -8,7 +8,9 @@ target/
 /generated
 tdocker/abt-grpc
 .context
-.claude
+.claude/*
+!.claude/rules
+!.claude/rules/**
 .superpowers
 .orca
 sql/

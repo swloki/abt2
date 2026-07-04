@@ -33,6 +33,12 @@ export default defineConfig({
       getCSS: () => `
 :root {
   --bg: #ffffff;
+  /* Tom Select bootstrap5 主题变量映射 */
+  --bs-body-bg: #ffffff;
+  --bs-tertiary-bg: #f0f2f7;
+  --bs-body-color: #0f172a;
+  --bs-border-color: #e2e8f0;
+  --bs-border-color-translucent: #d0d0d0;
   --surface: #f0f2f7;
   --surface-raised: #f8f9fc;
   --surface-warm: #e6f4ff;
@@ -208,17 +214,20 @@ select:disabled {
 .app-shell.sidebar-collapsed { grid-template-columns: 56px 1fr; }
 .sidebar-collapsed .sidebar-body { display: none; }
 .sidebar-collapsed .sidebar-rail { border-right: none; }
-/* Drawer overlay + slide animation */
+/* Drawer overlay — 纯 opacity 淡入淡出，不用 transform（transform 会创建包含块，
+   破坏子元素 position:absolute/fixed 定位，如 Tom Select 下拉层）*/
 .drawer-overlay { display: none !important; opacity: 0 !important; transition: opacity 0.35s ease-out; }
 .drawer-overlay.open { display: flex !important; opacity: 1 !important; }
-.drawer-overlay .drawer-panel { transform: translateX(100%) !important; transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important; }
-.drawer-overlay.open .drawer-panel { transform: translateX(0) !important; }
+/* drawer-panel 不设任何 transform，定位完全由 flex 布局控制 */
 
 /* 作业中心 grp 分组折叠（.open 切换 grp-body 显隐 + chevron 旋转）*/
 .grp > .grp-body { display: none; }
 .grp.open > .grp-body { display: block; }
 .grp-chev { transition: transform var(--motion-base) var(--ease-standard); }
 .grp.open > .grp-head .grp-chev { transform: rotate(180deg); }
+
+/* Tom Select 覆盖：搜索输入 min-width:7rem 在窄列里会撑开控件宽度 */
+.ts-control > input { min-width: 0 !important; }
 /* 行展开 chevron（tr.open 时旋转 90°）*/
 .expand-btn svg { transition: transform var(--motion-base) var(--ease-standard); }
 tr.open .expand-btn svg { transform: rotate(90deg); }

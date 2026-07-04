@@ -532,6 +532,12 @@ input:where([type='button'], [type='reset'], [type='submit']),
 
 :root {
   --bg: #ffffff;
+  /* Tom Select bootstrap5 主题变量映射 */
+  --bs-body-bg: #ffffff;
+  --bs-tertiary-bg: #f0f2f7;
+  --bs-body-color: #0f172a;
+  --bs-border-color: #e2e8f0;
+  --bs-border-color-translucent: #d0d0d0;
   --surface: #f0f2f7;
   --surface-raised: #f8f9fc;
   --surface-warm: #e6f4ff;
@@ -707,17 +713,20 @@ select:disabled {
 .app-shell.sidebar-collapsed { grid-template-columns: 56px 1fr; }
 .sidebar-collapsed .sidebar-body { display: none; }
 .sidebar-collapsed .sidebar-rail { border-right: none; }
-/* Drawer overlay + slide animation */
+/* Drawer overlay — 纯 opacity 淡入淡出，不用 transform（transform 会创建包含块，
+   破坏子元素 position:absolute/fixed 定位，如 Tom Select 下拉层）*/
 .drawer-overlay { display: none !important; opacity: 0 !important; transition: opacity 0.35s ease-out; }
 .drawer-overlay.open { display: flex !important; opacity: 1 !important; }
-.drawer-overlay .drawer-panel { transform: translateX(100%) !important; transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important; }
-.drawer-overlay.open .drawer-panel { transform: translateX(0) !important; }
+/* drawer-panel 不设任何 transform，定位完全由 flex 布局控制 */
 
 /* 作业中心 grp 分组折叠（.open 切换 grp-body 显隐 + chevron 旋转）*/
 .grp > .grp-body { display: none; }
 .grp.open > .grp-body { display: block; }
 .grp-chev { transition: transform var(--motion-base) var(--ease-standard); }
 .grp.open > .grp-head .grp-chev { transform: rotate(180deg); }
+
+/* Tom Select 覆盖：搜索输入 min-width:7rem 在窄列里会撑开控件宽度 */
+.ts-control > input { min-width: 0 !important; }
 /* 行展开 chevron（tr.open 时旋转 90°）*/
 .expand-btn svg { transition: transform var(--motion-base) var(--ease-standard); }
 tr.open .expand-btn svg { transform: rotate(90deg); }
@@ -936,6 +945,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .tab{-moz-tab-size:4;-o-tab-size:4;tab-size:4;}
 .m-0{margin:calc(var(--spacing) * 0);}
 .-mx-2{margin-inline:calc(var(--spacing) * -2);}
+.-mx-6{margin-inline:calc(var(--spacing) * -6);}
 .mx-1{margin-inline:calc(var(--spacing) * 1);}
 .mx-2{margin-inline:calc(var(--spacing) * 2);}
 .mx-3{margin-inline:calc(var(--spacing) * 3);}
@@ -943,7 +953,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .my,
 .my-4{margin-block:calc(var(--spacing) * 4);}
 .my-1{margin-block:calc(var(--spacing) * 1);}
-.my-5{margin-block:calc(var(--spacing) * 5);}
 .-mb-px{margin-bottom:-1px;}
 .-ml-2{margin-left:calc(var(--spacing) * -2);}
 .mb-\[3px\]{margin-bottom:3px;}
@@ -1036,6 +1045,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .py-\[3px\]{padding-block:3px;}
 .py-\[5px\]{padding-block:5px;}
 .py-\[6px\]{padding-block:6px;}
+.py-\[7px\]{padding-block:7px;}
 .py-\[9px\]{padding-block:9px;}
 .py-0\.5{padding-block:calc(var(--spacing) * 0.5);}
 .py-1{padding-block:calc(var(--spacing) * 1);}
@@ -1119,11 +1129,10 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .border-\[rgba\(37\,99\,235\,0\.1\)\]{border-color:color-mix(in oklab, rgba(37,99,235,0.1) var(--un-border-opacity), transparent) /* rgba(37,99,235,0.1) */;}
 .border-\[rgba\(37\,99\,235\,0\.12\)\]{border-color:color-mix(in oklab, rgba(37,99,235,0.12) var(--un-border-opacity), transparent) /* rgba(37,99,235,0.12) */;}
 .border-\[rgba\(37\,99\,235\,0\.15\)\]{border-color:color-mix(in oklab, rgba(37,99,235,0.15) var(--un-border-opacity), transparent) /* rgba(37,99,235,0.15) */;}
-.border-\[rgba\(82\,196\,26\,0\.15\)\]{border-color:color-mix(in oklab, rgba(82,196,26,0.15) var(--un-border-opacity), transparent) /* rgba(82,196,26,0.15) */;}
 .border-accent-100{border-color:color-mix(in srgb, var(--accent-100) var(--un-border-opacity), transparent) /* var(--accent-100) */;}
 .border-accent-200{border-color:color-mix(in srgb, var(--accent-200) var(--un-border-opacity), transparent) /* var(--accent-200) */;}
 .border-accent\/12{border-color:color-mix(in srgb, var(--accent) 12%, transparent) /* var(--accent) */;}
-.border-accent\/30{border-color:color-mix(in srgb, var(--accent) 30%, transparent) /* var(--accent) */;}
+.border-accent\/20{border-color:color-mix(in srgb, var(--accent) 20%, transparent) /* var(--accent) */;}
 .border-accent\/50{border-color:color-mix(in srgb, var(--accent) 50%, transparent) /* var(--accent) */;}
 .border-bg{border-color:color-mix(in srgb, var(--bg) var(--un-border-opacity), transparent) /* var(--bg) */;}
 .border-border{border-color:color-mix(in srgb, var(--border) var(--un-border-opacity), transparent) /* var(--border) */;}
@@ -1141,6 +1150,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .border-warn{border-color:color-mix(in srgb, var(--warn) var(--un-border-opacity), transparent) /* var(--warn) */;}
 .border-warn-200{border-color:color-mix(in srgb, var(--warn-200) var(--un-border-opacity), transparent) /* var(--warn-200) */;}
 .border-warn-400{border-color:color-mix(in srgb, var(--warn-400) var(--un-border-opacity), transparent) /* var(--warn-400) */;}
+.border-warn\/20{border-color:color-mix(in srgb, var(--warn) 20%, transparent) /* var(--warn) */;}
 .border-warn\/30{border-color:color-mix(in srgb, var(--warn) 30%, transparent) /* var(--warn) */;}
 .border-white\/15{border-color:color-mix(in srgb, var(--colors-white) 15%, transparent) /* #fff */;}
 .hover\:border-\[rgba\(220\,38\,38\,0\.3\)\]:hover{border-color:color-mix(in oklab, rgba(220,38,38,0.3) var(--un-border-opacity), transparent) /* rgba(220,38,38,0.3) */;}
@@ -1162,6 +1172,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .rounded{border-radius:var(--radius-DEFAULT);}
 .rounded-\[10px\]{border-radius:10px;}
 .rounded-\[3px\]{border-radius:3px;}
+.rounded-\[4px\]{border-radius:4px;}
 .rounded-full{border-radius:calc(infinity * 1px);}
 .rounded-lg{border-radius:var(--radius-lg);}
 .rounded-md{border-radius:var(--radius-md);}
@@ -1174,6 +1185,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .border-none{--un-border-style:none;border-style:none;}
 .border-dashed{--un-border-style:dashed;border-style:dashed;}
 .group.is-open .group-\[\.is-open\]\:bg-bg,
+.act\:bg-bg.active,
 .bg-bg{background-color:color-mix(in srgb, var(--bg) var(--un-bg-opacity), transparent) /* var(--bg) */;}
 .\!bg-surface{background-color:color-mix(in srgb, var(--surface) var(--un-bg-opacity), transparent) /* var(--surface) */ !important;}
 .\[\&_a\]\:bg-surface a,
@@ -1217,7 +1229,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .bg-\[rgba\(37\,99\,235\,0\.04\)\]{background-color:color-mix(in oklab, rgba(37,99,235,0.04) var(--un-bg-opacity), transparent) /* rgba(37,99,235,0.04) */;}
 .bg-\[rgba\(37\,99\,235\,0\.1\)\]{background-color:color-mix(in oklab, rgba(37,99,235,0.1) var(--un-bg-opacity), transparent) /* rgba(37,99,235,0.1) */;}
 .bg-\[rgba\(37\,99\,235\,0\.15\)\]{background-color:color-mix(in oklab, rgba(37,99,235,0.15) var(--un-bg-opacity), transparent) /* rgba(37,99,235,0.15) */;}
-.bg-\[rgba\(82\,196\,26\,0\.05\)\]{background-color:color-mix(in oklab, rgba(82,196,26,0.05) var(--un-bg-opacity), transparent) /* rgba(82,196,26,0.05) */;}
 .bg-\[var\(--fg\)\]{background-color:color-mix(in oklab, var(--fg) var(--un-bg-opacity), transparent) /* var(--fg) */;}
 .bg-\[var\(--primary\)\]{background-color:color-mix(in oklab, var(--primary) var(--un-bg-opacity), transparent) /* var(--primary) */;}
 .bg-\[var\(--red-50\)\]{background-color:color-mix(in oklab, var(--red-50) var(--un-bg-opacity), transparent) /* var(--red-50) */;}
@@ -1282,6 +1293,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .\[\&_button\]\:hover\:bg-accent-bg:hover button{background-color:color-mix(in srgb, var(--accent-bg) var(--un-bg-opacity), transparent) /* var(--accent-bg) */;}
 .hover\:bg-\[rgba\(220\,38\,38\,0\.08\)\]:hover{background-color:color-mix(in oklab, rgba(220,38,38,0.08) var(--un-bg-opacity), transparent) /* rgba(220,38,38,0.08) */;}
 .hover\:bg-\[rgba\(255\,255\,255\,0\.1\)\]:hover{background-color:color-mix(in oklab, rgba(255,255,255,0.1) var(--un-bg-opacity), transparent) /* rgba(255,255,255,0.1) */;}
+.hover\:bg-\[rgba\(37\,99\,235\,0\.1\)\]:hover{background-color:color-mix(in oklab, rgba(37,99,235,0.1) var(--un-bg-opacity), transparent) /* rgba(37,99,235,0.1) */;}
 .hover\:bg-\[rgba\(37\,99\,235\,0\.14\)\]:hover{background-color:color-mix(in oklab, rgba(37,99,235,0.14) var(--un-bg-opacity), transparent) /* rgba(37,99,235,0.14) */;}
 .hover\:bg-accent-bg:hover{background-color:color-mix(in srgb, var(--accent-bg) var(--un-bg-opacity), transparent) /* var(--accent-bg) */;}
 .hover\:bg-accent-hover:hover{background-color:color-mix(in srgb, var(--accent-hover) var(--un-bg-opacity), transparent) /* var(--accent-hover) */;}
@@ -1519,6 +1531,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .min-h-\[600px\]{min-height:600px;}
 .min-h-\[60px\]{min-height:60px;}
 .min-h-\[60vh\]{min-height:60vh;}
+.min-h-\[64px\]{min-height:64px;}
 .min-h-\[72px\]{min-height:72px;}
 .min-h-\[80px\]{min-height:80px;}
 .min-h-0{min-height:calc(var(--spacing) * 0);}
@@ -1556,6 +1569,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .w-\[15px\]{width:15px;}
 .w-\[160px\]{width:160px;}
 .w-\[180px\]{width:180px;}
+.w-\[190px\]{width:190px;}
 .w-\[200px\]{width:200px;}
 .w-\[20px\]{width:20px;}
 .w-\[220px\]{width:220px;}
@@ -1574,7 +1588,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .w-\[42px\]{width:42px;}
 .w-\[440px\]{width:440px;}
 .w-\[44px\]{width:44px;}
-.w-\[460px\]{width:460px;}
 .w-\[480px\]{width:480px;}
 .w-\[48px\]{width:48px;}
 .w-\[50px\]{width:50px;}
@@ -1668,6 +1681,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .ring-\[rgba\(37\,99\,235\,0\.1\)\]{--un-ring-color:color-mix(in oklab, rgba(37,99,235,0.1) var(--un-ring-opacity), transparent) /* rgba(37,99,235,0.1) */;}
 .ring-accent-bg{--un-ring-color:color-mix(in srgb, var(--accent-bg) var(--un-ring-opacity), transparent) /* var(--accent-bg) */;}
 .ring-bg{--un-ring-color:color-mix(in srgb, var(--bg) var(--un-ring-opacity), transparent) /* var(--bg) */;}
+.act\:shadow-\[0_1px_3px_rgba\(15\,23\,42\,0\.08\)\].active{--un-shadow:0 1px 3px var(--un-shadow-color, rgba(15, 23, 42, 0.08));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .shadow-\[0_0_0_3px_rgba\(37\,99\,235\,0\.1\)\]{--un-shadow:0 0 0 3px var(--un-shadow-color, rgba(37, 99, 235, 0.1));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .shadow-\[0_12px_40px_rgba\(15\,23\,42\,0\.25\)\]{--un-shadow:0 12px 40px var(--un-shadow-color, rgba(15, 23, 42, 0.25));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .shadow-\[0_1px_2px_rgba\(37\,99\,235\,0\.2\)\]{--un-shadow:0 1px 2px var(--un-shadow-color, rgba(37, 99, 235, 0.2));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
@@ -1705,6 +1719,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .\[\&\.open_\.di-chev_svg\]\:rotate-180.open .di-chev svg,
 .rotate-180{rotate:180deg;}
 .rotate-90{rotate:90deg;}
+.transform{transform:var(--un-rotate-x) var(--un-rotate-y) var(--un-rotate-z) var(--un-skew-x) var(--un-skew-y);}
 .icon\:transition-opacity [class*=i-lucide],
 .transition-opacity{transition-property:opacity;transition-timing-function:var(--un-ease, var(--default-transition-timingFunction));transition-duration:var(--un-duration, var(--default-transition-duration));}
 .transition{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,--un-gradient-from,--un-gradient-via,--un-gradient-to,opacity,box-shadow,transform,translate,scale,rotate,filter,-webkit-backdrop-filter,backdrop-filter;transition-timing-function:var(--un-ease, var(--default-transition-timingFunction));transition-duration:var(--un-duration, var(--default-transition-duration));}
@@ -1802,6 +1817,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .z-20{z-index:20;}
 .overflow-auto{overflow:auto;}
 .overflow-hidden{overflow:hidden;}
+.overflow-visible{overflow:visible;}
 .overflow-x-auto{overflow-x:auto;}
 .overflow-x-hidden{overflow-x:hidden;}
 .overflow-y-auto{overflow-y:auto;}

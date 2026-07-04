@@ -1,4 +1,43 @@
-htmx.config.disableInheritance=true;
+﻿htmx.config.disableInheritance=true;
+
+// ── Tom Select 自动初始化（库位搜索选择器）──
+// bin_search 组件返回普通 <select data-tom-select>，Tom Select 接管为可搜索下拉。
+// 下拉列表渲染到 body，不受 drawer overflow/transform 裁剪。
+// HTMX swap 进来的新 select 由 htmx:afterSettle 自动初始化。
+function initTomSelect(scope) {
+  var sels = (scope || document).querySelectorAll('select[data-tom-select]:not([data-ts-ready])');
+  sels.forEach(function (sel) {
+    sel.setAttribute('data-ts-ready', ''); // 防重复初始化
+    var hiddenId = sel.getAttribute('data-input-id');
+    var instance = new TomSelect(sel, {
+      maxItems: 1,
+      valueField: 'value',
+      labelField: 'text',
+      searchField: 'text',
+      placeholder: '搜索库位…',
+      allowEmptyOption: true,
+      plugins: ['clear_button'],
+      // drawer form 的 overflow-y-auto 会裁剪 absolute dropdown
+      // 打开时切成 fixed → 脱离 overflow（drawer 无 transform，fixed 正确锚定视口）
+      onDropdownOpen: function (dropdown) {
+        var rect = this.control.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = (rect.bottom + 2) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.width = rect.width + 'px';
+        dropdown.style.zIndex = '99999';
+      },
+      onChange: function (val) {
+        if (hiddenId) {
+          var h = document.querySelector('input[data-input-id="' + hiddenId + '"]');
+          if (h) h.value = val;
+        }
+      }
+    });
+  });
+}
+document.addEventListener('htmx:afterSettle', function () { initTomSelect(document); });
+document.addEventListener('DOMContentLoaded', function () { initTomSelect(document); });
 
 // ── Smooth scroll to anchor (nav_chip 锚点条) ──
 // hyperscript 不支持 JS 可选链 ?./对象字面量，故滚动逻辑放此，hyperscript 只 call 函数名。
@@ -642,48 +681,265 @@ window.wcReceiveSubmit = function (form) {
     return true;
 };
 
-// wcOpenBinPicker：读当前行 product/warehouse → htmx 加载 suggest_bins → 开 #bin-picker 弹窗
-window.wcOpenBinPicker = function (btn) {
-    var row = btn.closest('[data-row]');
-    if (!row) return;
-    var pidEl = row.querySelector('[data-k="product_id"]');
-    var whEl = row.querySelector('[data-k="warehouse_id"]');
-    var pid = pidEl ? pidEl.value : '';
-    var wh = whEl ? whEl.value : '';
-    if (!wh) { alert('请先为本行选择目标仓库'); return; }
-    if (!pid) { alert('该行缺少产品信息'); return; }
-    window.__binPickerRow = row;
-    htmx.ajax('GET', '/admin/wms/stock-in/create/suggest-bins', {
-        target: '#bin-picker-results',
-        swap: 'innerHTML',
-        values: { product_id: pid, warehouse_id: wh }
+// ── 弹窗式库位选择（bin_picker_modal 公共控件）──
+
+// binPickerOpen：行内按钮点击 → 记录当前行 + 写 product_id/mode → 打开弹窗；
+// 若本行已设仓库（统一仓库批量设过），打开后自动选中左侧对应仓库加载其库位。
+// binPickerOpen：行内按钮点击 → 拉产品信息/库存分布/之前存储位置 → 填产品条 + 标注仓库 + 自动定位。
+// 自动选中优先级：本行已设仓库 > 第一个有库存仓（之前存的）> 第一个仓。
+window.binPickerOpen = async function (btn) {
+  var row = btn.closest('tr');
+  if (!row) return;
+  window.__binPickerRow = row;
+  var modal = document.getElementById('bin-picker-modal');
+  if (!modal) return;
+  var whList = document.getElementById('bin-picker-modal-wh-list');
+  var pidInput = document.getElementById('bin-picker-modal-product-id');
+  var modeInput = document.getElementById('bin-picker-modal-mode');
+  var infoBox = document.getElementById('bin-picker-modal-product-info');
+  var pid = btn.getAttribute('data-product-id') || '';
+  if (pidInput) pidInput.value = pid;
+  if (modeInput) modeInput.value = btn.getAttribute('data-mode') || 'inbound';
+
+  // 清左侧旧标注/高亮 + 搜索框 + 右侧旧列表 + 产品信息条
+  if (whList) {
+    whList.querySelectorAll('.wh-item').forEach(function (el) {
+      el.classList.remove('active', 'has-stock');
+      var badge = el.querySelector('.stock-badge');
+      if (badge) badge.remove();
     });
-    document.getElementById('bin-picker').classList.add('is-open');
-};
+  }
+  var search = modal.querySelector('input[placeholder^="搜索库位"]');
+  if (search) search.value = '';
+  var binsHolder = document.getElementById('bin-picker-modal-bins');
+  if (binsHolder) binsHolder.innerHTML = '<div class="text-center text-muted py-10 text-sm">选择左侧仓库后加载库位列表</div>';
+  if (infoBox) infoBox.textContent = '加载产品信息…';
+  modal.classList.add('is-open');
 
-// wmsPickBin：选定库位 → 填回 window.__binPickerRow 的 bin input + label。
-// 兼容 work-center（data-k="bin_id"）与 stock-in/create（input[name="bin_id"]）两种行结构。
-// suggest_bins_fragment 的库位按钮调用此函数（替代 stock-in 专用的 wmsStockInPickBin）。
-window.wmsPickBin = function (binId, label) {
-    var row = window.__binPickerRow;
-    if (row) {
-        var input = row.querySelector('[data-k="bin_id"], input[name="bin_id"]');
-        var labelEl = row.querySelector('.bin-label');
-        if (input) input.value = binId;
-        if (labelEl) labelEl.textContent = label;
+  // 拉产品信息 + 库存分布 + 之前存储位置
+  var data = null;
+  if (pid) {
+    try {
+      var r = await fetch('/api/bin-picker/product-info?product_id=' + encodeURIComponent(pid));
+      data = await r.json();
+    } catch (e) {}
+  }
+
+  // 产品信息条：编码/名称 + 之前存储位置（可展开列表，每行点击回填）
+  if (infoBox && data) {
+    function sugRow(s) {
+      return '<button type="button" class="suggested-pick self-start px-2 py-0.5 rounded-sm bg-accent-bg/60 text-accent text-[11px] font-medium border border-accent/20 cursor-pointer hover:bg-accent/15 text-left"'
+        + ' data-wh-id="' + s.warehouse_id + '" data-wh-name="' + s.warehouse_name + '"'
+        + ' data-bin-id="' + s.bin_id + '" data-bin-code="' + s.bin_code + '">'
+        + s.warehouse_name + ' / ' + s.bin_code + ' · 库存 ' + s.qty
+        + '</button>';
     }
-    var picker = document.getElementById('bin-picker');
-    if (picker) picker.classList.remove('is-open');
+    var html = '<div class="flex items-center gap-2 flex-wrap">';
+    if (data.product_code) html += '<span class="font-mono text-fg">' + data.product_code + '</span>';
+    if (data.product_name) html += '<span class="text-fg-2 truncate max-w-[260px]">' + data.product_name + '</span>';
+    html += '</div>';
+    if (data.stocks && data.stocks.length) {
+      html += '<div class="mt-1.5 flex flex-col gap-1 items-start">';
+      html += '<span class="text-[11px] text-muted">之前存储（点击回填）：</span>';
+      html += sugRow(data.stocks[0]);
+      if (data.stocks.length > 1) {
+        html += '<button type="button" class="sug-toggle text-[11px] text-muted hover:text-accent bg-transparent border-none cursor-pointer">共 ' + data.stocks.length + ' 处 ▾</button>';
+        html += '<div class="sug-more hidden flex flex-col gap-1">';
+        for (var i = 1; i < data.stocks.length; i++) {
+          html += sugRow(data.stocks[i]);
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    infoBox.innerHTML = html;
+    infoBox.querySelectorAll('.suggested-pick').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        window.binPickerPickSuggested(
+          btn.getAttribute('data-wh-id'),
+          btn.getAttribute('data-wh-name'),
+          btn.getAttribute('data-bin-id'),
+          btn.getAttribute('data-bin-code')
+        );
+      });
+    });
+    var toggle = infoBox.querySelector('.sug-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        var more = infoBox.querySelector('.sug-more');
+        if (!more) return;
+        var hidden = more.classList.toggle('hidden');
+        toggle.textContent = hidden ? ('共 ' + data.stocks.length + ' 处 ▾') : '收起 ▴';
+      });
+    }
+  }
+
+  // 仓库标注（库存分布）+ 排前
+  var stockMap = {};
+  if (data && data.stock_by_warehouse) {
+    data.stock_by_warehouse.forEach(function (it) { stockMap[it.warehouse_id] = it.qty; });
+  }
+  if (whList) {
+    var items = Array.prototype.slice.call(whList.querySelectorAll('.wh-item'));
+    items.forEach(function (el) {
+      var wid = el.getAttribute('data-warehouse-id');
+      if (stockMap[wid]) {
+        el.classList.add('has-stock');
+        var b = document.createElement('span');
+        b.className = 'stock-badge ml-1.5 text-[11px] text-success font-mono';
+        b.textContent = '库存 ' + stockMap[wid];
+        el.appendChild(b);
+      }
+    });
+    // 有库存的仓库排前（reverse 保持各自原顺序）
+    items
+      .filter(function (el) { return el.classList.contains('has-stock'); })
+      .reverse()
+      .forEach(function (el) { whList.insertBefore(el, whList.firstChild); });
+  }
+
+  // 自动选中：本行已设仓库 > 第一个 has-stock > 第一个仓
+  var whInput = row.querySelector('input[name="warehouse_id"]');
+  var whId = whInput ? whInput.value : '';
+  var target = whId && whList ? whList.querySelector('.wh-item[data-warehouse-id="' + whId + '"]') : null;
+  if (!target && whList) target = whList.querySelector('.wh-item.has-stock');
+  if (!target && whList) target = whList.querySelector('.wh-item');
+  if (target && window.htmx) {
+    window.htmx.trigger(target, 'click');
+  }
 };
 
-// wcResetBin：仓库 change 时清本行 bin_id + label（纯前端 UI，不发后端请求）
-window.wcResetBin = function (sel) {
-    var row = sel.closest('[data-row]');
-    if (!row) return;
-    var inp = row.querySelector('[data-k="bin_id"]');
-    var lbl = row.querySelector('.bin-label');
-    if (inp) inp.value = '';
-    if (lbl) lbl.textContent = '自动分配';
+// binPickerPickSuggested：点「一键选中」之前存储位置 → 填回当前行 warehouse_id+bin_id+按钮文字 + 关弹窗。
+// 出库行（含 [data-avail]）额外刷新「可用」列。
+window.binPickerPickSuggested = function (whId, whName, binId, binCode) {
+  var row = window.__binPickerRow;
+  if (!row) return;
+  var whInput = row.querySelector('input[name="warehouse_id"]');
+  var binInput = row.querySelector('input[name="bin_id"]');
+  if (whInput) whInput.value = whId;
+  if (binInput) binInput.value = binId;
+  var btn = row.querySelector('.bin-cell-btn');
+  if (btn) btn.textContent = whName + ' / ' + binCode;
+  var modal = document.getElementById('bin-picker-modal');
+  if (modal) modal.classList.remove('is-open');
+  if (row.querySelector('[data-avail]') && window.wcShipRefreshStock) {
+    window.wcShipRefreshStock(row);
+  }
+};
+
+// binPickerFilterBins：右侧库位搜索框 oninput → 按编码/名称过滤当前库位列表
+window.binPickerFilterBins = function (input) {
+  var kw = (input.value || '').toLowerCase().trim();
+  var bins = document.getElementById('bin-picker-modal-bins');
+  if (!bins) return;
+  bins.querySelectorAll('button[data-bin-id]').forEach(function (b) {
+    var code = (b.getAttribute('data-bin-code') || '').toLowerCase();
+    var name = (b.getAttribute('data-bin-name') || '').toLowerCase();
+    b.style.display = (!kw || code.indexOf(kw) >= 0 || name.indexOf(kw) >= 0) ? '' : 'none';
+  });
+};
+
+// binPickerSelect：库位列表点击 → 填回当前行 warehouse_id + bin_id + 按钮文字；
+// 发货 drawer（行含 [data-avail]）额外刷新「可用」列。
+window.binPickerSelect = function (binId, binCode, binName) {
+  var row = window.__binPickerRow;
+  if (!row) return;
+  var activeWh = document.querySelector('#bin-picker-modal-wh-list .wh-item.active');
+  var whId = activeWh ? activeWh.getAttribute('data-warehouse-id') : '';
+  var whName = activeWh ? activeWh.getAttribute('data-warehouse-name') : '';
+  var whInput = row.querySelector('input[name="warehouse_id"]');
+  var binInput = row.querySelector('input[name="bin_id"]');
+  if (whInput) whInput.value = whId;
+  if (binInput) binInput.value = binId;
+  var btn = row.querySelector('.bin-cell-btn');
+  if (btn) btn.textContent = whName + ' / ' + binCode;
+  document.getElementById('bin-picker-modal').classList.remove('is-open');
+  // 发货 drawer：选完库位刷新该行「可用」列
+  if (row.querySelector('[data-avail]') && window.wcShipRefreshStock) {
+    window.wcShipRefreshStock(row);
+  }
+};
+
+// wcGenIdempotencyKey：收货 drawer body 加载时生成幂等键（防双击重复入库）
+window.wcGenIdempotencyKey = function (el) {
+  el.value = crypto.randomUUID ? crypto.randomUUID() : (Date.now() + Math.random()).toString(36);
+};
+
+// wcShipRefreshStock：发货 drawer 选仓库后查各产品 ATP → 刷新「可用」列。
+// source 为单行 → 只刷该行；否则刷 source 所在 form 的全部 [data-row]。无 warehouse_id 的行跳过。
+window.wcShipRefreshStock = function (source) {
+  var rows;
+  if (source && source.matches && source.matches('[data-row]')) {
+    rows = [source];
+  } else {
+    var form = source && source.closest ? source.closest('form') : null;
+    rows = form ? form.querySelectorAll('[data-row]') : [];
+  }
+  if (!rows || !rows.length) return;
+  rows.forEach(function (r) {
+    var pid = r.getAttribute('data-pid');
+    var need = parseFloat(r.getAttribute('data-need')) || 0;
+    var whEl = r.querySelector('[data-k="warehouse_id"]');
+    var wh = whEl ? whEl.value : '';
+    if (!wh || !pid) return;
+    fetch('/admin/wms/work-center/ship-stock-avail?warehouse_id=' + encodeURIComponent(wh) +
+          '&product_ids=' + encodeURIComponent(JSON.stringify([pid])))
+      .then(function (res) { return res.json(); })
+      .then(function (map) {
+        var avail = parseFloat(map[pid]) || 0;
+        var el = r.querySelector('[data-avail]');
+        if (!el) return;
+        if (avail < need) {
+          el.innerHTML = '<span class="text-danger">' + avail + ' 缺</span>';
+        } else {
+          el.innerHTML = '<span class="text-muted">' + avail + '</span>';
+        }
+      })
+      .catch(function () {});
+  });
+};
+
+// wcShipCollectRows：发货 drawer onsubmit — 校验（qty>0）→ 收集 [data-k] → items_json
+window.wcShipCollectRows = function (form) {
+  var rows = form.querySelectorAll('[data-row]');
+  var items = [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var qtyEl = r.querySelector('[data-k="qty"]');
+    var qty = qtyEl ? parseFloat(qtyEl.value) : NaN;
+    if (isNaN(qty) || qty <= 0) { alert('每行实发数量必须大于 0'); return false; }
+    var whEl = r.querySelector('[data-k="warehouse_id"]');
+    if (whEl && !whEl.value) { alert('每行必须选择发货仓库'); return false; }
+    var o = {};
+    r.querySelectorAll('[data-k]').forEach(function (el) {
+      o[el.getAttribute('data-k')] = el.value;
+    });
+    items.push(o);
+  }
+  var j = form.querySelector('[name="items_json"]');
+  if (j) j.value = JSON.stringify(items);
+  return true;
+};
+
+// wcApplyWarehouseAll：顶部「统一仓库」批量 → 设各行 hidden warehouse_id + 更新按钮文字 + 清 bin_id。
+// 行内已无 select，不再 trigger HTMX change；库位由用户各行点按钮开弹窗选。
+// 发货 drawer（form 内有 [data-avail]）额外刷新「可用」列。
+window.wcApplyWarehouseAll = function (topSel) {
+  var form = topSel.closest('form');
+  if (!form) return;
+  var wh = topSel.value;
+  var opt = topSel.options[topSel.selectedIndex];
+  var whName = opt ? opt.textContent : '';
+  var isShip = !!form.querySelector('[data-avail]');
+  form.querySelectorAll('[data-row]').forEach(function (row) {
+    var whInput = row.querySelector('[data-k="warehouse_id"]');
+    var binInput = row.querySelector('[data-k="bin_id"]');
+    var btn = row.querySelector('.bin-cell-btn');
+    if (whInput) whInput.value = wh;
+    if (binInput) binInput.value = '';
+    if (btn) btn.textContent = wh ? ((whName || '已选仓库') + ' / 选择库位') : '选择仓库 / 库位';
+  });
+  if (isShip && window.wcShipRefreshStock) window.wcShipRefreshStock(form);
 };
 
 // ── WMS 工作中心：待出库批量发货栏（复用 MES .show 显隐范式）──

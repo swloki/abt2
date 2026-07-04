@@ -61,6 +61,11 @@ pub struct WcStockInCreateDrawerPath;
 #[typed_path("/admin/wms/work-center/stock-ins/create")]
 pub struct WcStockInCreatePath;
 
+/// 发货 drawer 选仓库后查询各产品可用库存（JSON）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/work-center/ship-stock-avail")]
+pub struct WcShipStockAvailPath;
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -106,5 +111,9 @@ pub fn router() -> Router<AppState> {
         .route(
             WcStockInCreatePath::PATH,
             post(wms_work_center::post_stock_in_create),
+        )
+        .route(
+            WcShipStockAvailPath::PATH,
+            get(wms_work_center::get_ship_stock_avail),
         )
 }

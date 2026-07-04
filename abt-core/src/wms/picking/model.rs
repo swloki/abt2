@@ -197,6 +197,17 @@ pub struct RequestShippingItemReq {
 }
 
 /// 发货 Hub 摘要（首屏轻量查询，含缺货 ATP 判定）
+/// 行级发货请求（对齐 Odoo stock.move.line：每行独立库位/批次/数量）
+#[derive(Debug, Clone)]
+pub struct ShipRowReq {
+    pub picking_item_id: i64,
+    pub warehouse_id: i64,
+    pub bin_id: Option<i64>,
+    pub batch_no: Option<String>,
+    pub qty: Decimal,
+}
+
+/// 发货 Hub 摘要（首屏轻量查询，含缺货 ATP 判定）
 #[derive(Debug, Clone)]
 pub struct ShippingHubSummary {
     pub pending_ship_qty: Decimal,        // 待发 Σ qty_requested

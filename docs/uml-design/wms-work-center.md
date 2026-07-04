@@ -72,17 +72,17 @@ pub struct WorkCenterSummary {
 
 **渐进式原则**：5 个业务的 `list / create / detail` 页面**保留为路由**（不物理删除）。硬约束：
 - 出库 `detail` 被销售对账 / 销售退货跨模块链接（`ShippingDetailPath`，4 处），不可删；
-- 作业中心库位选择弹窗复用入库 `create` 的 `suggest_bins` 端点，不可删；
+- 入库 `create` 页面保留为路由（独立入库创建页 + 作业中心「新建入库单」drawer 入口）；库位选择已迁至独立 `bin_picker_modal` 组件（`/api/bin-picker`，inbound/outbound 双模式）；
 - 各 `create / detail` 的「返回」按钮指向各自 `list`（`?restore=true`），不可删。
 
 **入口承载**：作业中心每个 domain tab 增「新建 / 查看全部」入口按钮，跳转保留的 `CreatePath / ListPath`（list 页本身已是成熟全量视图——状态 tab + 搜索 + 分页 + 新建入口，不在作业中心内重做，DRY）。作业中心待办队列 + 就地 drawer 操作不变。
 
 **分阶段**：
 1. **阶段 1（试点）**：领料单 requisition —— 删侧边栏「领料单」菜单 + 作业中心「待领料」tab 加入口按钮；requisition 路由全保留。
-2. **阶段 2（推广）**：调拨 / 盘点 / 入库 / 出库，模式同阶段 1（机械复制）；路由保留使 suggest_bins、销售依赖均无破坏。
+2. **阶段 2（推广）**：调拨 / 盘点 / 入库 / 出库，模式同阶段 1（机械复制）；路由保留使销售依赖均无破坏。
 3. **阶段 3（可选深化）**：作业中心内原生「全部单据」表格 / 详情 drawer 化，视评审而定。
 
-> **实施状态（2026-07-02）**：阶段 1 + 阶段 2 已完成——inventory 侧边栏 5 个菜单（入库管理 / 出库管理 / 领料单 / 库存调拨 / 循环盘点）全部移除；作业中心 5 个 domain tab 均渲染「新建 / 查看全部」入口（`domain_entries`），跳转各业务保留的 Create / List 路由。各业务 list / create / detail 路由与页面保留不动，销售对账 / 退货跨模块链接、作业中心 `suggest_bins` 复用均无破坏。阶段 3 已启动，见下文第 8 节。
+> **实施状态（2026-07-02）**：阶段 1 + 阶段 2 已完成——inventory 侧边栏 5 个菜单（入库管理 / 出库管理 / 领料单 / 库存调拨 / 循环盘点）全部移除；作业中心 5 个 domain tab 均渲染「新建 / 查看全部」入口（`domain_entries`），跳转各业务保留的 Create / List 路由。各业务 list / create / detail 路由与页面保留不动，销售对账 / 退货跨模块链接均无破坏（库位选择已迁至独立 `bin_picker_modal` 组件）。阶段 3 已启动，见下文第 8 节。
 
 ## 8. 阶段 3：作业中心彻底收口（少即是多，不跳转）
 
@@ -91,7 +91,7 @@ pub struct WorkCenterSummary {
 ### 删页硬约束（决定哪些页能删）
 
 - **出库 `detail` 保留**：被销售对账 / 销售退货跨模块链接（`ShippingDetailPath`，4 处），不可删；作业中心可同时 drawer 展示。
-- **入库 `create` 保留**：其 `suggest_bins` 端点被作业中心库位选择弹窗复用。
+- **入库 `create` 保留**：作为独立入库创建页 + 作业中心「新建入库单」drawer 入口（drawer 复用 `stock_in_create_content` 时传 `with_picker=false`，库位弹窗由作业中心页面级 shell 提供，避免重复 id）。
 - **领料单 / 调拨 / 盘点 的 list / detail 无跨模块依赖**，可安全删。
 
 ### 阶段 3.1（领料单试点）实施
@@ -149,7 +149,7 @@ pub struct WorkCenterSummary {
 |---|---|---|
 | 3.2a | 调拨 transfer | list + detail（✅ 已完成，模式同 3.1） |
 | 3.2b | 盘点 cycle_count | list + detail（✅ 已完成；`count` 录入 UI 原未实现，drawer 沿用只读明细 + start/complete/cancel/adjust/approve/reject 操作） |
-| 3.3 | 入库 stock_in | list + detail（create 保留 suggest_bins） |
+| 3.3 | 入库 stock_in | list + detail（create 保留为独立页 + drawer 入口；库位选择用 bin_picker_modal） |
 | 3.4 | 出库 shipping | ✅ 全部视图 + 入口收口（list 页保留：`delete_shipping` 依赖 + 旧路径重定向 + detail 销售依赖；无侧边栏入口，作业中心 Outbound 全部视图承载） |
 | 3.5（可选） | 新建 drawer 化 | 各 create 页 |
 

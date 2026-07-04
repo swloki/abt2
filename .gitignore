@@ -30,3 +30,12 @@ abt-server.log
 # TLS certificates
 cert.der
 key.der
+
+# E2E (Playwright) 产物
+e2e/node_modules/
+e2e/.auth/
+e2e/test-results/
+e2e/playwright-report/
+e2e/playwright/.cache/
+e2e/blob-report/
+.auth.json

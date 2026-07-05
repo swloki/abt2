@@ -363,6 +363,7 @@ pub fn product_picker_results_for_table(
                 @for p in products {
                     div class="flex items-center p-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg transition-colors"
                         hx-get=(format!("{}?product_id={}", item_row_path, p.product_id))
+                        hx-include="[name=supplier_id]"
                         hx-target=(format!("#{}", tbody_id))
                         hx-swap="beforeend"
                         _=({

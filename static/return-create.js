@@ -48,7 +48,7 @@
         '<td class="num-right">' + fmtNum(data.received_qty) + "</td>" +
         '<td><input class="form-input num-input" type="number" step="any" ' +
           'style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" ' +
-          'name="returned_qty" value="' + returnedQty + '" data-idx="' + idx + '"></td>' +
+          'name="returned_qty" value="' + returnedQty + '" data-idx="' + idx + '" data-received="' + (data.received_qty || "0") + '"></td>' +
         '<td class="num-right mono">' + fmtNum(unitPrice) + "</td>" +
         '<td class="num-right mono line-subtotal" data-idx="' + idx + '">' + subtotal + "</td>" +
         '<td><button type="button" class="btn-remove-row" title="删除行" onclick="this.closest(\'tr\').remove();PRCreate.recalcLineNos()">' +
@@ -107,6 +107,26 @@
       tbody.querySelectorAll("tr").forEach(function (tr, i) {
         var td = tr.querySelector(".line-num");
         if (td) td.textContent = i + 1;
+      });
+    },
+
+    // 全退：每行 returned_qty 填到已收量（data-received）
+    fillAllReceived: function () {
+      var tbody = document.getElementById("pr-item-tbody");
+      if (!tbody) return;
+      tbody.querySelectorAll('input[name="returned_qty"]').forEach(function (input) {
+        input.value = input.getAttribute("data-received") || "0";
+        PRCreate.recalcSubtotal(input);
+      });
+    },
+
+    // 清空：每行 returned_qty 置 0（用户重新指定部分退）
+    clearAll: function () {
+      var tbody = document.getElementById("pr-item-tbody");
+      if (!tbody) return;
+      tbody.querySelectorAll('input[name="returned_qty"]').forEach(function (input) {
+        input.value = "0";
+        PRCreate.recalcSubtotal(input);
       });
     },
 

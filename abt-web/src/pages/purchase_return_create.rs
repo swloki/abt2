@@ -37,6 +37,7 @@ pub struct PRCreateForm {
  pub return_reason: String,
  pub remark: Option<String>,
  pub items_json: String,
+ pub action: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -242,8 +243,14 @@ pub async fn create_pr(
  axum::Form(form): axum::Form<PRCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext { state, service_ctx, .. } = ctx;
+ let action = form.action.clone();
  let id = do_create_pr(&state, &service_ctx, form).await?;
- let redirect = PRDetailPath { id }.to_string();
+ // 草稿（action=draft）：创建后回列表；提交：跳详情。
+ let redirect = if action.as_deref() == Some("draft") {
+     PRListPath::PATH.to_string()
+ } else {
+     PRDetailPath { id }.to_string()
+ };
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
@@ -343,39 +350,6 @@ pub fn pr_create_page(
                             option value="其他" { "其他" }
                         }
                     }
-                    div class="form-field" {
-                        label { "处理方式" }
-                        select name="processing_method" {
-                            option value="" { "请选择" }
-                            option value="退货退款" { "退货退款" }
-                            option value="换货" { "换货" }
-                            option value="返工" { "返工" }
-                        }
-                    }
-                    div class="form-field" {
-                        label { "物流公司" }
-                        input type="text" name="logistics_company" placeholder="输入物流公司名称…" {}
-                    }
-                    div class="form-field" {
-                        label { "物流单号" }
-                        input type="text" name="tracking_number" placeholder="输入物流单号…" {}
-                    }
-                    div class="form-field" {
-                        label { "处理人" }
-                        select name="handler" {
-                            option value="" { "请选择" }
-                            option value="current_user" { "当前用户" }
-                        }
-                    }
-                    div class="form-field" {
-                        label { "收货仓库" }
-                        select name="receiving_warehouse" {
-                            option value="" { "请选择仓库" }
-                            option value="东莞原料仓" { "东莞原料仓" }
-                            option value="深圳成品仓" { "深圳成品仓" }
-                            option value="苏州配件仓" { "苏州配件仓" }
-                        }
-                    }
                     div class="form-field col-span-2" {
                         label { "备注" }
                         textarea
@@ -395,6 +369,14 @@ pub fn pr_create_page(
                     span
                         class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft m-0 p-0 border-none"
                     { "退货产品明细" }
+                    div class="flex items-center gap-2" {
+                        button type="button"
+                            class="inline-flex items-center px-2.5 py-1 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface"
+                            _="on click call PRCreate.fillAllReceived()" { "全退" }
+                        button type="button"
+                            class="inline-flex items-center px-2.5 py-1 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface"
+                            _="on click call PRCreate.clearAll()" { "清空" }
+                    }
                 }
                 div class="overflow-x-auto" {
                     table class="data-table" style="min-width:1100px" {
@@ -433,7 +415,8 @@ pub fn pr_create_page(
                 }
                 div class="flex gap-3" {
                     button
-                        type="button"
+                        type="submit"
+                        name="action" value="draft"
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                         id="pr-save-draft"
                     { "保存草稿" }
@@ -445,7 +428,7 @@ pub fn pr_create_page(
             }
         }
     }
-    script src="/return-create.js?v=20260612" {}
+    script src="/return-create.js?v=20260705" {}
 }
 }
 
@@ -476,7 +459,7 @@ fn order_items_fragment(
                 "specification" : specification, "unit" : unit, "order_qty" : item
                 .quantity.to_string(), "received_qty" : item.received_qty.to_string(),
                 "unit_price" : item.unit_price.to_string(), "returned_qty" : item
-                .quantity.to_string(), }
+                .received_qty.to_string(), }
             )
                 .to_string();
             div data-item=(item_json) {}

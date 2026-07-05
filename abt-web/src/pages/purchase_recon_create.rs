@@ -245,7 +245,7 @@ pub fn precon_create_page(
                                 "供应商"
                                 span class="text-danger" { "*" }
                             }
-                            select name="supplier_id" id="precon-supplier" required onchange="triggerPreview()" {
+                            select name="supplier_id" id="precon-supplier" required {
                                 option value="" disabled selected { "请选择供应商" }
                                 @for s in suppliers {
                                     option value=(s.id) { (s.name) }
@@ -257,7 +257,7 @@ pub fn precon_create_page(
                                 "对账期间"
                                 span class="text-danger" { "*" }
                             }
-                            input type="month" name="period" id="precon-period" value=(current_month) required onchange="triggerPreview()" {}
+                            input type="month" name="period" id="precon-period" value=(current_month) required {}
                         }
                         div class="form-field" {
                             label { "对账日期" }
@@ -274,6 +274,7 @@ pub fn precon_create_page(
                     }
                 }
                 // ── 对账明细（预览区，选供应商+期间后自动加载）──
+                div id="precon-loading" class="htmx-indicator text-center p-4 text-muted text-sm" { "加载中…" }
                 (preview_empty("请先选择供应商与对账期间，系统将自动加载该期间已收货、未对账的明细"))
                 // ── Action Bar ──
                 div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
@@ -297,16 +298,6 @@ pub fn precon_create_page(
                     }
                 }
             }
-            // ── Preview trigger helper ──
-            ({
-                maud::PreEscaped(
-                    r#"<script>
-function triggerPreview() {
-    htmx.trigger(document.getElementById('precon-app'), 'previewChanged');
-}
-</script>"#,
-                )
-            })
         }
     }
 }
@@ -318,7 +309,8 @@ fn preview_empty(message: &str) -> Markup {
         div class="bg-bg border border-border rounded overflow-hidden mb-4"
             id="precon-preview-area"
             hx-get=(PreconPreviewPath::PATH)
-            hx-trigger="previewChanged from:#precon-app"
+            hx-trigger="change from:#precon-supplier, change from:#precon-period"
+            hx-indicator="#precon-loading"
             hx-include="#precon-supplier,#precon-period"
             hx-target="this"
             hx-swap="outerHTML"
@@ -346,7 +338,8 @@ fn preview_table(
         div class="bg-bg border border-border rounded overflow-hidden mb-4"
             id="precon-preview-area"
             hx-get=(PreconPreviewPath::PATH)
-            hx-trigger="previewChanged from:#precon-app"
+            hx-trigger="change from:#precon-supplier, change from:#precon-period"
+            hx-indicator="#precon-loading"
             hx-include="#precon-supplier,#precon-period"
             hx-target="this"
             hx-swap="outerHTML"

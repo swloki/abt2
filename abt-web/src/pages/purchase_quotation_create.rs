@@ -113,6 +113,7 @@ pub async fn get_pq_item_row(
  ctx: RequestContext,
  Query(params): Query<ItemRowParams>,
 ) -> Result<Html<String>> {
+ use abt_core::purchase::supplier_price::SupplierPriceService;
  let RequestContext {
  mut conn,
  state,
@@ -123,12 +124,24 @@ pub async fn get_pq_item_row(
  let product = svc
  .get(&service_ctx, &mut conn, params.product_id)
  .await?;
- Ok(Html(item_row_fragment(&product).into_string()))
+ // 选了供应商时，按 match_best_price(supplier, product, qty=1) 自动带单价
+ let unit_price = if let Some(sid) = params.supplier_id.filter(|&s| s > 0) {
+ state
+ .supplier_price_service()
+ .match_best_price(&service_ctx, &mut conn, sid, params.product_id, rust_decimal::Decimal::ONE)
+ .await?
+ .map(|p| p.price)
+ } else {
+ None
+ };
+ Ok(Html(item_row_fragment(&product, unit_price).into_string()))
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ItemRowParams {
  product_id: i64,
+ #[serde(default)]
+ supplier_id: Option<i64>,
 }
 
 /// HTMX: return supplier contact info fragment (contact, phone, address)
@@ -161,9 +174,19 @@ pub async fn get_pq_supplier_contacts(
  let contact_phone = primary
  .and_then(|c| c.phone.as_deref())
  .unwrap_or("");
+ // 取供应商默认币种（联动币种 select OOB）
+ let currency = if params.supplier_id > 0 {
+ supplier_svc
+ .get(&service_ctx, &mut conn, params.supplier_id)
+ .await
+ .ok()
+ .map(|s| s.currency)
+ } else {
+ None
+ };
 
  Ok(Html(
- supplier_contact_fields_fragment(contact_name, contact_phone).into_string(),
+ supplier_contact_fields_fragment(contact_name, contact_phone, currency.as_deref()).into_string(),
  ))
 }
 
@@ -331,7 +354,7 @@ pub fn pq_create_page(
                     }
                     div class="form-field" {
                         label { "币种" }
-                        select name="currency" {
+                        select name="currency" id="pq-currency" {
                             option value="CNY" selected { "CNY (人民币)" }
                             option value="USD" { "USD (美元)" }
                             option value="EUR" { "EUR (欧元)" }
@@ -460,7 +483,9 @@ pub fn pq_create_page(
 }
 
 /// Fragment returned by HTMX for supplier contact fields
-fn supplier_contact_fields_fragment(contact_name: &str, contact_phone: &str) -> Markup {
+fn supplier_contact_fields_fragment(contact_name: &str, contact_phone: &str, currency: Option<&str>) -> Markup {
+    let cur = currency.unwrap_or("CNY");
+    let opts = [("CNY", "CNY (人民币)"), ("USD", "USD (美元)"), ("EUR", "EUR (欧元)")];
  html! {
     div class="form-field" {
         label { "联系人" }
@@ -470,10 +495,17 @@ fn supplier_contact_fields_fragment(contact_name: &str, contact_phone: &str) -> 
         label { "联系电话" }
         input type="text" readonly value=(contact_phone) placeholder="—" class="bg-surface" {}
     }
+    // OOB 更新币种 select（选 supplier 联动其默认币种）
+    select name="currency" id="pq-currency" hx-swap-oob="true" {
+        @for (code, label) in opts {
+            option value=(code) selected[code == cur] { (label) }
+        }
+    }
 }
 }
 
-fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
+fn item_row_fragment(product: &abt_core::master_data::product::model::Product, unit_price: Option<rust_decimal::Decimal>) -> Markup {
+    let price_val = unit_price.map(|p| p.to_string()).unwrap_or_default();
  html! {
     tr {
         td class="text-muted text-xs text-center" {}
@@ -485,7 +517,8 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
                 type="number"
                 step="any"
                 placeholder="0.00"
-                name="item_unit_price" {}
+                name="item_unit_price"
+                value=(price_val) {}
         }
         td {
             input

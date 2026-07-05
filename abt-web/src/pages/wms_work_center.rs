@@ -1146,7 +1146,7 @@ async fn render_work_center_page(
             // 各 domain 创建 drawer（新建按钮 hx-get 填 body；submit 保 tab）
             (render_drawer_overlay("wc-cycle-count-create-overlay", "wc-cycle-count-create-drawer-body", "新建盘点单", "w-[900px] max-w-[94vw]"))
             (render_drawer_overlay("wc-requisition-create-overlay", "wc-requisition-create-drawer-body", "新建领料单", "w-[1000px] max-w-[94vw]"))
-            (render_drawer_overlay("wc-transfer-create-overlay", "wc-transfer-create-drawer-body", "新建调拨单", "w-[1000px] max-w-[94vw]"))
+            (render_drawer_overlay("wc-transfer-create-overlay", "wc-transfer-create-drawer-body", "新建调拨单", "w-[750px] max-w-[94vw]"))
             (render_drawer_overlay("wc-shipping-create-overlay", "wc-shipping-create-drawer-body", "新建发货单", "w-[1000px] max-w-[94vw]"))
             (render_drawer_overlay("wc-stock-in-create-overlay", "wc-stock-in-create-drawer-body", "新建入库单", "w-[1000px] max-w-[94vw]"))
             // 库位选择弹窗（左仓库 + 右库位；3 drawer 的 warehouse_bin_cell 共用此页面级 shell）

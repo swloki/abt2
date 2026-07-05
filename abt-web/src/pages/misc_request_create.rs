@@ -159,10 +159,10 @@ pub fn misc_create_page(post_path: &str, after_request_hs: &str, show_header: bo
         form id="misc-form" hx-post=(post_path) hx-swap="none" _=(after_request_hs) {
             input type="hidden" id="items-json" name="items_json" value="[]";
             // ── Basic Info ──
-            div class="form-section" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+            div class="form-section [&_input,&_select,&_textarea]:py-1.5" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-2.5 pb-1.5 border-b border-border-soft"
                 { "基本信息" }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                div class="grid grid-cols-3 gap-y-3 gap-x-4 mb-2" {
                     div class="form-field" {
                         label { "请购部门" }
                         select name="department" {
@@ -196,18 +196,8 @@ pub fn misc_create_page(post_path: &str, after_request_hs: &str, show_header: bo
             }
             // ── Line Items ──
             div class="data-card p-0 overflow-hidden mb-4" {
-                div class="flex justify-between items-center px-5 pt-5 pb-3" {
-                    span
-                        class="flex items-center gap-2 text-sm font-semibold text-fg m-0 p-0 border-none"
-                    { "请购明细" }
-                    button
-                        type="button"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
-                        hx-get=(MiscItemRowPath::PATH)
-                        hx-target="#misc-item-tbody"
-                        hx-swap="beforeend"
-                    { (icon::plus_icon("w-3.5 h-3.5")) "添加行" }
-                }
+                div class="flex items-center gap-2 text-sm font-semibold text-fg px-5 pt-5 pb-3"
+                { "采购明细" }
                 div class="overflow-x-auto" {
                     table class="data-table min-w-[900px]" {
                         thead {
@@ -225,6 +215,15 @@ pub fn misc_create_page(post_path: &str, after_request_hs: &str, show_header: bo
                         }
                         tbody id="misc-item-tbody" {}
                     }
+                }
+                div class="p-3 flex items-center gap-2" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
+                        hx-get=(MiscItemRowPath::PATH)
+                        hx-target="#misc-item-tbody"
+                        hx-swap="beforeend"
+                    { (icon::plus_icon("w-3.5 h-3.5")) "添加行" }
                 }
             }
             // ── Action Bar ──

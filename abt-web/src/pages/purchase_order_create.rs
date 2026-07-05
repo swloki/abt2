@@ -392,10 +392,10 @@ pub fn po_create_page(
             }
             input type="hidden" id="items-json" name="items_json" value="[]";
             // ── 基本信息（合并供应商 + 订单信息，参考三家 ERP 精简）──
-            div class="data-card mb-4" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+            div class="data-card mb-3 [&_input,&_select]:py-1.5" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-2.5 pb-1.5 border-b border-border-soft"
                 { "基本信息" }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-2" {
+                div class="grid grid-cols-3 gap-y-3 gap-x-4 mb-1" {
                     div class="form-field" {
                         label {
                             "供应商"
@@ -454,20 +454,12 @@ pub fn po_create_page(
                     }
                 }
                 // ── Supplier Info Bar ──（保留 handler 联动占位，三家 ERP 不在头部展示联系人/电话/地址）
-                div id="supplier-detail" class="mt-3" {}
+                div id="supplier-detail" class="mt-2" {}
             }
             // ── Line Items ──
             div class="data-card p-0 overflow-hidden mb-4" {
-                div class="flex justify-between items-center px-5 pt-5 pb-3" {
-                    span
-                        class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft m-0 p-0 border-none"
-                    { "采购产品明细" }
-                    button
-                        type="button"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
-                        _="on click add .is-open to #product-modal"
-                    { (icon::plus_icon("w-3.5 h-3.5")) "添加产品" }
-                }
+                div class="flex items-center gap-2 text-sm font-semibold text-fg px-5 pt-5 pb-3"
+                { "采购产品明细" }
                 div class="overflow-x-auto" {
                     table class="data-table min-w-[900px]" {
                         thead {

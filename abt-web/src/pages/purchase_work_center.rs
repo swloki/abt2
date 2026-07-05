@@ -118,6 +118,13 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
                 span class="text-xs text-muted font-mono flex-1 truncate" {
                     (summary.total()) " 件待办 · 需求 / 订单 / 对账 / 退货 一屏处理"
                 }
+                button type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90 shrink-0"
+                    hx-get=(PcPoCreateDrawerPath::PATH)
+                    hx-target="#po-create-drawer-body" hx-swap="innerHTML"
+                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #po-create-overlay" {
+                    (icon::plus_icon("w-3.5 h-3.5")) "新建采购订单"
+                }
             }
             div id="pc-card"
                 hx-get=(PcDemandPath::PATH) hx-trigger="load" hx-target="this" hx-swap="outerHTML" {
@@ -135,6 +142,7 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
         (render_drawer_overlay("misc-create-overlay", "misc-create-drawer", "misc-create-drawer-body", "新建零星采购", "w-[900px] max-w-[94vw]"))
         (render_drawer_overlay("recon-create-overlay", "recon-create-drawer", "recon-create-drawer-body", "新建采购对账单", "w-[1000px] max-w-[94vw]"))
         (render_drawer_overlay("pay-create-overlay", "pay-create-drawer", "pay-create-drawer-body", "新建付款申请", "w-[680px] max-w-[94vw]"))
+        (render_drawer_overlay("po-create-overlay", "po-create-drawer", "po-create-drawer-body", "新建采购订单", "w-[1000px] max-w-[94vw]"))
         // 转单成功后自动切草稿订单列表：后端广播 convertDone → htmx 原生 hx-get 切订单 card
         div class="hidden"
             hx-trigger="convertDone from:body"
@@ -1150,6 +1158,88 @@ struct PoItemWeb {
     tax_rate_id: Option<String>,
 }
 
+// ── 从零新建 PO drawer（复用 purchase_order_create::po_create_page，drawer 模式）──
+
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_po_create_drawer(
+    _path: PcPoCreateDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let suppliers = state
+        .supplier_service()
+        .list(
+            &service_ctx,
+            &mut conn,
+            abt_core::master_data::supplier::model::SupplierQuery {
+                name: None,
+                status: None,
+                category: None,
+            },
+            PageParams::new(1, 200),
+        )
+        .await?
+        .items;
+    let users = state
+        .user_service()
+        .list_users(&service_ctx, &mut conn, 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let quotations = state
+        .purchase_quotation_service()
+        .list(
+            &service_ctx,
+            &mut conn,
+            PurchaseQuotationQuery {
+                supplier_id: None,
+                status: Some(PurchaseQuotationStatus::Active),
+                quotation_date_start: None,
+                quotation_date_end: None,
+            },
+            PageParams::new(1, 200),
+        )
+        .await?
+        .items;
+    let tax_rates = state
+        .tax_rate_service()
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default();
+    // 提交成功（空 body）广播 poChanged → orders card 局部刷新（保 tab）；
+    // form afterRequest 凭 responseText 空 关 drawer（供应商明细子请求响应非空，不误关）。
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #po-create-overlay";
+    Ok(Html(
+        crate::pages::purchase_order_create::po_create_page(
+            &suppliers,
+            &users,
+            &quotations,
+            &tax_rates,
+            PcPoCreatePath::PATH,
+            after_hs,
+            false,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("PURCHASE_ORDER", "create")]
+pub async fn post_po_create(
+    _path: PcPoCreatePath,
+    ctx: RequestContext,
+    Form(form): Form<crate::pages::purchase_order_create::POCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    crate::pages::purchase_order_create::do_create_po(&state, &service_ctx, form).await?;
+    invalidate_purchase_summary(&state);
+    Ok(([("HX-Trigger", "poChanged")], Html(String::new())))
+}
+
 #[require_permission("PURCHASE_ORDER", "read")]
 pub async fn get_po_detail_drawer(
     path: PcPoDetailDrawerPath,
@@ -1561,8 +1651,16 @@ fn po_drawer_item_row(
         .expected_delivery_date
         .map(|d| d.format("%Y-%m-%d").to_string())
         .unwrap_or_default();
+    // 行内状态色（ERPNext set_indicator 借鉴）：已收完绿 / 部分收橙 / 待收灰
+    let row_color = if it.quantity > rust_decimal::Decimal::ZERO && it.received_qty >= it.quantity {
+        "border-l-4 border-l-success"
+    } else if it.received_qty > rust_decimal::Decimal::ZERO {
+        "border-l-4 border-l-warn"
+    } else {
+        "border-l-4 border-l-border-soft"
+    };
     html! {
-        tr class="border-t border-border-soft" {
+        tr class=(format!("border-t border-border-soft {row_color}")) {
             td class="py-1.5 px-2 align-top" {
                 div class="text-fg" { (name) }
                 div class="text-muted font-mono" { (code) }
@@ -2272,6 +2370,29 @@ pub async fn cancel_quotation(
     Ok(([("HX-Trigger", "quotationChanged")], Html(String::new())))
 }
 
+/// 删除草稿报价（软删，service 仅禁 Active 删除），广播 quotationChanged 刷新 quotation card。
+#[require_permission("PURCHASE_QUOTATION", "delete")]
+pub async fn delete_quotation(
+    path: PcQuotationDeletePath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .purchase_quotation_service()
+        .delete(&service_ctx, &mut tx, path.id)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    invalidate_purchase_summary(&state);
+    Ok(([("HX-Trigger", "quotationChanged")], Html(String::new())))
+}
+
 /// 基于报价生成 PO（复用 PurchaseOrderService::create_from_quotation），广播 quotationChanged + poChanged。
 #[require_permission("PURCHASE_QUOTATION", "update")]
 pub async fn quotation_to_po(
@@ -2373,6 +2494,15 @@ fn render_quotation_detail_drawer_body(
         }
         div class="flex items-center justify-end gap-2 pt-3 border-t border-border-soft flex-wrap" {
             @if can_act {
+                @if pq.status == PurchaseQuotationStatus::Draft {
+                    button type="button"
+                        class="inline-flex items-center px-3.5 py-1.5 rounded-sm bg-white text-danger border border-danger text-xs font-medium cursor-pointer hover:bg-danger-bg"
+                        hx-post=(PcQuotationDeletePath { id: pq.id }.to_string()) hx-swap="none"
+                        hx-confirm="确认删除此草稿报价？删除后不可恢复。"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-detail-overlay then call showToast('报价已删除')" {
+                        "删除"
+                    }
+                }
                 button type="button"
                     class="inline-flex items-center px-3.5 py-1.5 rounded-sm bg-white text-danger border border-border text-xs font-medium cursor-pointer hover:bg-surface"
                     hx-post=(PcQuotationCancelPath { id: pq.id }.to_string()) hx-swap="none"

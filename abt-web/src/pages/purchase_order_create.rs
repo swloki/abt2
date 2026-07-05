@@ -52,6 +52,7 @@ pub struct POCreateForm {
  pub buyer_id: Option<String>,
  pub remark: Option<String>,
  pub items_json: String,
+ pub action: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -121,7 +122,7 @@ pub async fn get_po_create(
  .await
  .unwrap_or_default();
 
- let content = po_create_page(&suppliers.items, &users.items, &quotations.items, &tax_rates);
+ let content = po_create_page(&suppliers.items, &users.items, &quotations.items, &tax_rates, POCreatePath::PATH, "", true);
  let page_html = admin_page(
  is_htmx,
  "新建采购订单",
@@ -219,18 +220,12 @@ pub async fn get_po_item_row(
  Ok(Html(item_row_fragment(&product, &tax_rates).into_string()))
 }
 
-/// POST: create purchase order from form submission (HTMX)
-#[require_permission("PURCHASE_ORDER", "create")]
-pub async fn create_po(
- _path: POCreatePath,
- ctx: RequestContext,
- axum::Form(form): axum::Form<POCreateForm>,
-) -> Result<impl IntoResponse> {
- let RequestContext {
- state,
- service_ctx,
- ..
- } = ctx;
+/// PO 创建核心逻辑（解析 POCreateForm → svc.create），创建页与 work_center drawer 共用。
+pub async fn do_create_po(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::context::ServiceContext,
+    form: POCreateForm,
+) -> Result<i64> {
  let svc = state.purchase_order_service();
 
  let order_date = chrono::NaiveDate::parse_from_str(&form.order_date, "%Y-%m-%d")
@@ -304,18 +299,42 @@ pub async fn create_po(
  let id = svc.create(&service_ctx, &mut tx, create_req, None).await?;
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ Ok(id)
+}
 
- let redirect = PODetailPath { id }.to_string();
+/// POST: create purchase order from form submission (HTMX)
+#[require_permission("PURCHASE_ORDER", "create")]
+pub async fn create_po(
+ _path: POCreatePath,
+ ctx: RequestContext,
+ axum::Form(form): axum::Form<POCreateForm>,
+) -> Result<impl IntoResponse> {
+ let RequestContext {
+ state,
+ service_ctx,
+ ..
+ } = ctx;
+ let action = form.action.clone();
+ let id = do_create_po(&state, &service_ctx, form).await?;
+ // 草稿（action=draft）：创建后回列表；提交：跳详情继续编辑/确认。
+ let redirect = if action.as_deref() == Some("draft") {
+     POListPath::PATH.to_string()
+ } else {
+     PODetailPath { id }.to_string()
+ };
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-fn po_create_page(
+pub fn po_create_page(
  suppliers: &[abt_core::master_data::supplier::model::Supplier],
  users: &[abt_core::shared::identity::model::User],
  quotations: &[abt_core::purchase::quotation::model::PurchaseQuotation],
  tax_rates: &[abt_core::purchase::tax::model::TaxRate],
+ post_path: &str,
+ after_request_hs: &str,
+ show_header: bool,
 ) -> Markup {
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
  let default_delivery = chrono::Local::now()
@@ -325,15 +344,17 @@ fn po_create_page(
 
  html! {
     div id="po-app" {
-        // ── Page Header ──
-        div class="flex items-center justify-between mb-6" {
-            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-                href=(format!("{}?restore=true", POListPath::PATH))
-            { (icon::arrow_left_icon("w-4 h-4")) "返回采购订单列表" }
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购订单" }
+        @if show_header {
+            // ── Page Header ──
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", POListPath::PATH))
+                { (icon::arrow_left_icon("w-4 h-4")) "返回采购订单列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购订单" }
+            }
         }
 
-        form id="po-form" hx-post=(POCreatePath::PATH) hx-swap="none" {
+        form id="po-form" hx-post=(post_path) hx-swap="none" _=(after_request_hs) {
             input type="hidden" id="items-json" name="items_json" value="[]";
             // ── Supplier Selection ──
             div class="data-card mb-4" {
@@ -523,7 +544,8 @@ fn po_create_page(
                 { "取消" }
                 div class="flex gap-3" {
                     button
-                        type="button"
+                        type="submit"
+                        name="action" value="draft"
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                     { "保存草稿" }
                     button

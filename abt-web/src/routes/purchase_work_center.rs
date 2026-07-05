@@ -26,6 +26,14 @@ pub struct PcDemandPath;
 pub struct PcOrdersPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/po-create-drawer")]
+pub struct PcPoCreateDrawerPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/po-create")]
+pub struct PcPoCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/work-center/settlement")]
 pub struct PcSettlementPath;
 
@@ -236,6 +244,12 @@ pub struct PcQuotationCancelPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/quotations/{id}/delete")]
+pub struct PcQuotationDeletePath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/work-center/quotations/{id}/to-po")]
 pub struct PcQuotationToPoPath {
     pub id: i64,
@@ -251,6 +265,14 @@ pub fn router() -> Router<AppState> {
         )
         .route(PcDemandPath::PATH, get(purchase_work_center::get_demand_card))
         .route(PcOrdersPath::PATH, get(purchase_work_center::get_orders_card))
+        .route(
+            PcPoCreateDrawerPath::PATH,
+            get(purchase_work_center::get_po_create_drawer),
+        )
+        .route(
+            PcPoCreatePath::PATH,
+            post(purchase_work_center::post_po_create),
+        )
         .route(
             PcSettlementPath::PATH,
             get(purchase_work_center::get_settlement_card),
@@ -398,6 +420,10 @@ pub fn router() -> Router<AppState> {
         .route(
             PcQuotationCancelPath::PATH,
             post(purchase_work_center::cancel_quotation),
+        )
+        .route(
+            PcQuotationDeletePath::PATH,
+            post(purchase_work_center::delete_quotation),
         )
         .route(
             PcQuotationToPoPath::PATH,

@@ -1108,6 +1108,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .border-b{border-bottom-width:1px;}
 .border-b-2{border-bottom-width:2px;}
 .border-l{border-left-width:1px;}
+.border-l-4{border-left-width:4px;}
 .border-r{border-right-width:1px;}
 .border-t{border-top-width:1px;}
 .last\:border-b-0:last-child{border-bottom-width:0px;}
@@ -1165,6 +1166,9 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .focus\:border-danger:focus{border-color:color-mix(in srgb, var(--danger) var(--un-border-opacity), transparent) /* var(--danger) */;}
 .enabled\:border-accent:enabled{border-color:color-mix(in srgb, var(--accent) var(--un-border-opacity), transparent) /* var(--accent) */;}
 .border-l-\[3px\]{border-left-color:color-mix(in oklab, 3px var(--un-border-left-opacity), transparent) /* 3px */;}
+.border-l-border-soft{border-left-color:color-mix(in srgb, var(--border-soft) var(--un-border-left-opacity), transparent) /* var(--border-soft) */;--un-border-left-opacity:var(--un-border-opacity);}
+.border-l-success{border-left-color:color-mix(in srgb, var(--success) var(--un-border-left-opacity), transparent) /* var(--success) */;--un-border-left-opacity:var(--un-border-opacity);}
+.border-l-warn{border-left-color:color-mix(in srgb, var(--warn) var(--un-border-left-opacity), transparent) /* var(--warn) */;--un-border-left-opacity:var(--un-border-opacity);}
 .border-t-\[2\.5px\]{border-top-color:color-mix(in oklab, 2.5px var(--un-border-top-opacity), transparent) /* 2.5px */;}
 .\[\&_a\]\:rounded-sm a,
 .\[\&_button\]\:rounded-sm button,

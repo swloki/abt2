@@ -33,6 +33,7 @@ impl WorkCenterService for WorkCenterServiceImpl {
             requisitions: count_safe(&mut *db, WorkCenterDomain::Requisition, today).await,
             transfers: count_safe(&mut *db, WorkCenterDomain::Transfer, today).await,
             cycle_counts: count_safe(&mut *db, WorkCenterDomain::CycleCount, today).await,
+            low_stocks: count_safe(&mut *db, WorkCenterDomain::LowStock, today).await,
         })
     }
 

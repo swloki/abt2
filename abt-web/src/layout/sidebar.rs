@@ -180,11 +180,9 @@ fn modules() -> Vec<NavModule> {
             items: vec![
                 NavItem { name: "作业中心", path: "/admin/wms/work-center", icon: NavIcon::Grid, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "单据台账", path: "/admin/wms/ledger", icon: NavIcon::ClipboardDoc, permission: Some(("INVENTORY", "read")) },
-                NavItem { name: "库存总览", path: "/admin/wms", icon: NavIcon::Home, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "仓库管理", path: "/admin/wms/warehouses", icon: NavIcon::Building, permission: Some(("WAREHOUSE", "read")) },
                 NavItem { name: "库位管理", path: "/admin/wms/bins", icon: NavIcon::Database, permission: Some(("LOCATION", "read")) },
                 NavItem { name: "库存查询", path: "/admin/wms/stock", icon: NavIcon::Search, permission: Some(("INVENTORY", "read")) },
-                NavItem { name: "低库存预警", path: "/admin/wms/low-stock", icon: NavIcon::AlertTriangle, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "形态转换", path: "/admin/wms/conversions", icon: NavIcon::Refresh, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "倒冲记录", path: "/admin/wms/backflushes", icon: NavIcon::Lightning, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "库存锁定", path: "/admin/wms/locks", icon: NavIcon::Lock, permission: Some(("INVENTORY", "read")) },

@@ -965,6 +965,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .mb-10{margin-bottom:calc(var(--spacing) * 10);}
 .mb-12{margin-bottom:calc(var(--spacing) * 12);}
 .mb-2{margin-bottom:calc(var(--spacing) * 2);}
+.mb-2\.5{margin-bottom:calc(var(--spacing) * 2.5);}
 .mb-3{margin-bottom:calc(var(--spacing) * 3);}
 .mb-4{margin-bottom:calc(var(--spacing) * 4);}
 .mb-5{margin-bottom:calc(var(--spacing) * 5);}
@@ -1016,6 +1017,9 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .p-6{padding:calc(var(--spacing) * 6);}
 .p-7{padding:calc(var(--spacing) * 7);}
 .p-8{padding:calc(var(--spacing) * 8);}
+.\[\&_input\,\&_select\,\&_textarea\]\:py-1\.5 input,.\[\&_input\,\&_select\,\&_textarea\]\:py-1\.5 select,.\[\&_input\,\&_select\,\&_textarea\]\:py-1\.5 textarea,
+.\[\&_input\,\&_select\]\:py-1\.5 input,.\[\&_input\,\&_select\]\:py-1\.5 select,
+.py-1\.5{padding-block:calc(var(--spacing) * 1.5);}
 .\[\&_td\]\:py-2\.5 td,
 .py-2\.5{padding-block:calc(var(--spacing) * 2.5);}
 .px,
@@ -1050,7 +1054,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .py-\[9px\]{padding-block:9px;}
 .py-0\.5{padding-block:calc(var(--spacing) * 0.5);}
 .py-1{padding-block:calc(var(--spacing) * 1);}
-.py-1\.5{padding-block:calc(var(--spacing) * 1.5);}
 .py-10{padding-block:calc(var(--spacing) * 10);}
 .py-12{padding-block:calc(var(--spacing) * 12);}
 .py-16{padding-block:calc(var(--spacing) * 16);}
@@ -1064,6 +1067,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .pb-\[6px\]{padding-bottom:6px;}
 .pb-0{padding-bottom:calc(var(--spacing) * 0);}
 .pb-1{padding-bottom:calc(var(--spacing) * 1);}
+.pb-1\.5{padding-bottom:calc(var(--spacing) * 1.5);}
 .pb-2{padding-bottom:calc(var(--spacing) * 2);}
 .pb-3{padding-bottom:calc(var(--spacing) * 3);}
 .pb-4{padding-bottom:calc(var(--spacing) * 4);}
@@ -1105,6 +1109,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .b,
 .border{border-width:1px;}
 .border-2{border-width:2px;}
+.border-y{border-block-width:1px;}
 .border-b{border-bottom-width:1px;}
 .border-b-2{border-bottom-width:2px;}
 .border-l{border-left-width:1px;}
@@ -1616,6 +1621,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .w-\[70px\]{width:70px;}
 .w-\[720px\]{width:720px;}
 .w-\[72px\]{width:72px;}
+.w-\[750px\]{width:750px;}
 .w-\[780px\]{width:780px;}
 .w-\[7px\]{width:7px;}
 .w-\[800px\]{width:800px;}

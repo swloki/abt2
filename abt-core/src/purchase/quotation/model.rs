@@ -19,6 +19,9 @@ pub struct PurchaseQuotation {
     pub status: PurchaseQuotationStatus,
     pub remark: String,
     pub operator_id: i64,
+    pub currency: String,
+    pub buyer_id: Option<i64>,
+    pub supplier_quotation_no: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
@@ -62,6 +65,9 @@ pub struct CreatePurchaseQuotationRequest {
     pub valid_from: NaiveDate,
     pub valid_until: NaiveDate,
     pub remark: String,
+    pub currency: String,
+    pub buyer_id: Option<i64>,
+    pub supplier_quotation_no: String,
     pub items: Vec<CreateQuotationItemRequest>,
 }
 

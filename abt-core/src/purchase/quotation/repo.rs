@@ -22,8 +22,9 @@ impl PurchaseQuotationRepo {
         let row = sqlx::query(
             r#"
             INSERT INTO purchase_quotations
-                (doc_number, supplier_id, quotation_date, valid_from, valid_until, status, remark, operator_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                (doc_number, supplier_id, quotation_date, valid_from, valid_until, status, remark, operator_id,
+                 currency, buyer_id, supplier_quotation_no)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING id
             "#,
         )
@@ -35,6 +36,9 @@ impl PurchaseQuotationRepo {
         .bind(PurchaseQuotationStatus::Draft)
         .bind(&req.remark)
         .bind(operator_id)
+        .bind(&req.currency)
+        .bind(req.buyer_id)
+        .bind(&req.supplier_quotation_no)
         .fetch_one(executor)
         .await?;
 
@@ -49,7 +53,8 @@ impl PurchaseQuotationRepo {
         sqlx::query_as::<_, PurchaseQuotation>(
             r#"
             SELECT id, doc_number, supplier_id, quotation_date, valid_from, valid_until,
-                   status, remark, operator_id, created_at, updated_at, deleted_at
+                   status, remark, operator_id, currency, buyer_id, supplier_quotation_no,
+                   created_at, updated_at, deleted_at
             FROM purchase_quotations
             WHERE id = $1 AND deleted_at IS NULL
             "#,
@@ -68,6 +73,7 @@ impl PurchaseQuotationRepo {
             r#"
             SELECT q.id, q.doc_number, q.supplier_id, q.quotation_date, q.valid_from,
                    q.valid_until, q.status, q.remark, q.operator_id,
+                   q.currency, q.buyer_id, q.supplier_quotation_no,
                    q.created_at, q.updated_at, q.deleted_at
             FROM purchase_quotations q
             JOIN purchase_quotation_items qi ON qi.quotation_id = q.id
@@ -119,7 +125,8 @@ impl PurchaseQuotationRepo {
         let offset = page.offset() as i64;
         let data_sql = format!(
             "SELECT id, doc_number, supplier_id, quotation_date, valid_from, valid_until,
-                    status, remark, operator_id, created_at, updated_at, deleted_at
+                    status, remark, operator_id, currency, buyer_id, supplier_quotation_no,
+                    created_at, updated_at, deleted_at
              FROM purchase_quotations {where_clause}
              ORDER BY created_at DESC
              LIMIT $5 OFFSET $6"
@@ -206,6 +213,22 @@ impl PurchaseQuotationRepo {
             .bind(id)
             .execute(executor)
             .await?;
+        Ok(())
+    }
+
+    /// 懒过期：把已过有效期的 Active 报价置为 Expired（幂等，无返回值；list 前调用）
+    pub async fn expire_overdue(executor: PgExecutor<'_>) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE purchase_quotations
+            SET status = $1, updated_at = NOW()
+            WHERE status = $2 AND valid_until < CURRENT_DATE AND deleted_at IS NULL
+            "#,
+        )
+        .bind(PurchaseQuotationStatus::Expired)
+        .bind(PurchaseQuotationStatus::Active)
+        .execute(executor)
+        .await?;
         Ok(())
     }
 }

@@ -48,6 +48,11 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
                 return Err(DomainError::duplicate("PurchaseQuotation"));
             }
         }
+        // buyer_id 兜底：未指定负责采购员时，默认录入人（与历史 operator_id 语义延续）
+        let mut req = req;
+        if req.buyer_id.is_none() {
+            req.buyer_id = Some(ctx.operator_id);
+        }
         // 1. 生成单据编号
         let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::PurchaseQuotation)
@@ -161,6 +166,8 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         query: PurchaseQuotationQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<PurchaseQuotation>> {
+        // 懒过期：列表查询前把已过有效期的 Active 报价置为 Expired（幂等 UPDATE）
+        PurchaseQuotationRepo::expire_overdue(&mut *db).await?;
         let scope = (ctx.data_scope, ctx.operator_id, ctx.department_id);
         let (items, total) = PurchaseQuotationRepo::query(&mut *db, &query, &page, scope)
             .await

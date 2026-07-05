@@ -362,7 +362,8 @@ pub fn product_picker_results_for_table(
             div class="py-2" {
                 @for p in products {
                     div class="flex items-center p-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg transition-colors"
-                        hx-get=(format!("{}?product_id={}", item_row_path, p.product_id))
+                        hx-get=(item_row_path)
+                        hx-vals=(format!("{{\"product_id\": {}}}", p.product_id))
                         hx-include="[name=supplier_id]"
                         hx-target=(format!("#{}", tbody_id))
                         hx-swap="beforeend"

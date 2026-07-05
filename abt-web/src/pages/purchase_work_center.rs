@@ -1185,12 +1185,6 @@ pub async fn get_po_create_drawer(
         )
         .await?
         .items;
-    let users = state
-        .user_service()
-        .list_users(&service_ctx, &mut conn, 1, 200)
-        .await
-        .map(|r| r.items)
-        .unwrap_or_default();
     let quotations = state
         .purchase_quotation_service()
         .list(
@@ -1217,12 +1211,14 @@ pub async fn get_po_create_drawer(
     Ok(Html(
         crate::pages::purchase_order_create::po_create_page(
             &suppliers,
-            &users,
             &quotations,
             &tax_rates,
             PcPoCreatePath::PATH,
             after_hs,
             false,
+            None,
+            None,
+            &[],
         )
         .into_string(),
     ))
@@ -1234,10 +1230,32 @@ pub async fn post_po_create(
     ctx: RequestContext,
     Form(form): Form<crate::pages::purchase_order_create::POCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { state, service_ctx, .. } = ctx;
-    crate::pages::purchase_order_create::do_create_po(&state, &service_ctx, form).await?;
-    invalidate_purchase_summary(&state);
-    Ok(([("HX-Trigger", "poChanged")], Html(String::new())))
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    match crate::pages::purchase_order_create::do_create_po(&state, &service_ctx, form).await {
+        Ok(_) => {
+            invalidate_purchase_summary(&state);
+            Ok(([("HX-Trigger", "poChanged")], Html(String::new())).into_response())
+        }
+        Err((errors, _saved_items)) => {
+            let html = crate::pages::purchase_order_create::po_create_page(
+                &[],
+                &[],
+                &[],
+                PcPoCreatePath::PATH,
+                "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #po-create-overlay",
+                false,
+                None,
+                Some(&errors),
+                &[],
+            );
+            Ok(html.into_response())
+        }
+    }
 }
 
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -2003,22 +2021,18 @@ pub async fn get_quotation_create_drawer(
         )
         .await?
         .items;
-    let users = state
-        .user_service()
-        .list_users(&service_ctx, &mut conn, 1, 200)
-        .await
-        .map(|r| r.items)
-        .unwrap_or_default();
     // 提交成功（空 body）广播 quotationChanged → quotation card 局部刷新，tab 保持 active=quotation；
     // form afterRequest 凭 responseText 空 关 drawer（供应商联系人子请求响应非空，不误关）。
     let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #quotation-create-overlay";
     Ok(Html(
         crate::pages::purchase_quotation_create::pq_create_page(
             &suppliers,
-            &users,
             PcQuotationCreatePath::PATH,
             after_hs,
             false,
+            None,
+            None,
+            &[],
         )
         .into_string(),
     ))
@@ -2030,12 +2044,63 @@ pub async fn post_quotation_create(
     ctx: RequestContext,
     Form(form): Form<crate::pages::purchase_quotation_create::PQCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { state, service_ctx, .. } = ctx;
-    crate::pages::purchase_quotation_create::do_create_pq(&state, &service_ctx, form).await?;
-    invalidate_purchase_summary(&state);
-    // 局部刷新保 tab：广播 quotationChanged → quotation card 刷新（pc_tab_bar active 仍为 quotation）。
-    // drawer 关闭由 form afterRequest（responseText 空）负责；空 body 不替换 overlay，不触发 afterSettle 重开。
-    Ok(([("HX-Trigger", "quotationChanged")], Html(String::new())))
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let submitted = form.clone();
+    let after_hs = "on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.xhr.status < 400] remove .open from #quotation-create-overlay";
+    match crate::pages::purchase_quotation_create::do_create_pq(&state, &service_ctx, form).await {
+        Ok(_) => {
+            invalidate_purchase_summary(&state);
+            Ok((
+                [("HX-Trigger", "quotationChanged")],
+                Html(String::new()),
+            )
+                .into_response())
+        }
+        Err((errors, saved_items)) => {
+            let mut preview_rows: Vec<(abt_core::master_data::product::model::Product, rust_decimal::Decimal, Option<i32>)> = Vec::new();
+            for item in &saved_items {
+                if let Ok(pid) = item.product_id.parse::<i64>() {
+                    if pid > 0 {
+                        if let Ok(product) = state.product_service().get(&service_ctx, &mut conn, pid).await {
+                            let price: rust_decimal::Decimal = item.unit_price.parse().unwrap_or(rust_decimal::Decimal::ZERO);
+                            let ldt: Option<i32> = item.lead_time_days.as_deref().and_then(|s| s.parse().ok());
+                            preview_rows.push((product, price, ldt));
+                        }
+                    }
+                }
+            }
+            let suppliers = state
+                .supplier_service()
+                .list(
+                    &service_ctx,
+                    &mut conn,
+                    abt_core::master_data::supplier::model::SupplierQuery {
+                        name: None,
+                        status: None,
+                        category: None,
+                    },
+                    PageParams::new(1, 200),
+                )
+                .await
+                .map(|r| r.items)
+                .unwrap_or_default();
+            let html = crate::pages::purchase_quotation_create::pq_create_page(
+                &suppliers,
+                PcQuotationCreatePath::PATH,
+                after_hs,
+                false,
+                Some(&submitted),
+                Some(&errors),
+                &preview_rows,
+            );
+            Ok(html.into_response())
+        }
+    }
 }
 
 // ── 退货创建 drawer ──
@@ -2494,6 +2559,25 @@ fn render_quotation_detail_drawer_body(
         }
         div class="flex items-center justify-end gap-2 pt-3 border-t border-border-soft flex-wrap" {
             @if can_act {
+                // 主操作（accent）：Draft → 生效；Active → 转为采购单（后端 create_from_quotation 要求 Active）
+                @if pq.status == PurchaseQuotationStatus::Draft {
+                    button type="button"
+                        class="inline-flex items-center px-3.5 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90"
+                        hx-post=(PcQuotationActivatePath { id: pq.id }.to_string()) hx-swap="none"
+                        hx-confirm="生效此报价单？"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-detail-overlay then call showToast('报价已生效')" {
+                        "生效"
+                    }
+                } @else {
+                    button type="button"
+                        class="inline-flex items-center px-3.5 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90"
+                        hx-post=(PcQuotationToPoPath { id: pq.id }.to_string()) hx-swap="none"
+                        hx-confirm="基于此报价生成采购订单？"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-detail-overlay then call showToast('已生成采购订单')" {
+                        "转为采购单"
+                    }
+                }
+                // 次操作（白底 danger）：Draft → 删除（草稿物理删）；Active → 取消（保留记录）
                 @if pq.status == PurchaseQuotationStatus::Draft {
                     button type="button"
                         class="inline-flex items-center px-3.5 py-1.5 rounded-sm bg-white text-danger border border-danger text-xs font-medium cursor-pointer hover:bg-danger-bg"
@@ -2502,29 +2586,14 @@ fn render_quotation_detail_drawer_body(
                         _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-detail-overlay then call showToast('报价已删除')" {
                         "删除"
                     }
-                }
-                button type="button"
-                    class="inline-flex items-center px-3.5 py-1.5 rounded-sm bg-white text-danger border border-border text-xs font-medium cursor-pointer hover:bg-surface"
-                    hx-post=(PcQuotationCancelPath { id: pq.id }.to_string()) hx-swap="none"
-                    hx-confirm="确认取消此报价单？"
-                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-detail-overlay then call showToast('报价已取消')" {
-                    "取消报价"
-                }
-                @if pq.status == PurchaseQuotationStatus::Draft {
+                } @else {
                     button type="button"
-                        class="inline-flex items-center px-3.5 py-1.5 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface"
-                        hx-post=(PcQuotationActivatePath { id: pq.id }.to_string()) hx-swap="none"
-                        hx-confirm="生效此报价单？"
-                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-detail-overlay then call showToast('报价已生效')" {
-                        "生效"
+                        class="inline-flex items-center px-3.5 py-1.5 rounded-sm bg-white text-danger border border-border text-xs font-medium cursor-pointer hover:bg-surface"
+                        hx-post=(PcQuotationCancelPath { id: pq.id }.to_string()) hx-swap="none"
+                        hx-confirm="确认取消此报价单？"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-detail-overlay then call showToast('报价已取消')" {
+                        "取消报价"
                     }
-                }
-                button type="button"
-                    class="inline-flex items-center px-3.5 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90"
-                    hx-post=(PcQuotationToPoPath { id: pq.id }.to_string()) hx-swap="none"
-                    hx-confirm="基于此报价生成采购订单？"
-                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #quotation-detail-overlay then call showToast('已生成采购订单')" {
-                    "转为采购单"
                 }
             }
         }

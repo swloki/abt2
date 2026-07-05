@@ -73,14 +73,32 @@ fn parse_price_form(form: &PriceFormData) -> std::result::Result<PriceUpsertRequ
  .product_id
  .parse()
  .map_err(|_| DomainError::validation("无效产品ID"))?,
- price: parse_dec(&form.price, "价格")?,
- currency_code: form.currency_code.clone(),
- min_order_qty: parse_dec(&form.min_order_qty, "起订量")?,
- discount_pct: parse_dec(&form.discount_pct, "折扣百分比")?,
- lead_time_days: parse_i32(&form.lead_time_days, "交货天数")?,
- tax_rate_id: form.tax_rate_id.as_deref().and_then(|s| s.parse().ok()),
- valid_from: form.valid_from.as_deref().and_then(parse_date),
- valid_until: form.valid_until.as_deref().and_then(parse_date),
+        price: {
+            let p = parse_dec(&form.price, "价格")?;
+            if p < rust_decimal::Decimal::ZERO {
+                return Err(DomainError::validation("价格不能为负"));
+            }
+            p
+        },
+        currency_code: form.currency_code.clone(),
+        min_order_qty: {
+            let q = parse_dec(&form.min_order_qty, "起订量")?;
+            if q < rust_decimal::Decimal::ZERO {
+                return Err(DomainError::validation("起订量不能为负"));
+            }
+            q
+        },
+        discount_pct: parse_dec(&form.discount_pct, "折扣百分比")?,
+        lead_time_days: {
+            let d = parse_i32(&form.lead_time_days, "交货天数")?;
+            if d < 0 {
+                return Err(DomainError::validation("交货天数不能为负"));
+            }
+            d
+        },
+        tax_rate_id: form.tax_rate_id.as_deref().and_then(|s| s.parse().ok()),
+        valid_from: form.valid_from.as_deref().and_then(parse_date),
+        valid_until: form.valid_until.as_deref().and_then(parse_date),
  sequence: parse_i32(&form.sequence, "排序")?,
  supplier_item_code: form.supplier_item_code.clone().filter(|s| !s.is_empty()),
  supplier_item_name: form.supplier_item_name.clone().filter(|s| !s.is_empty()),

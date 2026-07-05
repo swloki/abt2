@@ -13,7 +13,6 @@ use abt_core::purchase::order::model::*;
 use abt_core::purchase::quotation::PurchaseQuotationService;
 use abt_core::purchase::TaxRateService;
 use abt_core::purchase::quotation::model::PurchaseQuotationQuery;
-use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -40,7 +39,7 @@ pub struct SupplierDetailParams {
 // ── Form request ──
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct POCreateForm {
  pub supplier_id: i64,
  pub order_date: String,
@@ -55,15 +54,15 @@ pub struct POCreateForm {
  pub action: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-struct ItemWeb {
- product_id: String,
- description: Option<String>,
- quantity: String,
- unit_price: String,
- item_delivery_date: Option<String>,
- discount_pct: Option<String>,
- tax_rate_id: Option<String>,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ItemWeb {
+ pub product_id: String,
+ pub description: Option<String>,
+ pub quantity: String,
+ pub unit_price: String,
+ pub item_delivery_date: Option<String>,
+ pub discount_pct: Option<String>,
+ pub tax_rate_id: Option<String>,
 }
 
 // ── Handlers ──
@@ -83,7 +82,6 @@ pub async fn get_po_create(
  ..
  } = ctx;
  let supplier_svc = state.supplier_service();
- let user_svc = state.user_service();
  let pq_svc = state.purchase_quotation_service();
 
  let suppliers = supplier_svc
@@ -99,9 +97,6 @@ pub async fn get_po_create(
  )
  .await?;
 
- let users = user_svc
- .list_users(&service_ctx, &mut conn, 1, 200)
- .await?;
 
  let quotations = pq_svc
  .list(
@@ -122,7 +117,7 @@ pub async fn get_po_create(
  .await
  .unwrap_or_default();
 
- let content = po_create_page(&suppliers.items, &users.items, &quotations.items, &tax_rates, POCreatePath::PATH, "", true);
+let content = po_create_page(&suppliers.items, &quotations.items, &tax_rates, POCreatePath::PATH, "", true, None, None, &[]);
  let page_html = admin_page(
  is_htmx,
  "新建采购订单",
@@ -221,120 +216,157 @@ pub async fn get_po_item_row(
 }
 
 /// PO 创建核心逻辑（解析 POCreateForm → svc.create），创建页与 work_center drawer 共用。
+/// 失败时返回字段错误 map + 产品数据（重渲染 form 恢复行，§5.6）。
 pub async fn do_create_po(
     state: &crate::state::AppState,
     service_ctx: &abt_core::shared::types::context::ServiceContext,
     form: POCreateForm,
-) -> Result<i64> {
- let svc = state.purchase_order_service();
-
- let order_date = chrono::NaiveDate::parse_from_str(&form.order_date, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效订单日期格式: {e}")))?;
-
- let expected_delivery_date = form
- .expected_delivery_date
- .as_deref()
- .filter(|s| !s.is_empty())
- .map(|s| {
- chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效预期交货日期格式: {e}")))
- })
- .transpose()?;
-
- let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
- .map_err(|e| DomainError::validation(format!("无效产品数据: {e}")))?;
-
- let items: Vec<CreateOrderItemRequest> = web_items
- .into_iter()
- .enumerate()
- .map(|(idx, item)| {
- let item_expected_delivery_date = item
- .item_delivery_date
- .as_deref()
- .filter(|s| !s.is_empty())
- .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
-
- let quantity: rust_decimal::Decimal = item
- .quantity
- .parse()
- .map_err(|_| DomainError::validation(format!("第 {} 行无效数量", idx + 1)))?;
- let unit_price: rust_decimal::Decimal = item
- .unit_price
- .parse()
- .map_err(|_| DomainError::validation(format!("第 {} 行无效单价", idx + 1)))?;
-
- Ok(CreateOrderItemRequest {
- product_id: item.product_id.parse().unwrap_or(0),
- line_no: (idx as i32) + 1,
- description: item.description.unwrap_or_default(),
- quantity,
- unit_price,
- quotation_item_id: None,
- expected_delivery_date: item_expected_delivery_date,
- discount_pct: item.discount_pct.as_deref()
- .and_then(|s| s.parse().ok())
- .unwrap_or(rust_decimal::Decimal::ZERO),
- tax_rate_id: item.tax_rate_id.as_deref()
- .and_then(|s| s.parse().ok())
- .filter(|&v: &i64| v > 0),
- })
- })
- .collect::<Result<Vec<_>, DomainError>>()?;
-
- let create_req = CreatePurchaseOrderRequest {
- supplier_id: form.supplier_id,
- order_date,
- expected_delivery_date,
- payment_terms: form.payment_terms,
- delivery_address: form.delivery_address,
- remark: form.remark.unwrap_or_default(),
- currency_code: form.currency.unwrap_or_else(|| String::from("CNY")),
- currency_rate: rust_decimal::Decimal::ONE,
- discount_amount: rust_decimal::Decimal::ZERO,
- items,
- };
-
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let id = svc.create(&service_ctx, &mut tx, create_req, None).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- Ok(id)
+) -> std::result::Result<i64, (std::collections::HashMap<&'static str, String>, Vec<ItemWeb>)> {
+    let svc = state.purchase_order_service();
+    let mut errors: std::collections::HashMap<&'static str, String> = std::collections::HashMap::new();
+    let order_date = chrono::NaiveDate::parse_from_str(&form.order_date, "%Y-%m-%d")
+        .unwrap_or_else(|_| {
+            errors.insert("__all__", "无效订单日期格式".to_string());
+            chrono::Local::now().date_naive()
+        });
+    let expected_delivery_date = form
+        .expected_delivery_date
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+    if form.supplier_id <= 0 {
+        errors.entry("supplier_id").or_insert_with(|| "请选择供应商".to_string());
+    }
+    let web_items: Vec<ItemWeb> = match serde_json::from_str(&form.items_json) {
+        Ok(v) => v,
+        Err(e) => { errors.insert("__all__", format!("无效产品数据: {e}")); vec![] }
+    };
+    if web_items.is_empty() && errors.is_empty() {
+        errors.insert("__all__", "请至少添加一个采购产品明细".to_string());
+    }
+    let saved_items = web_items.clone();
+    let mut items: Vec<CreateOrderItemRequest> = Vec::with_capacity(web_items.len());
+    for (idx, item) in web_items.into_iter().enumerate() {
+        let line_no = (idx as i32) + 1;
+        let quantity: rust_decimal::Decimal = item.quantity.parse().unwrap_or_else(|_| {
+            errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 无效数量"));
+            rust_decimal::Decimal::ZERO
+        });
+        if quantity < rust_decimal::Decimal::ZERO {
+            errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 数量不能为负"));
+        }
+        let unit_price: rust_decimal::Decimal = item.unit_price.parse().unwrap_or_else(|_| {
+            errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 无效单价"));
+            rust_decimal::Decimal::ZERO
+        });
+        if unit_price < rust_decimal::Decimal::ZERO {
+            errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 单价不能为负"));
+        }
+        let item_delivery_date = item.item_delivery_date.as_deref().filter(|s| !s.is_empty())
+            .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+        items.push(CreateOrderItemRequest {
+            product_id: item.product_id.parse().unwrap_or(0),
+            line_no,
+            description: item.description.unwrap_or_default(),
+            quantity,
+            unit_price,
+            quotation_item_id: None,
+            expected_delivery_date: item_delivery_date,
+            discount_pct: item.discount_pct.and_then(|s| s.parse().ok()).unwrap_or(rust_decimal::Decimal::ZERO),
+            tax_rate_id: item.tax_rate_id.and_then(|s| s.parse().ok()).filter(|&v: &i64| v > 0),
+        });
+    }
+    if !errors.is_empty() {
+        return Err((errors, saved_items));
+    }
+    let create_req = CreatePurchaseOrderRequest {
+        supplier_id: form.supplier_id,
+        order_date,
+        expected_delivery_date,
+        payment_terms: form.payment_terms,
+        delivery_address: form.delivery_address,
+        remark: form.remark.unwrap_or_default(),
+        currency_code: form.currency.unwrap_or_else(|| String::from("CNY")),
+        currency_rate: rust_decimal::Decimal::ONE,
+        discount_amount: rust_decimal::Decimal::ZERO,
+        items,
+    };
+    let mut tx = state.pool.begin().await.map_err(|e| {
+        let mut m = std::collections::HashMap::new();
+        m.insert("__all__", format!("数据库错误: {e}"));
+        (m, saved_items.clone())
+    })?;
+    match svc.create(&service_ctx, &mut tx, create_req, None).await {
+        Ok(id) => { tx.commit().await.map_err(|e| {
+            let mut m = std::collections::HashMap::new();
+            m.insert("__all__", format!("提交失败: {e}"));
+            (m, saved_items.clone())
+        })?; Ok(id) }
+        Err(e) => {
+            let mut m = std::collections::HashMap::new();
+            m.insert("__all__", format!("{e}"));
+            Err((m, saved_items))
+        }
+    }
 }
 
 /// POST: create purchase order from form submission (HTMX)
 #[require_permission("PURCHASE_ORDER", "create")]
 pub async fn create_po(
- _path: POCreatePath,
- ctx: RequestContext,
- axum::Form(form): axum::Form<POCreateForm>,
+    _path: POCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<POCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- state,
- service_ctx,
- ..
- } = ctx;
- let action = form.action.clone();
- let id = do_create_po(&state, &service_ctx, form).await?;
- // 草稿（action=draft）：创建后回列表；提交：跳详情继续编辑/确认。
- let redirect = if action.as_deref() == Some("draft") {
-     POListPath::PATH.to_string()
- } else {
-     PODetailPath { id }.to_string()
- };
- Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let action = form.action.clone();
+    let submitted = form.clone();
+    match do_create_po(&state, &service_ctx, form).await {
+        Ok(id) => {
+            let redirect = if action.as_deref() == Some("draft") { POListPath::PATH.to_string() } else { PODetailPath { id }.to_string() };
+            Ok(([("HX-Redirect", redirect)], Html(String::new())).into_response())
+        }
+        Err((errors, saved_items)) => {
+            let mut preview_rows = Vec::new();
+            for item in &saved_items {
+                if let Ok(pid) = item.product_id.parse::<i64>() {
+                    if pid > 0 {
+                        if let Ok(product) = state.product_service().get(&service_ctx, &mut conn, pid).await {
+                            let price = item.unit_price.parse().unwrap_or(rust_decimal::Decimal::ZERO);
+                            preview_rows.push((product, price));
+                        }
+                    }
+                }
+            }
+            let html = po_create_page(
+                &[],
+                &[],
+                &[],
+                POCreatePath::PATH,
+                "",
+                true,
+                Some(&submitted),
+                Some(&errors),
+                &preview_rows,
+            );
+            Ok(html.into_response())
+        }
+    }
 }
-
-// ── Components ──
-
 pub fn po_create_page(
- suppliers: &[abt_core::master_data::supplier::model::Supplier],
- users: &[abt_core::shared::identity::model::User],
- quotations: &[abt_core::purchase::quotation::model::PurchaseQuotation],
- tax_rates: &[abt_core::purchase::tax::model::TaxRate],
- post_path: &str,
- after_request_hs: &str,
- show_header: bool,
+    suppliers: &[abt_core::master_data::supplier::model::Supplier],
+    quotations: &[abt_core::purchase::quotation::model::PurchaseQuotation],
+    tax_rates: &[abt_core::purchase::tax::model::TaxRate],
+    post_path: &str,
+    after_request_hs: &str,
+    show_header: bool,
+    submitted: Option<&POCreateForm>,
+    errors: Option<&std::collections::HashMap<&str, String>>,
+    preview_rows: &[(abt_core::master_data::product::model::Product, rust_decimal::Decimal)],
 ) -> Markup {
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
  let default_delivery = chrono::Local::now()
@@ -354,13 +386,16 @@ pub fn po_create_page(
             }
         }
 
-        form id="po-form" hx-post=(post_path) hx-swap="none" _=(after_request_hs) {
+        form id="po-form" hx-post=(post_path) hx-target="this" hx-swap="outerHTML" _=(after_request_hs) {
+            @if let Some(msg) = errors.and_then(|e| e.get("__all__").map(|s| s.as_str())) {
+                div class="text-danger text-xs mb-3 leading-relaxed" { (msg) }
+            }
             input type="hidden" id="items-json" name="items_json" value="[]";
-            // ── Supplier Selection ──
+            // ── 基本信息（合并供应商 + 订单信息，参考三家 ERP 精简）──
             div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                { "供应商信息" }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                { "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-2" {
                     div class="form-field" {
                         label {
                             "供应商"
@@ -382,48 +417,20 @@ pub fn po_create_page(
                         }
                     }
                     div class="form-field" {
-                        label { "联系人" }
-                        input
-                            type="text"
-                            id="supplier-contact"
-                            readonly
-                            placeholder="自动填充"
-                            class="bg-surface" {}
-                    }
-                    div class="form-field" {
-                        label { "联系电话" }
-                        input
-                            type="text"
-                            id="supplier-phone"
-                            readonly
-                            placeholder="自动填充"
-                            class="bg-surface" {}
-                    }
-                    div class="form-field col-span-2" {
-                        label { "供应商地址" }
-                        input
-                            type="text"
-                            id="supplier-address"
-                            readonly
-                            placeholder="自动填充"
-                            class="bg-surface" {}
-                    }
-                }
-                // ── Supplier Info Bar ──
-                div id="supplier-detail" class="mt-3" {}
-            }
-            // ── Order Info ──
-            div class="data-card mb-4" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                { "订单信息" }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
-                    div class="form-field" {
                         label { "订单日期" }
                         input type="date" name="order_date" value=(today) readonly {}
                     }
                     div class="form-field" {
                         label { "预期交货日期" }
                         input type="date" name="expected_delivery_date" value=(default_delivery) {}
+                    }
+                    div class="form-field" {
+                        label { "币种" }
+                        select name="currency" {
+                            option value="CNY" selected { "CNY" }
+                            option value="USD" { "USD" }
+                            option value="EUR" { "EUR" }
+                        }
                     }
                     div class="form-field" {
                         label { "付款条件" }
@@ -437,18 +444,6 @@ pub fn po_create_page(
                         }
                     }
                     div class="form-field" {
-                        label { "币种" }
-                        select name="currency" {
-                            option value="CNY" selected { "CNY" }
-                            option value="USD" { "USD" }
-                            option value="EUR" { "EUR" }
-                        }
-                    }
-                    div class="form-field col-span-2" {
-                        label { "交货地址" }
-                        input type="text" name="delivery_address" placeholder="输入交货地址…" {}
-                    }
-                    div class="form-field" {
                         label { "关联报价" }
                         select name="related_quotation_id" {
                             option value="" { "请选择采购报价" }
@@ -457,28 +452,9 @@ pub fn po_create_page(
                             }
                         }
                     }
-                    div class="form-field" {
-                        label { "采购员" }
-                        select name="buyer_id" {
-                            option value="" { "请选择采购员" }
-                            @for u in users {
-                                @if u.is_active {
-                                    option value=(u.user_id) {
-                                        (u.display_name.as_deref().unwrap_or(&u.username))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    div class="form-field col-span-2" {
-                        label { "备注" }
-                        textarea
-                            name="remark"
-                            placeholder="输入订单相关备注信息…"
-                            class="w-full resize-y rounded-sm min-h-[80px] border border-border text-sm"
-                            style="padding:8px 12px;font-family:inherit" {}
-                    }
                 }
+                // ── Supplier Info Bar ──（保留 handler 联动占位，三家 ERP 不在头部展示联系人/电话/地址）
+                div id="supplier-detail" class="mt-3" {}
             }
             // ── Line Items ──
             div class="data-card p-0 overflow-hidden mb-4" {
@@ -509,7 +485,11 @@ pub fn po_create_page(
                                 th class="w-9" {}
                             }
                         }
-                        tbody id="po-item-tbody" {}
+                        tbody id="po-item-tbody" {
+                            @for (product, _price) in preview_rows {
+                                (item_row_fragment(product, tax_rates))
+                            }
+                        }
                     }
                 }
                 div class="p-3 flex items-center gap-2" {
@@ -535,6 +515,16 @@ pub fn po_create_page(
                         }
                     }
                 }
+            }
+            // ── 备注 ──
+            div class="data-card mb-4" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "备注" }
+                textarea
+                    name="remark"
+                    placeholder="输入订单相关备注信息…"
+                    class="w-full resize-y rounded-sm min-h-[80px] border border-border text-sm"
+                    style="padding:8px 12px;font-family:inherit" {}
             }
             // ── Action Bar ──
             div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
@@ -574,7 +564,7 @@ pub fn po_create_page(
  });
  items.push(obj);
  });
- document.querySelector('#items-json').value=JSON.stringify(items);
+ var el=document.querySelector('#items-json'); if(el) el.value=JSON.stringify(items);
  })",
                     )
                 })

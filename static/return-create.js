@@ -46,9 +46,10 @@
         "<td>" + esc(data.unit) + "</td>" +
         '<td class="num-right">' + fmtNum(data.order_qty) + "</td>" +
         '<td class="num-right">' + fmtNum(data.received_qty) + "</td>" +
+        '<td class="num-right text-muted">' + fmtNum(data.returnable_qty || data.received_qty || "0") + "</td>" +
         '<td><input class="form-input num-input" type="number" step="any" ' +
-          'style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" ' +
-          'name="returned_qty" value="' + returnedQty + '" data-idx="' + idx + '" data-received="' + (data.received_qty || "0") + '"></td>' +
+          'style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" ' +
+          'name="returned_qty" value="' + returnedQty + '" data-idx="' + idx + '" data-received="' + (data.received_qty || "0") + '" data-max="' + (data.returnable_qty || data.received_qty || "0") + '"></td>' +
         '<td class="num-right mono">' + fmtNum(unitPrice) + "</td>" +
         '<td class="num-right mono line-subtotal" data-idx="' + idx + '">' + subtotal + "</td>" +
         '<td><button type="button" class="btn-remove-row" title="删除行" onclick="this.closest(\'tr\').remove();PRCreate.recalcLineNos()">' +
@@ -64,9 +65,10 @@
     var itemsSection = document.getElementById("pr-items-section");
     if (itemsSection) itemsSection.style.display = "";
 
-    // Bind oninput for subtotal recalculation
+    // Bind oninput for over-return check + subtotal recalculation
     tbody.querySelectorAll('input[name="returned_qty"]').forEach(function (input) {
       input.addEventListener("input", function () {
+        PRCreate.checkOverReturn(this);
         PRCreate.recalcSubtotal(this);
       });
     });
@@ -89,6 +91,21 @@
 
   // ── Global API ──
   window.PRCreate = {
+    // 超退即时提示（Odoo decoration-danger 借鉴）：returned_qty > 可退量时红框
+    checkOverReturn: function (qtyInput) {
+      var max = parseFloat(qtyInput.getAttribute("data-max")) || 0;
+      var val = parseFloat(qtyInput.value) || 0;
+      if (val > max) {
+        qtyInput.style.borderColor = "var(--danger)";
+        qtyInput.style.color = "var(--danger)";
+        qtyInput.title = "超退：可退量 " + max;
+      } else {
+        qtyInput.style.borderColor = "var(--border)";
+        qtyInput.style.color = "";
+        qtyInput.title = "";
+      }
+    },
+
     recalcSubtotal: function (qtyInput) {
       var tr = qtyInput.closest("tr");
       if (!tr) return;
@@ -110,12 +127,13 @@
       });
     },
 
-    // 全退：每行 returned_qty 填到已收量（data-received）
+    // 全退：每行 returned_qty 填到可退量（data-max = received - already_returned）
     fillAllReceived: function () {
       var tbody = document.getElementById("pr-item-tbody");
       if (!tbody) return;
       tbody.querySelectorAll('input[name="returned_qty"]').forEach(function (input) {
-        input.value = input.getAttribute("data-received") || "0";
+        input.value = input.getAttribute("data-max") || input.getAttribute("data-received") || "0";
+        PRCreate.checkOverReturn(input);
         PRCreate.recalcSubtotal(input);
       });
     },
@@ -126,6 +144,7 @@
       if (!tbody) return;
       tbody.querySelectorAll('input[name="returned_qty"]').forEach(function (input) {
         input.value = "0";
+        PRCreate.checkOverReturn(input);
         PRCreate.recalcSubtotal(input);
       });
     },

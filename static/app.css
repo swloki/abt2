@@ -1384,7 +1384,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .gap-x-4{column-gap:calc(var(--spacing) * 4);}
 .gap-x-6{column-gap:calc(var(--spacing) * 6);}
 .gap-x-8{column-gap:calc(var(--spacing) * 8);}
-.gap-y-0\.5{row-gap:calc(var(--spacing) * 0.5);}
 .gap-y-1{row-gap:calc(var(--spacing) * 1);}
 .gap-y-2{row-gap:calc(var(--spacing) * 2);}
 .gap-y-3{row-gap:calc(var(--spacing) * 3);}
@@ -1556,12 +1555,14 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .min-w-\[140px\]{min-width:140px;}
 .min-w-\[150px\]{min-width:150px;}
 .min-w-\[160px\]{min-width:160px;}
+.min-w-\[200px\]{min-width:200px;}
 .min-w-\[208px\]{min-width:208px;}
 .min-w-\[20px\]{min-width:20px;}
 .min-w-\[252px\]{min-width:252px;}
 .min-w-\[260px\]{min-width:260px;}
 .min-w-\[280px\]{min-width:280px;}
 .min-w-\[56px\]{min-width:56px;}
+.min-w-\[640px\]{min-width:640px;}
 .min-w-\[760px\]{min-width:760px;}
 .min-w-\[800px\]{min-width:800px;}
 .min-w-\[80px\]{min-width:80px;}

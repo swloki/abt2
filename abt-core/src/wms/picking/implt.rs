@@ -563,8 +563,7 @@ impl PickingService for PickingServiceImpl {
             .collect();
         let unit_cost_map =
             StockLedgerRepo::last_known_unit_cost_batch(&mut *db, &cost_product_ids)
-                .await
-                .unwrap_or_default();
+                .await?;
 
         let mut total_cost_amount = Decimal::ZERO;
 

@@ -2436,38 +2436,150 @@ async fn issue_drawer_body(
     let req = req_svc.get(ctx, db, id).await?;
     if req.status == PickingStatus::Confirmed {
         let items = req_svc.list_items(ctx, db, id).await.unwrap_or_default();
+        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
         let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
             .product_service()
-            .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+            .get_by_ids(ctx, db, product_ids.clone())
             .await
             .unwrap_or_default()
             .into_iter()
             .map(|p| (p.product_id, p))
             .collect();
+        // 可用量（按领料单源仓库；发料前确认库存够不够、缺料预警）
+        let avail_map = state
+            .inventory_transaction_service()
+            .query_available_batch(ctx, db, &product_ids, req.from_warehouse_id)
+            .await
+            .unwrap_or_default();
+        let wh_name = state
+            .warehouse_service()
+            .get(ctx, db, req.from_warehouse_id.unwrap_or(0))
+            .await
+            .map(|w| w.name)
+            .unwrap_or_else(|_| "—".into());
+        let date_str = req
+            .scheduled_date
+            .map(|d| d.format("%Y-%m-%d").to_string())
+            .unwrap_or_else(|| "—".into());
+        // 缺料行（avail < requested），用于警示条
+        let short_items: Vec<(String, Decimal, Decimal, Decimal)> = items
+            .iter()
+            .filter_map(|it| {
+                // 无 stock_ledger 记录 → 可用量 0（该仓库无此产品库存）
+                let avail = avail_map.get(&it.product_id).copied().unwrap_or(Decimal::ZERO);
+                if avail < it.qty_requested {
+                    let pname = product_map
+                        .get(&it.product_id)
+                        .map(|p| p.pdt_name.clone())
+                        .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+                    Some((pname, it.qty_requested, avail, it.qty_requested - avail))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let has_short = !short_items.is_empty();
+
+        // 物料表格行：产品（含单位/编码/规格）/ 申请量 / 可用量（缺料红字 + 缺口徽章）
         let mut rows = html! {};
         for it in &items {
+            let p_opt = product_map.get(&it.product_id);
+            // 无 stock_ledger 记录 → 可用量 0（该仓库无此产品库存）
+            let avail = avail_map.get(&it.product_id).copied().unwrap_or(Decimal::ZERO);
+            let short = avail < it.qty_requested;
             rows = html! {
                 (rows)
-                div class="flex items-center justify-between px-3 py-2 gap-2" {
-                    div class="min-w-0" {
-                        div class="text-sm text-fg-2 truncate" {
-                            (product_map.get(&it.product_id).map(|p| p.pdt_name.clone()).unwrap_or_else(|| format!("产品 #{}", it.product_id)))
-                        }
-                        div class="text-xs text-muted truncate" {
-                            (product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default())
+                tr {
+                    td class="min-w-0 py-2" {
+                        @if let Some(p) = p_opt {
+                            div class="text-sm text-fg font-medium leading-tight truncate" {
+                                (p.pdt_name)
+                                @if !p.unit.is_empty() {
+                                    span class="text-xs text-muted ml-1" { "(" (p.unit) ")" }
+                                }
+                            }
+                            @if !p.product_code.is_empty() {
+                                div class="text-xs text-muted font-mono truncate" { (p.product_code) }
+                            }
+                            @if !p.meta.specification.is_empty() {
+                                div class="text-xs text-fg-2 truncate" { (p.meta.specification) }
+                            }
+                        } @else {
+                            span class="text-sm text-muted" { "产品 #" (it.product_id) }
                         }
                     }
-                    span class="text-sm font-mono text-muted shrink-0" { "申请 " (fmt_qty(it.qty_requested)) }
+                    td class="text-right font-mono tabular-nums text-fg-2 whitespace-nowrap py-2" {
+                        (fmt_qty(it.qty_requested))
+                    }
+                    td class="text-right font-mono tabular-nums whitespace-nowrap py-2" {
+                        @if short {
+                            span class="text-danger font-semibold" { (fmt_qty(avail)) }
+                            span class="ml-1 inline-block text-xs px-1.5 py-0.5 rounded-full bg-danger-bg text-danger font-medium whitespace-nowrap" {
+                                "缺 " (fmt_qty(it.qty_requested - avail))
+                            }
+                        } @else {
+                            span class="text-success font-medium" { (fmt_qty(avail)) }
+                        }
+                    }
                 }
             };
         }
+
         let inner = html! {
-            div class="mb-3" {
-                span class="text-xs text-muted font-medium" { "领料单 " }
-                span class="text-sm font-mono font-semibold text-fg" { (req.doc_number) }
+            // 单号信息条
+            div class="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-border-soft" {
+                div class="flex items-center gap-2 min-w-0" {
+                    span class="text-[15px] font-mono font-bold text-fg" { (req.doc_number) }
+                    span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-accent bg-accent-bg" { "待发料" }
+                }
+                div class="text-right shrink-0" {
+                    @if let Some(wo_id) = req.work_order_id.filter(|&w| w > 0) {
+                        div class="text-xs text-muted whitespace-nowrap" {
+                            "关联工单 " span class="font-mono text-fg-2" { "WO-" (wo_id) }
+                        }
+                    }
+                    div class="text-xs text-muted whitespace-nowrap" {
+                        "仓库 " span class="text-fg-2" { (wh_name) }
+                        " · 日期 " span class="font-mono text-fg-2" { (date_str) }
+                    }
+                }
             }
-            p class="text-sm text-muted mb-4" { "共 " (items.len()) " 项，将按申请量全量发料。" }
-            div class="rounded-sm border border-border-soft divide-y divide-border-soft mb-4" { (rows) }
+            // 物料明细表格
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-2" {
+                (icon::box_icon("w-[18px] h-[18px]")) "发料明细"
+                span class="ml-auto text-xs font-normal text-muted" { "共 " (items.len()) " 项" }
+            }
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th class="min-w-[200px]" { "产品" }
+                            th class="w-[100px] text-right" { "申请量" }
+                            th class="w-[130px] text-right" { "可用量" }
+                        }
+                    }
+                    tbody { (rows) }
+                }
+            }
+            // 合计
+            div class="flex items-center justify-between gap-3 mt-3 px-3.5 py-2.5 bg-surface rounded-sm" {
+                span class="text-xs text-muted" { "合计发料" }
+                span class="text-sm font-mono font-semibold text-fg" { (items.len()) " 项" }
+            }
+            // 缺料警示（缺料时提示将导致负库存；不阻止发料，保持 ABT 柔性负库存现状）
+            @if has_short {
+                div class="flex items-start gap-2 mt-3 px-3 py-2.5 rounded-sm bg-danger-bg text-xs text-danger" {
+                    (icon::info_icon("w-4 h-4 shrink-0 mt-0.5"))
+                    div {
+                        @for s in &short_items {
+                            div class="whitespace-nowrap" {
+                                (s.0) "：申请 " (fmt_qty(s.1)) " · 可用 " (fmt_qty(s.2)) " · 缺 " (fmt_qty(s.3))
+                            }
+                        }
+                        div class="mt-1 font-medium" { "全量发料将导致上述物料负库存。" }
+                    }
+                }
+            }
         };
         Ok(drawer_form(
             "发料",

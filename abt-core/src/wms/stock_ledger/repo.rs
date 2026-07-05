@@ -365,7 +365,7 @@ impl StockLedgerRepo {
             r#"SELECT DISTINCT ON (product_id) product_id, unit_cost
                FROM stock_ledger
                WHERE product_id = ANY($1) AND unit_cost IS NOT NULL AND unit_cost > 0
-               ORDER BY product_id, created_at DESC"#,
+               ORDER BY product_id, updated_at DESC"#,
         )
         .bind(product_ids)
         .fetch_all(executor)

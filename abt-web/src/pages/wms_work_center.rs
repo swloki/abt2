@@ -22,6 +22,7 @@ use abt_core::shared::enums::DocumentType;
 use abt_core::wms::enums::TransactionType;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
+use abt_core::master_data::supplier::SupplierService;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 
@@ -31,6 +32,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_oob, TabItem};
 use abt_core::wms::picking::model::{PoReceiveRow, ReceivePurchaseReq, ShipRowReq};
 use abt_core::wms::inventory_transaction::{model::RecordTransactionReq, InventoryTransactionService};
+use abt_core::wms::inventory::InventoryService;
 use abt_core::mes::work_order::WorkOrderService;
 use crate::errors::Result;
 use abt_core::shared::types::error::DomainError;
@@ -38,7 +40,7 @@ use crate::layout::page::admin_page;
 use crate::routes::shipping::ShippingDetailPath;
 use crate::routes::wms_work_center::WmsWorkCenterPath;
 use crate::utils::fmt_qty;
-use crate::utils::RequestContext;
+use crate::utils::{empty_as_none, RequestContext};
 use crate::state::AppState;
 use abt_macros::require_permission;
 
@@ -78,6 +80,12 @@ pub struct WorkCenterActionForm {
     /// 发货仓库（direct_ship / batch_ship 用，选仓 drawer / 批量栏传入）
     #[serde(default)]
     pub warehouse_id: Option<String>,
+    /// 送货单号（receive_po 采购到货确认用，透传到 ReceivePurchaseReq.delivery_note）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub delivery_note: Option<String>,
+    /// 备注（receive_po 采购到货确认用，透传到 ReceivePurchaseReq.remark）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub remark: Option<String>,
     /// 视图（仅 Requisition：pending/all，决定 POST 后重渲染哪个 card）
     #[serde(default)]
     pub view: Option<String>,
@@ -853,8 +861,8 @@ async fn dispatch_action(
                     ReceivePurchaseReq {
                         po_id: form.id,
                         rows: po_rows,
-                        delivery_note: None,
-                        remark: None,
+                        delivery_note: form.delivery_note.clone(),
+                        remark: form.remark.clone(),
                         idempotency_key: form.idempotency_key.clone(),
                     },
                 )
@@ -1591,6 +1599,7 @@ pub async fn get_cycle_count_create_drawer(
             crate::routes::wms_work_center::WcCycleCountCreatePath::PATH,
             after_hs,
             false,
+            false,
         )
         .into_string(),
     ))
@@ -1899,6 +1908,21 @@ async fn po_receive_drawer_body(
         .into_iter()
         .map(|p| (p.product_id, p))
         .collect();
+    let supplier_name = state
+        .supplier_service()
+        .get(ctx, db, po.supplier_id)
+        .await
+        .map(|s| s.name)
+        .unwrap_or_else(|_| format!("供应商 #{}", po.supplier_id));
+    let (status_label, status_cls) = match po.status {
+        abt_core::purchase::enums::PurchaseOrderStatus::PartiallyReceived => ("部分到货", "text-warn bg-warn-bg"),
+        abt_core::purchase::enums::PurchaseOrderStatus::Confirmed => ("待收货", "text-accent bg-accent-bg"),
+        abt_core::purchase::enums::PurchaseOrderStatus::Received => ("已收货", "text-success bg-success-bg"),
+        abt_core::purchase::enums::PurchaseOrderStatus::Draft => ("草稿", "text-muted bg-surface"),
+        abt_core::purchase::enums::PurchaseOrderStatus::Closed => ("已关闭", "text-muted bg-surface"),
+        abt_core::purchase::enums::PurchaseOrderStatus::Cancelled => ("已取消", "text-danger bg-danger-bg"),
+        abt_core::purchase::enums::PurchaseOrderStatus::PendingApproval => ("待审批", "text-warn bg-warn-bg"),
+    };
 
     let mut rows = html! {};
     let mut pending_count: i32 = 0;
@@ -1955,14 +1979,31 @@ async fn po_receive_drawer_body(
         input type="hidden" name="idempotency_key"
             _="on load call wcGenIdempotencyKey(me)" {};
         input type="hidden" name="items_json" value="[]";
-        // 单号信息条（对齐发货 drawer）
-        div class="flex items-center justify-between mb-4 pb-4 border-b border-border-soft" {
-            div class="flex items-center gap-2" {
-                (icon::truck_icon("w-4 h-4 text-muted"))
-                span class="text-xs text-muted" { "采购订单" }
-                span class="text-sm font-mono font-semibold text-fg" { (po.doc_number) }
+        // 单号信息条：采购订单号 + 状态 + 供应商 + 下单日期
+        div class="flex items-center justify-between mb-4 pb-4 border-b border-border-soft gap-3" {
+            div class="flex items-center gap-2 min-w-0" {
+                (icon::truck_icon("w-4 h-4 text-muted shrink-0"))
+                div class="min-w-0" {
+                    div class="flex items-center gap-2 flex-wrap" {
+                        span class="text-xs text-muted" { "采购订单" }
+                        span class="text-sm font-mono font-semibold text-fg" { (po.doc_number) }
+                        span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {}", status_cls)) { (status_label) }
+                    }
+                    div class="text-xs text-fg-2 mt-0.5 truncate" {
+                        (supplier_name) " · 下单 " (po.order_date.format("%Y-%m-%d"))
+                    }
+                }
             }
-            span class="text-xs text-muted" { (pending_count) " 项 · " (fmt_qty(total_pending)) }
+            span class="text-xs text-muted shrink-0" { (pending_count) " 项 · 待收 " (fmt_qty(total_pending)) }
+        }
+        // 送货单号 + 备注（顶层字段，透传到 ReceivePurchaseReq）
+        div class="grid grid-cols-2 gap-3 mb-4" {
+            input type="text" name="delivery_note"
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                placeholder="送货单号（可选）" {};
+            input type="text" name="remark"
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                placeholder="备注（差异说明等，可选）" {};
         }
         // 统一仓库
         div class="mb-3 flex items-center gap-2" {
@@ -2319,6 +2360,68 @@ pub async fn get_ship_stock_avail(
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect();
     Ok(axum::Json(serde_json::json!(json_map)))
+}
+
+/// 调拨 drawer 选源仓后查询各产品可用库存 → JSON {pid: qty}（INVENTORY 权限，复用 query_available_batch ATP 口径）。
+#[require_permission("INVENTORY", "read")]
+pub async fn get_transfer_stock_avail(
+    _path: crate::routes::wms_work_center::WcTransferStockAvailPath,
+    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
+    ctx: RequestContext,
+) -> Result<axum::Json<serde_json::Value>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let warehouse_id: Option<i64> = params.get("warehouse_id")
+        .and_then(|s| s.parse().ok())
+        .filter(|&v: &i64| v > 0);
+    let product_ids: Vec<i64> = params.get("product_ids")
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default();
+    let avail_map = state
+        .inventory_transaction_service()
+        .query_available_batch(&service_ctx, &mut conn, &product_ids, warehouse_id)
+        .await
+        .unwrap_or_default();
+    let json_map: HashMap<String, String> = avail_map
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    Ok(axum::Json(serde_json::json!(json_map)))
+}
+
+/// 盘点 drawer 选库位后查该物料系统账面数量（快照）→ JSON {system_qty}。
+#[require_permission("INVENTORY", "read")]
+pub async fn get_cycle_count_system_qty(
+    _path: crate::routes::wms_work_center::WcCycleCountSystemQtyPath,
+    axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
+    ctx: RequestContext,
+) -> Result<axum::Json<serde_json::Value>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let product_id: i64 = params.get("product_id").and_then(|s| s.parse().ok()).unwrap_or(0);
+    let bin_id: i64 = params.get("bin_id").and_then(|s| s.parse().ok()).unwrap_or(0);
+    let qty = if product_id <= 0 || bin_id <= 0 {
+        Decimal::ZERO
+    } else {
+        state
+            .inventory_service()
+            .query(
+                &service_ctx,
+                &mut conn,
+                abt_core::wms::inventory::model::InventoryQueryFilter {
+                    product_id: Some(product_id),
+                    keyword: None,
+                    warehouse_id: None,
+                    bin_id: Some(bin_id),
+                },
+                1,
+                1,
+            )
+            .await
+            .ok()
+            .and_then(|r| r.items.into_iter().next())
+            .map(|i| i.quantity)
+            .unwrap_or(Decimal::ZERO)
+    };
+    Ok(axum::Json(serde_json::json!({ "system_qty": qty.to_string() })))
 }
 
 async fn issue_drawer_body(

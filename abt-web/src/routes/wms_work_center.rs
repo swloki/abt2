@@ -66,6 +66,16 @@ pub struct WcStockInCreatePath;
 #[typed_path("/admin/wms/work-center/ship-stock-avail")]
 pub struct WcShipStockAvailPath;
 
+/// 调拨 drawer 选源仓后查询各产品可用库存（JSON，INVENTORY 权限）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/work-center/transfer-stock-avail")]
+pub struct WcTransferStockAvailPath;
+
+/// 盘点 drawer 选库位后查询该物料系统账面数量（JSON）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/work-center/cycle-counts/system-qty")]
+pub struct WcCycleCountSystemQtyPath;
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -115,5 +125,13 @@ pub fn router() -> Router<AppState> {
         .route(
             WcShipStockAvailPath::PATH,
             get(wms_work_center::get_ship_stock_avail),
+        )
+        .route(
+            WcTransferStockAvailPath::PATH,
+            get(wms_work_center::get_transfer_stock_avail),
+        )
+        .route(
+            WcCycleCountSystemQtyPath::PATH,
+            get(wms_work_center::get_cycle_count_system_qty),
         )
 }

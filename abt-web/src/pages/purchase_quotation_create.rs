@@ -9,7 +9,6 @@ use abt_core::master_data::supplier::SupplierService;
 use abt_core::master_data::supplier::model::SupplierQuery;
 use abt_core::purchase::quotation::PurchaseQuotationService;
 use abt_core::purchase::quotation::model::*;
-use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -22,7 +21,6 @@ use crate::routes::purchase_quotation::{
 };
 use crate::routes::supplier_price_catalog::SupplierPricesPath;
 use crate::utils::RequestContext;
-use abt_core::shared::types::DomainError;
 use abt_macros::require_permission;
 
 // ── Query Params ──
@@ -31,7 +29,7 @@ use abt_macros::require_permission;
 // ── Form request ──
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct PQCreateForm {
  pub supplier_id: i64,
  pub quotation_date: String,
@@ -46,13 +44,13 @@ pub struct PQCreateForm {
  pub action: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-struct ItemWeb {
- product_id: String,
- unit_price: String,
- min_order_qty: Option<String>,
- lead_time_days: Option<String>,
- is_preferred: Option<String>,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ItemWeb {
+ pub product_id: String,
+ pub unit_price: String,
+ pub min_order_qty: Option<String>,
+ pub lead_time_days: Option<String>,
+ pub is_preferred: Option<String>,
 }
 
 // ── Handlers ──
@@ -72,8 +70,6 @@ pub async fn get_pq_create(
  ..
  } = ctx;
  let supplier_svc = state.supplier_service();
- let user_svc = state.user_service();
-
  let suppliers = supplier_svc
  .list(
  &service_ctx,
@@ -87,13 +83,7 @@ pub async fn get_pq_create(
  )
  .await?;
 
- let users = user_svc
- .list_users(&service_ctx, &mut conn, 1, 200)
- .await
- .map(|r| r.items)
- .unwrap_or_default();
-
- let content = pq_create_page(&suppliers.items, &users, PQCreatePath::PATH, "", true);
+let content = pq_create_page(&suppliers.items, PQCreatePath::PATH, "", true, None, None, &[]);
  let page_html = admin_page(
  is_htmx,
  "新建采购报价",
@@ -136,33 +126,14 @@ pub async fn get_pq_item_row(
  } else {
  None
  };
- // P2 录入前置比价：取该物料其他活跃报价（compare_by_product 已按单价 ASC 排序、过滤过期）
- let quotes = state
- .purchase_quotation_service()
- .compare(&service_ctx, &mut conn, params.product_id)
- .await
- .unwrap_or_default();
- let supplier_ids: Vec<i64> = quotes.iter().map(|q| q.supplier_id).collect();
- let names: std::collections::HashMap<i64, String> = if supplier_ids.is_empty() {
- std::collections::HashMap::new()
- } else {
- state
- .supplier_service()
- .get_by_ids(&service_ctx, &mut conn, &supplier_ids)
- .await
- .map(|r| r.into_iter().map(|s| (s.id, s.name)).collect())
- .unwrap_or_default()
- };
- Ok(Html(
- item_row_fragment(&product, unit_price, &quotes, &names, params.supplier_id).into_string(),
- ))
+ Ok(Html(item_row_fragment(&product, unit_price, None).into_string()))
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ItemRowParams {
- product_id: i64,
- #[serde(default)]
- supplier_id: Option<i64>,
+    product_id: i64,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    supplier_id: Option<i64>,
 }
 
 /// HTMX: return supplier contact info fragment (contact, phone, address)
@@ -218,38 +189,86 @@ pub struct SupplierContactParams {
 
 /// POST: create purchase quotation from form submission (HTMX)
 /// 报价创建核心逻辑（解析 PQCreateForm → svc.create），创建页与 work_center drawer 共用。
+/// 失败时返回字段错误 map（key 为字段名或 "__all__" 行级错误），create_pq 据此重渲染 form（§5.6）。
 pub async fn do_create_pq(
     state: &crate::state::AppState,
     service_ctx: &abt_core::shared::types::context::ServiceContext,
     form: PQCreateForm,
-) -> Result<i64> {
+) -> std::result::Result<i64, (std::collections::HashMap<&'static str, String>, Vec<ItemWeb>)> {
     let svc = state.purchase_quotation_service();
+    let mut errors: std::collections::HashMap<&'static str, String> = std::collections::HashMap::new();
     let quotation_date = chrono::NaiveDate::parse_from_str(&form.quotation_date, "%Y-%m-%d")
-        .map_err(|e| DomainError::validation(format!("无效报价日期格式: {e}")))?;
+        .unwrap_or_else(|_| {
+            errors.insert("__all__", "无效报价日期格式".to_string());
+            chrono::Local::now().date_naive()
+        });
     let valid_from = chrono::NaiveDate::parse_from_str(&form.valid_from, "%Y-%m-%d")
-        .map_err(|e| DomainError::validation(format!("无效生效日期格式: {e}")))?;
+        .unwrap_or_else(|_| {
+            errors.entry("__all__").or_insert_with(|| "无效生效日期格式".to_string());
+            chrono::Local::now().date_naive()
+        });
     let valid_until = chrono::NaiveDate::parse_from_str(&form.valid_until, "%Y-%m-%d")
-        .map_err(|e| DomainError::validation(format!("无效失效日期格式: {e}")))?;
-    let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
-        .map_err(|e| DomainError::validation(format!("无效产品数据: {e}")))?;
-    // 行级币种统一继承主表（一份报价一个币种，表头 currency 为唯一来源）
+        .unwrap_or_else(|_| {
+            errors.entry("__all__").or_insert_with(|| "无效失效日期格式".to_string());
+            chrono::Local::now().date_naive()
+        });
+    if form.supplier_id <= 0 {
+        errors.entry("supplier_id").or_insert_with(|| "请选择供应商".to_string());
+    }
+    if valid_until <= valid_from {
+        errors.entry("valid_until").or_insert_with(|| "失效日期必须晚于生效日期".to_string());
+    }
+    let web_items: Vec<ItemWeb> = match serde_json::from_str(&form.items_json) {
+        Ok(v) => v,
+        Err(e) => {
+            errors.insert("__all__", format!("无效产品数据: {e}"));
+            vec![]
+        }
+    };
+    if web_items.is_empty() && errors.is_empty() {
+        errors.insert("__all__", "请至少添加一个报价产品明细".to_string());
+    }
     let main_currency = form.currency.clone().unwrap_or_else(|| "CNY".to_string());
-    let items: Vec<CreateQuotationItemRequest> = web_items
-        .into_iter()
-        .enumerate()
-        .map(|(idx, item)| CreateQuotationItemRequest {
+    let saved_items = web_items.clone(); // 失败时带回重渲染
+    let mut items: Vec<CreateQuotationItemRequest> = Vec::with_capacity(web_items.len());
+    for (idx, item) in web_items.into_iter().enumerate() {
+        let line_no = (idx as i32) + 1;
+        let unit_price: rust_decimal::Decimal = match item.unit_price.parse() {
+            Ok(p) => p,
+            Err(_) => {
+                errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 无效单价"));
+                rust_decimal::Decimal::ZERO
+            }
+        };
+        if unit_price < rust_decimal::Decimal::ZERO {
+            errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 单价不能为负"));
+        }
+        let lead_time_days: Option<i32> = item.lead_time_days.and_then(|s| s.parse().ok());
+        if let Some(d) = lead_time_days {
+            if d < 0 {
+                errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 交货天数不能为负"));
+            }
+        }
+        let min_order_qty: Option<rust_decimal::Decimal> =
+            item.min_order_qty.and_then(|s| s.parse().ok());
+        if let Some(q) = min_order_qty {
+            if q < rust_decimal::Decimal::ZERO {
+                errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 起订量不能为负"));
+            }
+        }
+        items.push(CreateQuotationItemRequest {
             product_id: item.product_id.parse().unwrap_or(0),
-            line_no: (idx as i32) + 1,
-            unit_price: item
-                .unit_price
-                .parse()
-                .unwrap_or(rust_decimal::Decimal::ZERO),
-            min_order_qty: item.min_order_qty.and_then(|s| s.parse().ok()),
-            lead_time_days: item.lead_time_days.and_then(|s| s.parse().ok()),
+            line_no,
+            unit_price,
+            min_order_qty,
+            lead_time_days,
             currency: main_currency.clone(),
             is_preferred: item.is_preferred.is_some(),
-        })
-        .collect();
+        });
+    }
+    if !errors.is_empty() {
+        return Err((errors, saved_items));
+    }
     let create_req = CreatePurchaseQuotationRequest {
         supplier_id: form.supplier_id,
         quotation_date,
@@ -265,40 +284,113 @@ pub async fn do_create_pq(
         .pool
         .begin()
         .await
-        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-    let id = svc.create(service_ctx, &mut tx, create_req, None).await?;
-    tx.commit()
-        .await
-        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-    Ok(id)
+        .map_err(|e| {
+            let mut m: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
+            m.insert("__all__", format!("数据库错误: {e}"));
+            (m, saved_items.clone())
+        })?;
+    match svc.create(service_ctx, &mut tx, create_req, None).await {
+        Ok(id) => {
+            tx.commit().await.map_err(|e| {
+                let mut m: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
+                m.insert("__all__", format!("提交失败: {e}"));
+                (m, saved_items.clone())
+            })?;
+            Ok(id)
+        }
+        Err(e) => {
+            let mut m: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
+            m.insert("__all__", format!("{e}"));
+            Err((m, saved_items))
+        }
+    }
 }
-
 #[require_permission("PURCHASE_QUOTATION", "create")]
 pub async fn create_pq(
- _path: PQCreatePath,
- ctx: RequestContext,
- axum::Form(form): axum::Form<PQCreateForm>,
+    _path: PQCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<PQCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { state, service_ctx, .. } = ctx;
- let id = do_create_pq(&state, &service_ctx, form).await?;
- let redirect = PQDetailPath { id }.to_string();
- Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    // 失败 → 重渲染 form（自替换 + 字段标红 + 用户输入回填，§5.6）
+    // 成功 → 空 body + HX-Redirect（form 的 after_request_hs 凭 responseText 空跳转）
+    let submitted = form.clone();
+    match crate::pages::purchase_quotation_create::do_create_pq(&state, &service_ctx, form).await {
+        Ok(id) => Ok((
+            [("HX-Redirect", PQDetailPath { id }.to_string())],
+            Html(String::new()),
+        )
+            .into_response()),
+        Err((errors, saved_items)) => {
+            // 重新查询产品以恢复用户已添加的行（产品明细不丢）
+            let mut preview_rows: Vec<(abt_core::master_data::product::model::Product, rust_decimal::Decimal, Option<i32>)> = Vec::new();
+            for item in &saved_items {
+                if let Ok(pid) = item.product_id.parse::<i64>() {
+                    if pid > 0 {
+                        if let Ok(product) = state.product_service().get(&service_ctx, &mut conn, pid).await {
+                            let price: rust_decimal::Decimal = item.unit_price.parse().unwrap_or(rust_decimal::Decimal::ZERO);
+                            let ldt: Option<i32> = item.lead_time_days.as_deref().and_then(|s| s.parse().ok());
+                            preview_rows.push((product, price, ldt));
+                        }
+                    }
+                }
+            }
+            let suppliers = state
+                .supplier_service()
+                .list(
+                    &service_ctx,
+                    &mut conn,
+                    abt_core::master_data::supplier::model::SupplierQuery {
+                        name: None,
+                        status: None,
+                        category: None,
+                    },
+                    PageParams::new(1, 200),
+                )
+                .await
+                .map(|r| r.items)
+                .unwrap_or_default();
+            let html = crate::pages::purchase_quotation_create::pq_create_page(
+                &suppliers,
+                PQCreatePath::PATH,
+                "",
+                true,
+                Some(&submitted),
+                Some(&errors),
+                &preview_rows,
+            );
+            Ok(html.into_response())
+        }
+    }
 }
 
 // ── Components ──
 
 pub fn pq_create_page(
- suppliers: &[abt_core::master_data::supplier::model::Supplier],
- users: &[abt_core::shared::identity::model::User],
- post_path: &str,
- after_request_hs: &str,
- show_header: bool,
+    suppliers: &[abt_core::master_data::supplier::model::Supplier],
+    post_path: &str,
+    after_request_hs: &str,
+    show_header: bool,
+    submitted: Option<&PQCreateForm>,
+    errors: Option<&std::collections::HashMap<&str, String>>,
+    preview_rows: &[(abt_core::master_data::product::model::Product, rust_decimal::Decimal, Option<i32>)],
 ) -> Markup {
+ // 字段值：优先用 submitted 回填，否则用默认
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
  let default_valid = chrono::Local::now()
  .checked_add_days(chrono::Days::new(30))
  .map(|d| d.format("%Y-%m-%d").to_string())
  .unwrap_or_default();
+ let supplier_id_val = submitted.map(|f| f.supplier_id.to_string()).unwrap_or_default();
+ let quotation_date_val = submitted.map(|f| f.quotation_date.clone()).unwrap_or_else(|| today.clone());
+ let valid_until_val = submitted.map(|f| f.valid_until.clone()).unwrap_or_else(|| default_valid.clone());
+ let currency_val = submitted.and_then(|f| f.currency.clone()).unwrap_or_else(|| "CNY".to_string());
+ let valid_from_val = submitted.map(|f| f.valid_from.clone()).unwrap_or_else(|| today.clone());
 
  html! {
     div id="pq-app" {
@@ -310,15 +402,17 @@ pub fn pq_create_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购报价" }
             }
         }
-
-        form id="pq-form" hx-post=(post_path) hx-swap="none" _=(after_request_hs) {
+        form id="pq-form" hx-post=(post_path) hx-target="this" hx-swap="outerHTML" _=(after_request_hs) {
+            @if let Some(msg) = errors.and_then(|e| e.get("__all__").map(|s| s.as_str())) {
+                div class="text-danger text-xs mb-3 leading-relaxed" { (msg) }
+            }
             input type="hidden" id="items-json" name="items_json" value="[]";
             input type="hidden" id="form-action" name="action" value="submit";
-            // ── Supplier Selection ──
+            // ── 基本信息（参考三家 ERP 精简到 4 字段）──
             div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                { "供应商信息" }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                { "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-2" {
                     div class="form-field" {
                         label {
                             "供应商"
@@ -327,45 +421,25 @@ pub fn pq_create_page(
                         select
                             name="supplier_id"
                             required
+                            class=(if errors.and_then(|e| e.get("supplier_id")).is_some() { "w-full px-3 py-2 border border-danger rounded-sm text-sm bg-white text-fg outline-none" } else { "" })
                             hx-get=(PQSupplierContactsPath::PATH)
                             hx-trigger="change"
                             hx-target="#supplier-contact-fields"
                             hx-swap="innerHTML"
                             hx-vals="js:{supplier_id: this.value}"
                         {
-                            option value="" disabled selected { "请选择供应商" }
+                            option value="" disabled selected[submitted.is_none()] { "请选择供应商" }
                             @for s in suppliers {
-                                option value=(s.id) { (s.name) }
+                                option value=(s.id) selected[submitted.is_some() && s.id == supplier_id_val.parse::<i64>().unwrap_or(-1)] { (s.name) }
                             }
                         }
+                        @if let Some(m) = errors.and_then(|e| e.get("supplier_id")) {
+                            p class="text-danger text-xs mt-1" { (m) }
+                        }
                     }
-                }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" id="supplier-contact-fields" {
-                    div class="form-field" {
-                        label { "联系人" }
-                        input type="text" readonly placeholder="—" class="bg-surface" {}
-                    }
-                    div class="form-field" {
-                        label { "联系电话" }
-                        input type="text" readonly placeholder="—" class="bg-surface" {}
-                    }
-                }
-            }
-            // ── Quote Info ──
-            div class="data-card mb-4" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                { "报价信息" }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "报价日期" }
-                        input type="date" name="quotation_date" value=(today) readonly {}
-                    }
-                    div class="form-field" {
-                        label {
-                            "生效日期"
-                            span class="text-danger" { "*" }
-                        }
-                        input type="date" name="valid_from" id="f-valid-from" value=(today) {}
+                        input type="date" name="quotation_date" value=(quotation_date_val) readonly {}
                     }
                     div class="form-field" {
                         label {
@@ -376,37 +450,26 @@ pub fn pq_create_page(
                             type="date"
                             name="valid_until"
                             id="f-valid-until"
-                            value=(default_valid) {}
+                            class=(if errors.and_then(|e| e.get("valid_until")).is_some() { "border-danger" } else { "" })
+                            value=(valid_until_val) {}
+                        @if let Some(m) = errors.and_then(|e| e.get("valid_until")) {
+                            p class="text-danger text-xs mt-1" { (m) }
+                        }
                     }
                     div class="form-field" {
                         label { "币种" }
                         select name="currency" id="pq-currency"
                             _="on change call pqRefresh()" {
-                            option value="CNY" selected { "CNY (人民币)" }
-                            option value="USD" { "USD (美元)" }
-                            option value="EUR" { "EUR (欧元)" }
+                            option value="CNY" selected[currency_val == "CNY"] { "CNY (人民币)" }
+                            option value="USD" selected[currency_val == "USD"] { "USD (美元)" }
+                            option value="EUR" selected[currency_val == "EUR"] { "EUR (欧元)" }
                         }
-                    }
-                    div class="form-field" {
-                        label { "采购员" }
-                        select name="buyer_id" {
-                            option value="" { "请选择采购员" }
-                            @for u in users {
-                                @if u.is_active {
-                                    option value=(u.user_id) {
-                                        (u.display_name.as_deref().unwrap_or(&u.username))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    div class="form-field" {
-                        label { "供应商报价单号" }
-                        input type="text" name="supplier_quotation_no"
-                            placeholder="供应商自带单号（选填）"
-                            maxlength="64" {}
                     }
                 }
+                // hidden 占位：保留 supplier_contact_fields_fragment 的 OOB 币种 select 替换链路
+                div id="supplier-contact-fields" class="hidden" {}
+                // 生效日期默认 = 报价日期（三家 ERP 均不暴露 validFrom，仅作区间起点存库）
+                input type="hidden" name="valid_from" value=(valid_from_val);
             }
             // ── Line Items ──
             div class="data-card p-0 overflow-hidden mb-4" {
@@ -421,22 +484,23 @@ pub fn pq_create_page(
                     { (icon::plus_icon("w-3.5 h-3.5")) "添加产品" }
                 }
                 div class="overflow-x-auto" {
-                    table class="data-table min-w-[900px]" {
+                    table class="data-table min-w-[640px]" {
                         thead {
                             tr {
                                 th class="w-9 text-center" { "#" }
                                 th { "产品编码" }
                                 th { "产品名称" }
-                                th class="w-[120px] text-right" { "单价" }
-                                th class="w-[100px] text-right" { "最小订购量" }
-                                th class="w-[90px] text-right" { "交货天数" }
-                                th class="w-[80px] text-center" { "币种" }
-                                th class="text-center w-14" { "首选" }
-                                th class="w-9" {}
+                                th class="w-[140px] text-right" { "单价" }
+                                th class="w-[110px] text-right" { "交货天数" }
+                                th class="w-12" {}
                             }
                         }
                         tbody id="pq-item-tbody"
-                            _="on input call pqRefresh()\non 'htmx:afterSettle' call pqRefresh()" {}
+                            _="on input call pqRefresh()\non 'htmx:afterSettle' call pqRefresh()" {
+                            @for (product, price, ldt) in preview_rows {
+                                (item_row_fragment(product, None, *ldt))
+                            }
+                        }
                     }
                 }
                 div class="p-3 flex items-center gap-2" {
@@ -492,13 +556,7 @@ pub fn pq_create_page(
                         ({
                             maud::PreEscaped(
                                 r#"<script>document.currentScript.parentElement.addEventListener('click', function() {
- // 有效期校验
- var vf = document.querySelector('#f-valid-from').value;
- var vu = document.querySelector('#f-valid-until').value;
- var today = new Date().toISOString().slice(0,10);
- if (!vf || !vu) { show_error_toast('请填写生效日期和失效日期'); return; }
- if (vu <= vf) { show_error_toast('失效日期必须晚于生效日期'); return; }
- if (vu < today) { show_error_toast('失效日期不能早于今天'); return; }
+ // 后端 §5.6 字段级校验已覆盖有效期 + 字段非空，前端只收集 items
  var items = [];
  document.querySelectorAll('#pq-item-tbody tr:not(.pq-compare-row)').forEach(function(row) {
  var vals = {};
@@ -511,7 +569,7 @@ pub fn pq_create_page(
  show_error_toast('请至少添加一个报价产品明细');
  return;
  }
- document.querySelector('#items-json').value = JSON.stringify(items);
+ var el=document.querySelector('#items-json'); if(el) el.value = JSON.stringify(items);
  document.querySelector('#pq-form').requestSubmit();
 })</script>"#,
                             )
@@ -562,10 +620,9 @@ fn supplier_contact_fields_fragment(contact_name: &str, contact_phone: &str, cur
 fn item_row_fragment(
     product: &abt_core::master_data::product::model::Product,
     unit_price: Option<rust_decimal::Decimal>,
-    quotes: &[QuotationComparison],
-    supplier_names: &std::collections::HashMap<i64, String>,
-    current_supplier_id: Option<i64>,
+    prefilled_lead_time: Option<i32>,
 ) -> Markup {
+    let ldt_val = prefilled_lead_time.map(|d| d.to_string()).unwrap_or_default();
     let price_val = unit_price.map(|p| p.to_string()).unwrap_or_default();
     let show_record_btn = unit_price.is_none();
  html! {
@@ -591,111 +648,29 @@ fn item_row_fragment(
                         hx-get=(PQPriceRecordPath::PATH)
                         hx-target="#price-modal-pq"
                         hx-swap="innerHTML"
-                        hx-vals="js:{ supplier_id: document.querySelector('#pq-app select[name=supplier_id]').value, product_id: this.dataset.productId, price: this.closest('tr').querySelector('[name=item_unit_price]').value, min_order_qty: this.closest('tr').querySelector('[name=item_min_order_qty]').value, lead_time_days: this.closest('tr').querySelector('[name=item_lead_time_days]').value, currency_code: this.closest('tr').querySelector('[name=item_currency]').value }"
+                        hx-vals="js:{ supplier_id: document.querySelector('#pq-app select[name=supplier_id]').value, product_id: this.dataset.productId, price: this.closest('tr').querySelector('[name=item_unit_price]').value, lead_time_days: this.closest('tr').querySelector('[name=item_lead_time_days]').value }"
                     { (icon::currency_icon("w-3.5 h-3.5")) }
                 }
             }
         }
         td {
             input
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input w-[90px] text-right text-[13px] font-mono rounded-sm px-2 py-[5px] border border-border"
+                class="w-[100px] text-right text-[13px] font-mono rounded-sm px-2 py-[5px] border border-border bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
                 type="number"
-                step="any"
+                step="1" min="0"
                 placeholder="—"
-                name="item_min_order_qty" {}
-        }
-        td {
-            input
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input w-[80px] text-right text-[13px] font-mono rounded-sm px-2 py-[5px] border border-border"
-                type="number"
-                step="any"
-                placeholder="—"
-                name="item_lead_time_days" {}
-        }
-        td {
-            input
-                class="w-full px-2 py-[5px] border border-border rounded-sm text-center text-[13px] bg-surface text-muted"
-                type="text"
-                style="width:70px"
-                name="item_currency"
-                value="CNY"
-                readonly
-                title="币种继承自表头" {}
-        }
-        td class="text-center" {
-            input
-                type="checkbox"
-                name="item_is_preferred"
-                class="cursor-pointer"
-                style="width:16px;height:16px;accent-color:var(--primary)" {}
+                name="item_lead_time_days"
+                value=(ldt_val) {}
         }
         td {
             button
                 type="button"
                 class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center"
                 title="删除行"
-                _="on click remove next <tr.pq-compare-row/> then remove closest <tr/> then call pqRefresh()"
+                _="on click remove closest <tr/> then call pqRefresh()"
             { (icon::x_icon("w-3.5 h-3.5")) }
         }
         input type="hidden" name="item_product_id" value=(product.product_id) {}
-    }
-    // P2 比价子行：class=pq-compare-row，不参与 collect / stats。始终渲染（无报价时提示「暂无」），
-    // 保证删除按钮的 `remove next <tr.pq-compare-row/>` 始终命中、结构稳定。
-    (compare_row_fragment(quotes, supplier_names, current_supplier_id))
-}
-}
-
-/// 比价子行：展示该物料其他活跃报价（compare_by_product 已按单价 ASC 排序、过滤过期）。
-/// 第一条为最低价，标绿 + ✓；当前供应商已有的报价标蓝「本供应商」。
-fn compare_row_fragment(
-    quotes: &[QuotationComparison],
-    supplier_names: &std::collections::HashMap<i64, String>,
-    current_supplier_id: Option<i64>,
-) -> Markup {
-    let count = quotes.len();
- html! {
-    tr class="pq-compare-row" {
-        td colspan="9" class="bg-surface px-4 py-1.5" {
-            div class="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-xs" {
-                span class="font-medium text-fg-2 mr-1" {
-                    @if count == 0 {
-                        "暂无其他活跃报价"
-                    } @else {
-                        (format!("活跃报价 {} 家：", count))
-                    }
-                }
-                @for (i, q) in quotes.iter().take(5).enumerate() {
-                    (compare_chip(i, q, supplier_names, current_supplier_id))
-                }
-                @if count > 5 {
-                    span class="text-muted" { (format!("… 共 {} 家", count)) }
-                }
-            }
-        }
-    }
-}
-}
-
-fn compare_chip(
-    i: usize,
-    q: &QuotationComparison,
-    supplier_names: &std::collections::HashMap<i64, String>,
-    current_supplier_id: Option<i64>,
-) -> Markup {
-    let name = supplier_names
-        .get(&q.supplier_id)
-        .map(|s| s.as_str())
-        .unwrap_or("未知供应商");
-    let is_lowest = i == 0;
-    let is_self = current_supplier_id == Some(q.supplier_id);
-    let cls = if is_lowest { "text-success font-semibold" } else { "text-muted" };
- html! {
-    span class=(cls) {
-        (name) " "
-        (q.unit_price) " "
-        (q.currency)
-        @if is_lowest { " ✓" }
-        @if is_self { span class="text-accent" { " · 本供应商" } }
     }
 }
 }

@@ -213,9 +213,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             .iter()
             .enumerate()
             .map(|(idx, qi)| {
-                let quantity = qi.min_order_qty.ok_or_else(|| DomainError::validation(
-                    format!("报价明细第 {} 行未设置最小起订量，无法自动创建订单", idx + 1)
-                ))?;
+                let quantity = qi.min_order_qty.unwrap_or(rust_decimal::Decimal::ONE);
                 if qi.unit_price <= Decimal::ZERO {
                     return Err(DomainError::validation(
                         format!("报价明细第 {} 行单价必须大于 0", idx + 1)

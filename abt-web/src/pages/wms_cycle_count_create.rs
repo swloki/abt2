@@ -69,7 +69,7 @@ pub async fn get_cycle_count_create(
  .map(|r| r.items)
  .unwrap_or_default();
 
- let content = cycle_count_create_page(&warehouses, CycleCountCreatePath::PATH, "", true);
+ let content = cycle_count_create_page(&warehouses, CycleCountCreatePath::PATH, "", true, true);
  let page_html = admin_page(
  is_htmx,
  "新建盘点",
@@ -127,6 +127,9 @@ pub async fn do_create_cycle_count(
             system_qty,
         }
     }).collect();
+    if items.iter().any(|i| i.bin_id <= 0) {
+        return Err(DomainError::validation("请为每行物料选择库位").into());
+    }
 
     let req = CreateCycleCountReq {
         warehouse_id,
@@ -169,42 +172,40 @@ pub fn cycle_count_create_page(
  post_path: &str,
  after_request_hs: &str,
  show_header: bool,
+ with_picker: bool,
 ) -> Markup {
+ let today = chrono::Local::now().format("%Y-%m-%d").to_string();
  html! {
-    div {
+    div class="space-y-5 p-6" {
         @if show_header {
             // ── Back Link ──
             a   href=(format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH))
-                class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+                class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
             { (icon::chevron_left_icon("w-4 h-4")) "返回作业中心" }
             // ── Page Header ──
-            div class="flex items-center justify-between mb-5" {
-                h1 class="text-xl font-bold text-fg tracking-tight" { "新建盘点" }
-                span class="text-xs text-muted flex items-center gap-2" {
-                    (icon::clock_icon("w-3.5 h-3.5"))
-                    "自动保存草稿"
-                }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建盘点单" }
             }
         }
         form
+            id="cycleCountForm"
+            class="space-y-5"
             hx-post=(post_path)
             hx-swap="none"
-            id="cycleCountForm"
+            hx-disabled-elt="#cc-submit-btn"
             onsubmit="return cycleCountCollectItems()"
             _=(after_request_hs)
         {
+            input type="hidden" name="idempotency_key" _="on load call wcGenIdempotencyKey(me)" {};
             // ── 盘点信息 ──
-            div class="form-section" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
-                { (icon::building_icon("w-[18px] h-[18px]")) "盘点信息" }
-                div class="grid grid-cols-2 gap-4 gap-x-6" {
+            div class="grid grid-cols-3 gap-4" {
                     div class="form-field" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                             "仓库 "
-                            span class="required" { "*" }
+                            span class="text-danger" { "*" }
                         }
                         select
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]"
                             name="warehouse_id"
                             required
                         {
@@ -216,24 +217,14 @@ pub fn cycle_count_create_page(
                     }
                     div class="form-field" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                            "库区"
-                        }
-                        select
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                            name="zone_id"
-                        {
-                            option value="" { "全部库区" }
-                        }
-                    }
-                    div class="form-field" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                             "盘点日期 "
-                            span class="required" { "*" }
+                            span class="text-danger" { "*" }
                         }
                         input
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]"
                             type="date"
                             name="count_date"
+                            value=(today)
                             required {}
                     }
                     div class="flex flex-col gap-1" {
@@ -242,86 +233,73 @@ pub fn cycle_count_create_page(
                             class="inline-flex items-center gap-2 cursor-pointer pt-2 text-sm text-fg-2"
                         {
                             input class="w-auto" type="checkbox" name="is_blind";
-                            "开启盲盘（隐藏系统数量）"
+                            "开启盲盘（录入阶段隐藏系统数量）"
                         }
                     }
-                    div class="form-field col-span-2" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                            "备注"
-                        }
-                        textarea
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y"
-                            name="remark"
-                            rows="2"
-                            placeholder="可选备注…" {}
-                    }
-                }
             }
-            // ── 盘点物料 ──
-            div class="form-section p-0 overflow-hidden" {
-                div class="px-6 pt-6 pb-4" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3" {
-                        (icon::box_icon("w-[18px] h-[18px]"))
-                        "盘点物料"
-                        span id="cc-item-count" class="ml-auto text-xs font-normal text-muted" {
-                            "共 0 项"
-                        }
-                    }
+            // ── 盘点明细 ──
+            div {
+                div class="flex items-center gap-2 mb-3" {
+                    (icon::clipboard_list_icon("w-4 h-4 text-accent"))
+                    span class="text-[13px] font-semibold text-fg" { "盘点明细" }
+                    span id="cc-item-count" class="ml-auto text-xs text-muted" { "共 0 项" }
                 }
                 div class="overflow-x-auto" {
                     table class="data-table" {
                         thead {
                             tr {
-                                th class="w-10 text-center" { "行号" }
-                                th { "产品编码" }
-                                th { "产品名称" }
-                                th { "规格" }
-                                th class="w-[100px]" { "库位" }
+                                th class="w-10" { "序号" }
+                                th { "产品" }
+                                th class="w-[200px]" {
+                                    "库位 " span class="text-danger" { "*" }
+                                }
                                 th class="w-[120px]" { "批次号" }
-                                th class="w-[100px] text-right" { "系统数量" }
+                                th class="w-[110px] text-right" { "系统数量" }
                                 th class="w-10" {}
                             }
                         }
                         tbody id="cc-item-tbody" {}
                     }
                 }
-                div class="p-4" {
-                    button
-                        type="button"
-                        class="flex items-center justify-center gap-2 w-full text-accent text-sm font-medium cursor-pointer"
-                        _="on click add .is-open to #product-modal"
-                    { (icon::plus_icon("w-3.5 h-3.5")) "添加物料" }
-                }
+                button type="button"
+                    class="flex items-center justify-center gap-2 w-full py-2.5 mt-3 border border-dashed border-border rounded-md text-accent text-sm font-medium cursor-pointer transition-all duration-150 hover:border-accent hover:bg-accent-bg"
+                    _="on click add .is-open to #product-modal"
+                { (icon::plus_icon("w-3.5 h-3.5")) "添加物料" }
             }
-            input type="hidden" name="items_json" id="cc-items-json" value="[]" {}
-            // ── Action Bar ──
-            div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft"
-            {
-                div {}
-                div class="flex gap-3" {
-                    @if show_header {
-                        a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                            href=(format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH))
-                        { "取消" }
-                    } @else {
-                        button type="button"
-                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                            _="on click remove .open from closest .drawer-overlay"
-                        { "取消" }
-                    }
-                    button
-                        type="submit"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        name="action"
-                        value="draft"
-                    { "保存草稿" }
-                    button
-                        type="submit"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        name="action"
-                        value="start"
-                    { (icon::check_circle_icon("w-4 h-4")) "开始盘点" }
+            // ── 备注 ──
+            div {
+                div class="flex items-center gap-2 mb-2" {
+                    (icon::edit_icon("w-4 h-4 text-accent"))
+                    span class="text-[13px] font-semibold text-fg" { "备注" }
                 }
+                textarea
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none resize-y min-h-[64px] transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                    name="remark"
+                    placeholder="输入备注信息…"
+                    rows="3" {}
+            }
+            input type="hidden" name="items_json" id="cc-items-json" value="[]" {};
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-end gap-3 -mx-6 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                @if show_header {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href=(format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH))
+                    { "取消" }
+                } @else {
+                    button type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        _="on click remove .open from closest .drawer-overlay"
+                    { "取消" }
+                }
+                button type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    name="action" value="draft"
+                { "保存草稿" }
+                button type="submit" id="cc-submit-btn"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    name="action" value="start"
+                { (icon::check_circle_icon("w-4 h-4")) "开始盘点" }
             }
         }
         ({
@@ -331,85 +309,49 @@ pub fn cycle_count_create_page(
                 "cc-item-tbody",
             )
         })
-        // ── JS ──
-        ({
-            maud::PreEscaped(
-                r#"<script>
- function ccCalcSummary() {
- var tbody = document.getElementById('cc-item-tbody');
- var rows = tbody.querySelectorAll('tr');
- document.getElementById('cc-item-count').textContent = '共 ' + rows.length + ' 项';
- }
- function ccRenumber() {
- var tbody = document.getElementById('cc-item-tbody');
- var rows = tbody.querySelectorAll('tr');
- rows.forEach(function(row, i) {
- row.querySelector('.line-num').textContent = i + 1;
- });
- ccCalcSummary();
- }
- function cycleCountCollectItems() {
- var tbody = document.getElementById('cc-item-tbody');
- var rows = tbody.querySelectorAll('tr');
- var items = [];
- rows.forEach(function(row) {
- items.push({
- product_id: row.querySelector('input[name="product_id"]').value,
- bin_id: row.querySelector('input[name="bin_id"]').value || null,
- batch_no: row.querySelector('input[name="batch_no"]').value || null,
- system_qty: row.querySelector('input[name="system_qty"]').value || '0'
- });
- });
- document.getElementById('cc-items-json').value = JSON.stringify(items);
- return true;
- }
- </script>"#,
-            )
-        })
+        @if with_picker {
+            (crate::components::bin_search::bin_picker_modal("bin-picker-modal", warehouses))
+        }
+        script src=(crate::layout::page::cache_url("/wms-cycle-count-create.js")) {}
     }
 }
 }
 
 /// Single item row fragment
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
- html! {
-    tr {
-        td class="text-muted text-xs text-center line-num" {}
-        td class="font-mono tabular-nums" { (product.product_code) }
-        td { (product.pdt_name) }
-        td class="text-sm text-fg-2" { (product.meta.specification) }
-        td {
-            input
-                class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent"
-                type="number"
-                step="any"
-                name="bin_id"
-                placeholder="库位ID" {}
+    let bid = format!("cc-bin-{}", product.product_id);
+    html! {
+        tr data-row {
+            td class="text-muted text-xs text-center line-num" {}
+            td {
+                div class="text-sm text-fg font-medium leading-tight" { (product.pdt_name) }
+                div class="text-xs text-muted font-mono" { (product.product_code) }
+                div class="text-xs text-fg-2" { (product.meta.specification) " · " (product.unit) }
+            }
+            td class="align-middle" {
+                button type="button"
+                    class="bin-cell-btn w-full px-2 py-1.5 border border-border rounded-sm text-xs bg-white text-fg-2 hover:border-accent hover:text-accent transition-colors text-left truncate"
+                    data-bin-key=(bid) data-product-id=(product.product_id) data-mode="inbound"
+                    _="on click call binPickerOpen(me)" { "选择库位" }
+                input type="hidden" name="bin_id" data-k="bin_id" data-bin-key=(bid) value=""
+                    _="on input call ccRefreshSystemQty(closest <tr/>)" {}
+            }
+            td {
+                input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent"
+                    type="text" name="batch_no" placeholder="批次号" {}
+            }
+            td {
+                input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border-soft rounded-sm bg-surface text-muted"
+                    type="text" readonly name="system_qty" value="0" {}
+            }
+            td {
+                button type="button"
+                    class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger"
+                    title="删除行"
+                    _="on click remove closest <tr/> then call ccRenumber()"
+                { (icon::x_icon("w-3.5 h-3.5")) }
+            }
+            input type="hidden" name="product_id" value=(product.product_id) {}
         }
-        td {
-            input
-                class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent"
-                type="text"
-                name="batch_no"
-                placeholder="批次号" {}
-        }
-        td {
-            input
-                class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent"
-                type="number"
-                step="any"
-                name="system_qty"
-                placeholder="0" {}
-        }
-        td {
-            button
-                type="button"
-                class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger"
-                title="删除行"
-                _="on click remove closest <tr/> then call ccRenumber()"
-            { (icon::x_icon("w-3.5 h-3.5")) }
-        }
-        input type="hidden" name="product_id" value=(product.product_id) {}
     }
-}
 }

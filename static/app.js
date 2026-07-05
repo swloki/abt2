@@ -810,8 +810,8 @@ window.binPickerSelect = function (binId, binCode, binName) {
   var whName = activeWh ? activeWh.getAttribute('data-warehouse-name') : '';
   var whInput = row.querySelector('input[name="warehouse_id"]');
   var binInput = row.querySelector('input[name="bin_id"]');
-  if (whInput) whInput.value = whId;
-  if (binInput) binInput.value = binId;
+  if (whInput) { whInput.value = whId; whInput.dispatchEvent(new Event('input', { bubbles: true })); }
+  if (binInput) { binInput.value = binId; binInput.dispatchEvent(new Event('input', { bubbles: true })); }
   var btn = row.querySelector('.bin-cell-btn');
   if (btn) btn.textContent = whName + ' / ' + binCode;
   document.getElementById('bin-picker-modal').classList.remove('is-open');

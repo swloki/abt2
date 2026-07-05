@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>发料 drawer · 优化草稿</title>
+<style>
+  :root {
+    --bg:#ffffff; --surface:#f0f2f7; --surface-raised:#f8f9fc;
+    --fg:#0f172a; --fg-2:#3b4a63; --muted:#64748b;
+    --border:#e2e8f0; --border-soft:#eef1f6;
+    --accent:#2563eb; --accent-on:#ffffff; --accent-bg:rgba(37,99,235,.05);
+    --success:#16a34a; --success-bg:rgba(22,163,74,.06);
+    --warn:#d97706; --warn-bg:rgba(217,119,6,.06);
+    --danger:#dc2626; --danger-bg:rgba(220,38,38,.05);
+    --radius-sm:6px; --radius-md:8px;
+    --shadow-card:0 1px 3px rgba(15,23,42,.04), 0 0 0 1px rgba(15,23,42,.03);
+    --shadow-md:0 4px 16px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
+    --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif;
+    --font-mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--surface); color:var(--fg); font-family:var(--font-body); font-size:14px; line-height:1.55; }
+  .wrap { max-width:720px; margin:0 auto; padding:32px 24px 80px; }
+  .page-head h1 { font-size:21px; font-weight:700; margin:0 0 6px; letter-spacing:-.01em; }
+  .page-head p { margin:0; color:var(--muted); font-size:13px; }
+  .badge-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:9999px; font-size:12px; font-weight:500; background:var(--accent-bg); color:var(--accent); }
+  .badge.success { background:var(--success-bg); color:var(--success); }
+  .badge.warn { background:var(--warn-bg); color:var(--warn); }
+  .badge.danger { background:var(--danger-bg); color:var(--danger); }
+
+  .compare { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:24px 0; }
+  .compare-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:18px; box-shadow:var(--shadow-card); }
+  .compare-card.now { border-color:#fecaca; }
+  .compare-card.new { border-color:#bbf7d0; box-shadow:0 0 0 1px rgba(22,163,74,.08), var(--shadow-card); }
+  .compare-card h3 { margin:0 0 4px; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .compare-card .sub { color:var(--muted); font-size:12px; margin-bottom:14px; }
+
+  /* drawer（drawer_form 框架：标题 + body[px-6 py-5] + footer） */
+  .drawer { background:var(--bg); border:1px solid var(--border-soft); border-radius:var(--radius-md); box-shadow:var(--shadow-md); overflow:hidden; }
+  .drawer-bar { display:flex; align-items:center; justify-content:space-between; padding:18px 24px; border-bottom:1px solid var(--border-soft); }
+  .drawer-bar .title { font-size:16px; font-weight:700; }
+  .x { width:32px; height:32px; border:none; background:transparent; color:var(--muted); cursor:pointer; border-radius:var(--radius-sm); font-size:18px; }
+  .x:hover { background:var(--surface); color:var(--fg); }
+  .drawer-body { padding:20px 24px; }
+
+  /* 单号信息条 */
+  .doc-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:14px; margin-bottom:14px; border-bottom:1px solid var(--border-soft); }
+  .doc-bar .left { display:flex; align-items:center; gap:8px; min-width:0; }
+  .doc-num { font-family:var(--font-mono); font-size:15px; font-weight:700; color:var(--fg); }
+  .status-pill { display:inline-flex; align-items:center; gap:6px; padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:500; background:var(--accent-bg); color:var(--accent); }
+  .status-pill.warn { background:var(--warn-bg); color:var(--warn); }
+  .doc-meta { font-size:12px; color:var(--muted); margin-top:4px; }
+  .doc-meta b { color:var(--fg-2); font-weight:500; }
+
+  /* 物料表格 */
+  .items-head { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; margin-bottom:10px; }
+  .items-head .count { margin-left:auto; font-size:12px; font-weight:400; color:var(--muted); }
+  table.data { width:100%; border-collapse:collapse; font-size:13px; border:1px solid var(--border-soft); border-radius:var(--radius-sm); overflow:hidden; }
+  table.data th { padding:9px 10px; text-align:left; font-weight:600; font-size:12px; color:var(--fg-2); border-bottom:1px solid var(--border); background:var(--surface-raised); white-space:nowrap; }
+  table.data th.r, table.data td.r { text-align:right; }
+  table.data td { padding:10px 10px; border-bottom:1px solid var(--border-soft); vertical-align:middle; }
+  table.data tr:last-child td { border-bottom:none; }
+  .prod-name { font-size:13px; font-weight:500; color:var(--fg); }
+  .prod-code { font-size:11px; color:var(--muted); font-family:var(--font-mono); }
+  .num { font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
+  .unit-tag { display:inline-block; font-size:11px; color:var(--muted); }
+  .avail-ok { color:var(--success); font-weight:500; }
+  .avail-short { color:var(--danger); font-weight:600; }
+  .short-tag { display:inline-block; font-size:11px; padding:1px 7px; border-radius:9999px; background:var(--danger-bg); color:var(--danger); margin-left:4px; font-weight:500; }
+
+  /* 总计条 */
+  .total-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; padding:10px 14px; background:var(--surface); border-radius:var(--radius-sm); }
+  .total-bar .label { font-size:12px; color:var(--muted); }
+  .total-bar .val { font-family:var(--font-mono); font-size:14px; font-weight:600; color:var(--fg); }
+
+  /* 缺料警示条 */
+  .alert { display:flex; align-items:flex-start; gap:8px; padding:10px 12px; border-radius:var(--radius-sm); font-size:12px; margin-top:14px; background:var(--warn-bg); color:var(--warn); border:1px solid #fde68a; }
+  .alert.danger { background:var(--danger-bg); color:var(--danger); border-color:#fecaca; }
+  .alert .ico { flex-shrink:0; margin-top:1px; }
+
+  /* footer */
+  .drawer-foot { display:flex; justify-content:space-between; align-items:center; padding:14px 24px; border-top:1px solid var(--border-soft); background:var(--bg); }
+  .foot-hint { font-size:12px; color:var(--muted); }
+  .foot-hint b { color:var(--fg-2); }
+  .foot-actions { display:flex; gap:12px; }
+  .btn-cancel { padding:9px 18px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--fg-2); font-size:13px; font-weight:500; cursor:pointer; font-family:inherit; }
+  .btn-cancel:hover { background:var(--surface); color:var(--accent); }
+  .btn-submit { padding:9px 18px; border:none; border-radius:var(--radius-sm); background:var(--accent); color:var(--accent-on); font-size:13px; font-weight:500; cursor:pointer; font-family:inherit; box-shadow:0 1px 2px rgba(37,99,235,.2); }
+  .btn-submit:hover { background:#3b82f6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="page-head">
+    <h1>发料 drawer · 优化草稿</h1>
+    <p>后端 issue 是一次性全量发料（部分发料会重复扣库存），故不加「行级编辑发料量」。优化重点：发料前看清库存、缺料预警、汇总。</p>
+    <div class="badge-row">
+      <span class="badge">物料列表 div → 表格</span>
+      <span class="badge success">+ 可用量 / 缺料预警</span>
+      <span class="badge warn">+ 单号信息条</span>
+      <span class="badge">+ 总计汇总</span>
+    </div>
+  </div>
+
+  <!-- 对比 -->
+  <div class="compare">
+    <div class="compare-card now">
+      <h3>当前 <span class="badge danger">简陋</span></h3>
+      <div class="sub">div 列表，只有产品名 + 申请量，无库存参考</div>
+      <div style="border:1px solid var(--border-soft); border-radius:6px; overflow:hidden">
+        <div style="display:flex; justify-content:space-between; padding:10px 12px; border-bottom:1px solid var(--border-soft)">
+          <div><div style="font-size:13px; color:var(--fg-2)">螺丝 M6×12</div><div style="font-size:11px; color:var(--muted); font-family:var(--font-mono)">P-1001</div></div>
+          <span style="font-size:13px; color:var(--muted); font-family:var(--font-mono)">申请 1000</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:10px 12px">
+          <div><div style="font-size:13px; color:var(--fg-2)">不锈钢板 1.5mm</div><div style="font-size:11px; color:var(--muted); font-family:var(--font-mono)">P-2048</div></div>
+          <span style="font-size:13px; color:var(--muted); font-family:var(--font-mono)">申请 50</span>
+        </div>
+      </div>
+      <p style="font-size:12px; color:var(--muted); margin:10px 0 0">共 2 项，将按申请量全量发料。</p>
+    </div>
+
+    <div class="compare-card new">
+      <h3>优化后 <span class="badge success">清晰</span></h3>
+      <div class="sub">表格 + 单位 + 可用量 + 缺料红字预警</div>
+      <table class="data">
+        <thead><tr><th>产品</th><th class="r">申请</th><th class="r">可用</th></tr></thead>
+        <tbody>
+          <tr><td><div class="prod-name">螺丝 M6×12 <span class="unit-tag">件</span></div><div class="prod-code">P-1001</div></td><td class="r num">1000</td><td class="r num avail-ok">1280</td></tr>
+          <tr><td><div class="prod-name">不锈钢板 <span class="unit-tag">kg</span></div><div class="prod-code">P-2048</div></td><td class="r num">50</td><td class="r num avail-short">12<span class="short-tag">缺 38</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 完整 drawer -->
+  <div class="drawer">
+    <div class="drawer-bar">
+      <div class="title">发料</div>
+      <button class="x">×</button>
+    </div>
+    <div class="drawer-body">
+      <!-- 单号信息条 -->
+      <div class="doc-bar">
+        <div class="left">
+          <span class="doc-num">REQ-2026-07-0188</span>
+          <span class="status-pill">待发料</span>
+        </div>
+        <div style="text-align:right">
+          <div class="doc-meta"><b>关联工单</b> WO-2026-0170</div>
+          <div class="doc-meta"><b>仓库</b> 原材料仓 · <b>日期</b> 2026-07-05</div>
+        </div>
+      </div>
+
+      <!-- 物料表格 -->
+      <div class="items-head">
+        📦 发料明细
+        <span class="count">共 3 项</span>
+      </div>
+      <table class="data">
+        <thead><tr>
+          <th>产品</th>
+          <th class="r">申请量</th>
+          <th class="r">可用量</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="prod-name">螺丝 M6×12 <span class="unit-tag">件</span></div>
+              <div class="prod-code">P-1001 · GB/T 5783</div>
+            </td>
+            <td class="r num">1000</td>
+            <td class="r num avail-ok">1280</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="prod-name">不锈钢板 1.5mm <span class="unit-tag">kg</span></div>
+              <div class="prod-code">P-2048 · 304 不锈钢</div>
+            </td>
+            <td class="r num">50</td>
+            <td class="r num avail-short">12 <span class="short-tag">缺 38</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="prod-name">尼龙垫圈 Ø6 <span class="unit-tag">件</span></div>
+              <div class="prod-code">P-1099 · PA66</div>
+            </td>
+            <td class="r num">2000</td>
+            <td class="r num avail-ok">2040</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- 总计 -->
+      <div class="total-bar">
+        <span class="label">合计发料</span>
+        <span class="val">3 项 · 3050 件/kg</span>
+      </div>
+
+      <!-- 缺料警示 -->
+      <div class="alert danger">
+        <span class="ico">⚠</span>
+        <div><b>不锈钢板 1.5mm</b> 库存不足：申请 50 kg，可用 12 kg，缺 38 kg。全量发料将导致该物料负库存。</div>
+      </div>
+    </div>
+
+    <div class="drawer-foot">
+      <div class="foot-hint">将按申请量<b>全量发料</b>，扣减库存并计入工单成本</div>
+      <div class="foot-actions">
+        <button class="btn-cancel">取消</button>
+        <button class="btn-submit">确认发料</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

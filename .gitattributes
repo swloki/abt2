@@ -1,2 +1,6 @@
 # shell 脚本强制 LF 换行（容器内 Linux bash 执行，CRLF 会导致 \r 进参数报错）
 *.sh text eol=lf
+
+# UnoCSS 生成产物强制 LF：避免 Windows autocrlf 把 working tree 转 CRLF，
+# 导致每次 build:css 后 git status 误报 modified、PR merge 时 CRLF 冲突卡住
+static/app.css text eol=lf

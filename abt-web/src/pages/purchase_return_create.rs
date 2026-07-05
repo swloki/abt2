@@ -283,11 +283,11 @@ pub fn pr_create_page(
             onsubmit="PRCreate.collectItems();return true"
         {
             input type="hidden" id="items-json" name="items_json" value="[]";
-            // ── 关联单据 ──
+            // ── 基本信息（关联单据 + 退货信息合并，对齐 Odoo wizard 极简，明细上移突出）──
             div class="data-card mb-4" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                { "关联单据" }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft"
+                { "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6" {
                     div class="form-field" {
                         label {
                             "采购订单"
@@ -313,21 +313,6 @@ pub fn pr_create_page(
                         label { "供应商" }
                         input type="text" id="pr-supplier-name" readonly value="—" {}
                     }
-                    div class="form-field" {
-                        label { "联系人" }
-                        input type="text" id="pr-contact" readonly value="—" {}
-                    }
-                    div class="form-field" {
-                        label { "联系电话" }
-                        input type="text" id="pr-phone" readonly value="—" {}
-                    }
-                }
-            }
-            // ── 退货信息 ──
-            div class="data-card mb-4" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                { "退货信息" }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label {
                             "退货日期"
@@ -355,8 +340,8 @@ pub fn pr_create_page(
                         textarea
                             name="remark"
                             placeholder="输入退货相关备注信息…"
-                            class="w-full resize-y rounded-sm min-h-[80px] border border-border text-sm"
-                            style="padding:8px 12px;font-family:inherit" {}
+                            class="w-full resize-y rounded-sm min-h-[50px] border border-border text-sm"
+                            style="padding:6px 10px;font-family:inherit" {}
                     }
                 }
             }
@@ -389,6 +374,7 @@ pub fn pr_create_page(
                                 th { "单位" }
                                 th class="text-right text-[13px]" { "订单数量" }
                                 th class="text-right text-[13px]" { "已收货" }
+                                th class="text-right text-[13px]" { "可退量" }
                                 th class="w-[120px] text-right" { "退货数量" }
                                 th class="text-right text-[13px]" { "单价" }
                                 th class="text-right text-[13px]" { "退货金额" }
@@ -428,7 +414,7 @@ pub fn pr_create_page(
             }
         }
     }
-    script src="/return-create.js?v=20260705" {}
+    script src="/return-create.js?v=20260705b" {}
 }
 }
 
@@ -458,8 +444,10 @@ fn order_items_fragment(
                 "product_code" : product_code, "product_name" : product_name,
                 "specification" : specification, "unit" : unit, "order_qty" : item
                 .quantity.to_string(), "received_qty" : item.received_qty.to_string(),
-                "unit_price" : item.unit_price.to_string(), "returned_qty" : item
-                .received_qty.to_string(), }
+                "already_returned" : item.returned_qty.to_string(),
+                "returnable_qty" : (item.received_qty - item.returned_qty).to_string(),
+                "unit_price" : item.unit_price.to_string(), "returned_qty" : (item
+                .received_qty - item.returned_qty).to_string(), }
             )
                 .to_string();
             div data-item=(item_json) {}

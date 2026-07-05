@@ -393,6 +393,43 @@ window.fillPriceRowFromForm = function (formEl) {
     }
 };
 
+// ── Purchase Quotation: stats band + row currency sync ──
+// 行级币种继承表头（一份报价一个币种），并实时更新底部统计带（项数 / 单价区间 / 首选数）。
+// 触发点：#pq-currency change、#pq-item-tbody input / htmx:afterSettle、删行后。
+window.pqRefresh = function () {
+    var tbody = document.querySelector('#pq-item-tbody');
+    if (!tbody) return;
+    var hdrCur = document.querySelector('#pq-currency');
+    var rows = tbody.querySelectorAll('tr:not(.pq-compare-row)');
+    var n = rows.length, min = null, max = null, preferred = 0;
+    rows.forEach(function (r) {
+        if (hdrCur) {
+            var curCell = r.querySelector('[name=item_currency]');
+            if (curCell) curCell.value = hdrCur.value;
+        }
+        var priceInput = r.querySelector('[name=item_unit_price]');
+        if (priceInput) {
+            var v = parseFloat(priceInput.value);
+            if (!isNaN(v)) {
+                if (min === null || v < min) min = v;
+                if (max === null || v > max) max = v;
+            }
+        }
+        var pref = r.querySelector('[name=item_is_preferred]');
+        if (pref && pref.checked) preferred++;
+    });
+    var cntEl = document.querySelector('#pq-stat-count');
+    if (cntEl) cntEl.textContent = n;
+    var rangeEl = document.querySelector('#pq-stat-range');
+    if (rangeEl) {
+        if (min === null) rangeEl.textContent = '—';
+        else if (min === max) rangeEl.textContent = '¥' + min;
+        else rangeEl.textContent = '¥' + min + ' ~ ¥' + max;
+    }
+    var prefEl = document.querySelector('#pq-stat-preferred');
+    if (prefEl) prefEl.textContent = preferred;
+};
+
 // ── Generic Entity Picker (search-select modal) ──
 // Called from Hyperscript: _="on click call entityPickerSelect(me)"
 // Reads data-id / data-label from clicked option, fills hidden input + display,

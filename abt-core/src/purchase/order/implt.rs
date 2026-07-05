@@ -252,7 +252,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             payment_terms: None,
             delivery_address: None,
             remark: format!("从报价单 {} 自动生成", quotation.doc_number),
-            currency_code: String::from("CNY"),
+            currency_code: quotation.currency.clone(),
             currency_rate: Decimal::ONE,
             discount_amount: Decimal::ZERO,
             items: order_items.clone(),

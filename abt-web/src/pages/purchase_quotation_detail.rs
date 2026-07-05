@@ -73,7 +73,7 @@ pub async fn get_pq_detail(
  };
 
  let buyer_name = user_svc
- .get_user(&service_ctx, &mut conn, pq.operator_id)
+ .get_user(&service_ctx, &mut conn, pq.buyer_id.unwrap_or(pq.operator_id))
  .await
  .map(|u| u.display_name.unwrap_or(u.username))
  .unwrap_or_else(|_| "—".into());
@@ -266,7 +266,8 @@ fn pq_detail_page(
  ctx: &QuotationDetailContext,
 ) -> Markup {
  let (status_text, status_class) = status_label(pq.status);
- let currency = items.first().map(|i| i.currency.as_str()).unwrap_or("CNY");
+ let currency = pq.currency.as_str();
+ let supplier_qno = if pq.supplier_quotation_no.is_empty() { "—" } else { pq.supplier_quotation_no.as_str() };
  let remark = if pq.remark.is_empty() { "—" } else { &pq.remark };
  html! {
     div {
@@ -334,6 +335,10 @@ fn pq_detail_page(
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "联系电话" }
                     span class="text-sm text-fg font-medium" { (ctx.supplier_phone) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "供应商报价单号" }
+                    span class="text-sm text-fg font-medium font-mono" { (supplier_qno) }
                 }
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "报价日期" }

@@ -40,6 +40,7 @@ pub struct PQCreateForm {
  pub currency: Option<String>,
  #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
  pub buyer_id: Option<i64>,
+ pub supplier_quotation_no: Option<String>,
  pub remark: Option<String>,
  pub items_json: String,
  pub action: Option<String>,
@@ -51,7 +52,6 @@ struct ItemWeb {
  unit_price: String,
  min_order_qty: Option<String>,
  lead_time_days: Option<String>,
- currency: Option<String>,
  is_preferred: Option<String>,
 }
 
@@ -136,7 +136,26 @@ pub async fn get_pq_item_row(
  } else {
  None
  };
- Ok(Html(item_row_fragment(&product, unit_price).into_string()))
+ // P2 录入前置比价：取该物料其他活跃报价（compare_by_product 已按单价 ASC 排序、过滤过期）
+ let quotes = state
+ .purchase_quotation_service()
+ .compare(&service_ctx, &mut conn, params.product_id)
+ .await
+ .unwrap_or_default();
+ let supplier_ids: Vec<i64> = quotes.iter().map(|q| q.supplier_id).collect();
+ let names: std::collections::HashMap<i64, String> = if supplier_ids.is_empty() {
+ std::collections::HashMap::new()
+ } else {
+ state
+ .supplier_service()
+ .get_by_ids(&service_ctx, &mut conn, &supplier_ids)
+ .await
+ .map(|r| r.into_iter().map(|s| (s.id, s.name)).collect())
+ .unwrap_or_default()
+ };
+ Ok(Html(
+ item_row_fragment(&product, unit_price, &quotes, &names, params.supplier_id).into_string(),
+ ))
 }
 
 #[derive(Debug, Deserialize)]
@@ -213,6 +232,8 @@ pub async fn do_create_pq(
         .map_err(|e| DomainError::validation(format!("无效失效日期格式: {e}")))?;
     let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
         .map_err(|e| DomainError::validation(format!("无效产品数据: {e}")))?;
+    // 行级币种统一继承主表（一份报价一个币种，表头 currency 为唯一来源）
+    let main_currency = form.currency.clone().unwrap_or_else(|| "CNY".to_string());
     let items: Vec<CreateQuotationItemRequest> = web_items
         .into_iter()
         .enumerate()
@@ -225,7 +246,7 @@ pub async fn do_create_pq(
                 .unwrap_or(rust_decimal::Decimal::ZERO),
             min_order_qty: item.min_order_qty.and_then(|s| s.parse().ok()),
             lead_time_days: item.lead_time_days.and_then(|s| s.parse().ok()),
-            currency: item.currency.unwrap_or_else(|| "CNY".to_string()),
+            currency: main_currency.clone(),
             is_preferred: item.is_preferred.is_some(),
         })
         .collect();
@@ -235,6 +256,9 @@ pub async fn do_create_pq(
         valid_from,
         valid_until,
         remark: form.remark.unwrap_or_default(),
+        currency: main_currency,
+        buyer_id: form.buyer_id,
+        supplier_quotation_no: form.supplier_quotation_no.unwrap_or_default(),
         items,
     };
     let mut tx = state
@@ -356,7 +380,8 @@ pub fn pq_create_page(
                     }
                     div class="form-field" {
                         label { "币种" }
-                        select name="currency" id="pq-currency" {
+                        select name="currency" id="pq-currency"
+                            _="on change call pqRefresh()" {
                             option value="CNY" selected { "CNY (人民币)" }
                             option value="USD" { "USD (美元)" }
                             option value="EUR" { "EUR (欧元)" }
@@ -374,6 +399,12 @@ pub fn pq_create_page(
                                 }
                             }
                         }
+                    }
+                    div class="form-field" {
+                        label { "供应商报价单号" }
+                        input type="text" name="supplier_quotation_no"
+                            placeholder="供应商自带单号（选填）"
+                            maxlength="64" {}
                     }
                 }
             }
@@ -404,7 +435,8 @@ pub fn pq_create_page(
                                 th class="w-9" {}
                             }
                         }
-                        tbody id="pq-item-tbody" {}
+                        tbody id="pq-item-tbody"
+                            _="on input call pqRefresh()\non 'htmx:afterSettle' call pqRefresh()" {}
                     }
                 }
                 div class="p-3 flex items-center gap-2" {
@@ -426,18 +458,27 @@ pub fn pq_create_page(
                     style="padding:8px 12px;font-family:inherit" {}
             }
             // ── Action Bar ──
-            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft"
             {
-                @if show_header {
-                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        href=(format!("{}?restore=true", PQListPath::PATH))
-                    { "取消" }
-                } @else {
-                    button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        _="on click remove .open from closest .drawer-overlay"
-                    { "取消" }
+                // 左：实时统计带（项数 / 单价区间 / 首选数）
+                div class="flex items-center gap-3 text-xs text-muted" {
+                    span { "已添 " span id="pq-stat-count" class="font-semibold text-fg" { "0" } " 项" }
+                    span class="text-border" { "·" }
+                    span { "单价 " span id="pq-stat-range" class="font-mono text-fg" { "—" } }
+                    span class="text-border" { "·" }
+                    span { "首选 " span id="pq-stat-preferred" class="font-semibold text-fg" { "0" } " 项" }
                 }
-                div class="flex gap-3" {
+                // 右：操作按钮
+                div class="flex items-center gap-3" {
+                    @if show_header {
+                        a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            href=(format!("{}?restore=true", PQListPath::PATH))
+                        { "取消" }
+                    } @else {
+                        button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            _="on click remove .open from closest .drawer-overlay"
+                        { "取消" }
+                    }
                     button
                         type="button"
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
@@ -451,8 +492,15 @@ pub fn pq_create_page(
                         ({
                             maud::PreEscaped(
                                 r#"<script>document.currentScript.parentElement.addEventListener('click', function() {
+ // 有效期校验
+ var vf = document.querySelector('#f-valid-from').value;
+ var vu = document.querySelector('#f-valid-until').value;
+ var today = new Date().toISOString().slice(0,10);
+ if (!vf || !vu) { show_error_toast('请填写生效日期和失效日期'); return; }
+ if (vu <= vf) { show_error_toast('失效日期必须晚于生效日期'); return; }
+ if (vu < today) { show_error_toast('失效日期不能早于今天'); return; }
  var items = [];
- document.querySelectorAll('#pq-item-tbody tr').forEach(function(row) {
+ document.querySelectorAll('#pq-item-tbody tr:not(.pq-compare-row)').forEach(function(row) {
  var vals = {};
  row.querySelectorAll('input,select').forEach(function(el) {
  if (el.name && el.name.startsWith('item_')) vals[el.name.replace('item_','')] = el.value;
@@ -499,8 +547,11 @@ fn supplier_contact_fields_fragment(contact_name: &str, contact_phone: &str, cur
         label { "联系电话" }
         input type="text" readonly value=(contact_phone) placeholder="—" class="bg-surface" {}
     }
-    // OOB 更新币种 select（选 supplier 联动其默认币种）
-    select name="currency" id="pq-currency" hx-swap-oob="true" {
+    // OOB 更新币种 select（选 supplier 联动其默认币种）。须带 pqRefresh 绑定：
+    // OOB 会整体替换 #pq-currency，hyperscript 不会从原节点迁移，否则切币种不再触发行级跟随/统计。
+    // on load：换入后同步一次（已有行的币种跟随新默认值）；on change：后续手动切币种时跟随。
+    select name="currency" id="pq-currency" hx-swap-oob="true"
+        _="on change call pqRefresh()\non load call pqRefresh()" {
         @for (code, label) in opts {
             option value=(code) selected[code == cur] { (label) }
         }
@@ -508,7 +559,13 @@ fn supplier_contact_fields_fragment(contact_name: &str, contact_phone: &str, cur
 }
 }
 
-fn item_row_fragment(product: &abt_core::master_data::product::model::Product, unit_price: Option<rust_decimal::Decimal>) -> Markup {
+fn item_row_fragment(
+    product: &abt_core::master_data::product::model::Product,
+    unit_price: Option<rust_decimal::Decimal>,
+    quotes: &[QuotationComparison],
+    supplier_names: &std::collections::HashMap<i64, String>,
+    current_supplier_id: Option<i64>,
+) -> Markup {
     let price_val = unit_price.map(|p| p.to_string()).unwrap_or_default();
     let show_record_btn = unit_price.is_none();
  html! {
@@ -557,11 +614,13 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product, u
         }
         td {
             input
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] text-center text-[13px] rounded-sm px-2 py-[5px] border border-border"
+                class="w-full px-2 py-[5px] border border-border rounded-sm text-center text-[13px] bg-surface text-muted"
                 type="text"
                 style="width:70px"
                 name="item_currency"
-                value="CNY" {}
+                value="CNY"
+                readonly
+                title="币种继承自表头" {}
         }
         td class="text-center" {
             input
@@ -575,10 +634,68 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product, u
                 type="button"
                 class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center"
                 title="删除行"
-                _="on click remove closest <tr/>"
+                _="on click remove next <tr.pq-compare-row/> then remove closest <tr/> then call pqRefresh()"
             { (icon::x_icon("w-3.5 h-3.5")) }
         }
         input type="hidden" name="item_product_id" value=(product.product_id) {}
+    }
+    // P2 比价子行：class=pq-compare-row，不参与 collect / stats。始终渲染（无报价时提示「暂无」），
+    // 保证删除按钮的 `remove next <tr.pq-compare-row/>` 始终命中、结构稳定。
+    (compare_row_fragment(quotes, supplier_names, current_supplier_id))
+}
+}
+
+/// 比价子行：展示该物料其他活跃报价（compare_by_product 已按单价 ASC 排序、过滤过期）。
+/// 第一条为最低价，标绿 + ✓；当前供应商已有的报价标蓝「本供应商」。
+fn compare_row_fragment(
+    quotes: &[QuotationComparison],
+    supplier_names: &std::collections::HashMap<i64, String>,
+    current_supplier_id: Option<i64>,
+) -> Markup {
+    let count = quotes.len();
+ html! {
+    tr class="pq-compare-row" {
+        td colspan="9" class="bg-surface px-4 py-1.5" {
+            div class="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-xs" {
+                span class="font-medium text-fg-2 mr-1" {
+                    @if count == 0 {
+                        "暂无其他活跃报价"
+                    } @else {
+                        (format!("活跃报价 {} 家：", count))
+                    }
+                }
+                @for (i, q) in quotes.iter().take(5).enumerate() {
+                    (compare_chip(i, q, supplier_names, current_supplier_id))
+                }
+                @if count > 5 {
+                    span class="text-muted" { (format!("… 共 {} 家", count)) }
+                }
+            }
+        }
+    }
+}
+}
+
+fn compare_chip(
+    i: usize,
+    q: &QuotationComparison,
+    supplier_names: &std::collections::HashMap<i64, String>,
+    current_supplier_id: Option<i64>,
+) -> Markup {
+    let name = supplier_names
+        .get(&q.supplier_id)
+        .map(|s| s.as_str())
+        .unwrap_or("未知供应商");
+    let is_lowest = i == 0;
+    let is_self = current_supplier_id == Some(q.supplier_id);
+    let cls = if is_lowest { "text-success font-semibold" } else { "text-muted" };
+ html! {
+    span class=(cls) {
+        (name) " "
+        (q.unit_price) " "
+        (q.currency)
+        @if is_lowest { " ✓" }
+        @if is_self { span class="text-accent" { " · 本供应商" } }
     }
 }
 }

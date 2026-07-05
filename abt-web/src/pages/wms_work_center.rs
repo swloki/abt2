@@ -1145,7 +1145,7 @@ async fn render_work_center_page(
             (wc_drawer_shell())
             // 各 domain 创建 drawer（新建按钮 hx-get 填 body；submit 保 tab）
             (render_drawer_overlay("wc-cycle-count-create-overlay", "wc-cycle-count-create-drawer-body", "新建盘点单", "w-[900px] max-w-[94vw]"))
-            (render_drawer_overlay("wc-requisition-create-overlay", "wc-requisition-create-drawer-body", "新建领料单", "w-[1200px] max-w-[96vw]"))
+            (render_drawer_overlay("wc-requisition-create-overlay", "wc-requisition-create-drawer-body", "新建领料单", "w-[1000px] max-w-[94vw]"))
             (render_drawer_overlay("wc-transfer-create-overlay", "wc-transfer-create-drawer-body", "新建调拨单", "w-[1000px] max-w-[94vw]"))
             (render_drawer_overlay("wc-shipping-create-overlay", "wc-shipping-create-drawer-body", "新建发货单", "w-[1000px] max-w-[94vw]"))
             (render_drawer_overlay("wc-stock-in-create-overlay", "wc-stock-in-create-drawer-body", "新建入库单", "w-[1000px] max-w-[94vw]"))
@@ -1625,7 +1625,7 @@ pub async fn get_requisition_create_drawer(
     _path: crate::routes::wms_work_center::WcRequisitionCreateDrawerPath,
     ctx: RequestContext,
 ) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let warehouses = state
         .warehouse_service()
         .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
@@ -1636,7 +1636,6 @@ pub async fn get_requisition_create_drawer(
     Ok(Html(
         crate::pages::wms_requisition_create::requisition_create_page(
             &warehouses,
-            &claims.display_name,
             crate::routes::wms_work_center::WcRequisitionCreatePath::PATH,
             after_hs,
             false,

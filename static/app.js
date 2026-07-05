@@ -371,6 +371,28 @@ window.salesOrderCalcRow = _sc.calcRow;
 window.salesOrderRecalcTotals = _sc.recalcTotals;
 window.salesOrderSubmit = _sc.collectItems;
 
+// ── 供应商价格补录：提交成功后回填到原报价行 ──
+// 由补录 modal 的 form 上的 hyperscript 调用：call fillPriceRowFromForm(me)
+window.fillPriceRowFromForm = function (formEl) {
+    var pidEl = formEl.querySelector('[name="product_id"]');
+    var priceEl = formEl.querySelector('[name="price"]');
+    if (!pidEl || !priceEl) return;
+    var pid = pidEl.value;
+    var newPrice = priceEl.value;
+    var rows = document.querySelectorAll('#pq-item-tbody tr');
+    for (var i = 0; i < rows.length; i++) {
+        var rowPidEl = rows[i].querySelector('input[name="item_product_id"]');
+        if (rowPidEl && rowPidEl.value === pid) {
+            var target = rows[i].querySelector('input[name="item_unit_price"]');
+            if (target) {
+                target.value = newPrice;
+                target.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            break;
+        }
+    }
+};
+
 // ── Generic Entity Picker (search-select modal) ──
 // Called from Hyperscript: _="on click call entityPickerSelect(me)"
 // Reads data-id / data-label from clicked option, fills hidden input + display,

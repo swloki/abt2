@@ -13,12 +13,14 @@ use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::purchase_quotation::{
- PQCreatePath, PQDetailPath, PQItemRowPath, PQListPath,
- PQSupplierContactsPath,
+    PQCreatePath, PQDetailPath, PQItemRowPath, PQListPath, PQPriceRecordPath,
+    PQSupplierContactsPath,
 };
+use crate::routes::supplier_price_catalog::SupplierPricesPath;
 use crate::utils::RequestContext;
 use abt_core::shared::types::DomainError;
 use abt_macros::require_permission;
@@ -478,6 +480,8 @@ pub fn pq_create_page(
                 "pq-item-tbody",
             )
         })
+        // 补录价格 modal —— 行内「补录」按钮 hx-get 加载表单进来，afterSettle 唤醒显示
+        (modal_shell("price-modal-pq", "z-[1100]", html! {}))
     }
 }
 }
@@ -506,19 +510,34 @@ fn supplier_contact_fields_fragment(contact_name: &str, contact_phone: &str, cur
 
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product, unit_price: Option<rust_decimal::Decimal>) -> Markup {
     let price_val = unit_price.map(|p| p.to_string()).unwrap_or_default();
+    let show_record_btn = unit_price.is_none();
  html! {
     tr {
         td class="text-muted text-xs text-center" {}
         td class="font-mono tabular-nums" { (product.product_code) }
         td { (product.pdt_name) }
         td {
-            input
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input w-[110px] text-right text-[13px] font-mono rounded-sm px-2 py-[5px] border border-border"
-                type="number"
-                step="any"
-                placeholder="0.00"
-                name="item_unit_price"
-                value=(price_val) {}
+            div class="flex items-center gap-1 justify-end" {
+                input
+                    class="w-[110px] text-right text-[13px] font-mono rounded-sm px-2 py-[5px] border border-border bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                    type="number"
+                    step="any"
+                    placeholder="0.00"
+                    name="item_unit_price"
+                    value=(price_val) {};
+                @if show_record_btn {
+                    button
+                        type="button"
+                        title="无匹配价格 — 点击补录到供应商价格目录"
+                        class="shrink-0 w-[24px] h-[24px] grid place-items-center rounded-sm text-accent hover:bg-accent-bg border border-border"
+                        data-product-id=(product.product_id)
+                        hx-get=(PQPriceRecordPath::PATH)
+                        hx-target="#price-modal-pq"
+                        hx-swap="innerHTML"
+                        hx-vals="js:{ supplier_id: document.querySelector('#pq-app select[name=supplier_id]').value, product_id: this.dataset.productId, price: this.closest('tr').querySelector('[name=item_unit_price]').value, min_order_qty: this.closest('tr').querySelector('[name=item_min_order_qty]').value, lead_time_days: this.closest('tr').querySelector('[name=item_lead_time_days]').value, currency_code: this.closest('tr').querySelector('[name=item_currency]').value }"
+                    { (icon::currency_icon("w-3.5 h-3.5")) }
+                }
+            }
         }
         td {
             input
@@ -562,4 +581,194 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product, u
         input type="hidden" name="item_product_id" value=(product.product_id) {}
     }
 }
+}
+
+// ── 补录价格（无匹配供应商价格时的快捷入口）──
+
+#[derive(Debug, Deserialize)]
+pub struct PriceRecordParams {
+    pub supplier_id: i64,
+    pub product_id: i64,
+    #[serde(default)]
+    pub price: Option<String>,
+    #[serde(default)]
+    pub min_order_qty: Option<String>,
+    #[serde(default)]
+    pub lead_time_days: Option<String>,
+    #[serde(default)]
+    pub currency_code: Option<String>,
+}
+
+/// HTMX: 返回补录价格 modal 表单 fragment（含外层 .modal 容器，整体 innerHTML 进 #price-modal-pq）。
+/// 复用 `SupplierPriceService.create_price`（提交到 `SupplierPricesPath`），仅预填字段、不做写操作。
+#[require_permission("PURCHASE_QUOTATION", "create")]
+pub async fn get_pq_price_record_drawer(
+    _path: PQPriceRecordPath,
+    ctx: RequestContext,
+    Query(params): Query<PriceRecordParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let supplier = state
+        .supplier_service()
+        .get(&service_ctx, &mut conn, params.supplier_id)
+        .await?;
+    let product = state
+        .product_service()
+        .get(&service_ctx, &mut conn, params.product_id)
+        .await?;
+    Ok(Html(
+        price_record_modal_form(&supplier, &product, &params).into_string(),
+    ))
+}
+
+/// 渲染补录价格 modal 表单。
+/// 提交端点复用价格目录维护页的 `SupplierPricesPath::PATH`（即 `create_price` handler）。
+/// 成功后 hyperscript 调用 `fillPriceRowFromForm(me)` 把新价回填到原报价行。
+fn price_record_modal_form(
+    supplier: &abt_core::master_data::supplier::model::Supplier,
+    product: &abt_core::master_data::product::model::Product,
+    params: &PriceRecordParams,
+) -> Markup {
+    let price_val = params.price.as_deref().filter(|s| !s.is_empty()).unwrap_or("");
+    let moq_val = params
+        .min_order_qty
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("1");
+    let ldt_val = params
+        .lead_time_days
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("0");
+    let cc_val = params
+        .currency_code
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("CNY");
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let default_valid = chrono::Local::now()
+        .checked_add_days(chrono::Days::new(365))
+        .map(|d| d.format("%Y-%m-%d").to_string())
+        .unwrap_or_default();
+    // price_form 的字段命名是 create_price handler 期望的（price/min_order_qty/...）
+    html! {
+        div class="modal bg-bg rounded-xl w-[560px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                h2 class="text-base font-semibold text-fg" { "补录供应商价格" }
+                button
+                    class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                    _="on click remove .is-open from #price-modal-pq"
+                    type="button"
+                { "×" }
+            }
+            form
+                hx-post=(SupplierPricesPath::PATH)
+                hx-swap="none"
+                _="on 'htmx:afterRequest'[detail.xhr.status < 400 and detail.elt is me] call fillPriceRowFromForm(me) then remove .is-open from #price-modal-pq"
+            {
+                div class="px-6 py-4 overflow-y-auto flex-1 min-h-0" {
+                    // 上下文信息（只读）
+                    div class="mb-4 p-3 bg-surface rounded-sm text-xs text-fg-2 flex flex-col gap-1" {
+                        div {
+                            span class="text-muted" { "供应商: " }
+                            span class="font-medium text-fg" { (supplier.name) " (" (supplier.code) ")" }
+                        }
+                        div {
+                            span class="text-muted" { "产品: " }
+                            span class="font-medium text-fg" { (product.pdt_name) " (" (product.product_code) ")" }
+                        }
+                    }
+                    input type="hidden" name="supplier_id" value=(supplier.id) {};
+                    input type="hidden" name="product_id" value=(product.product_id) {};
+                    input type="hidden" name="discount_pct" value="0" {};
+                    input type="hidden" name="sequence" value="0" {};
+                    input type="hidden" name="is_active" value="on" {};
+
+                    div class="grid grid-cols-2 gap-4" {
+                        div class="form-field" {
+                            label class="block text-xs font-medium text-fg-2 mb-1" {
+                                "单价"
+                                span class="text-danger" { "*" }
+                            }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                placeholder="0.00"
+                                name="price"
+                                required
+                                value=(price_val) {};
+                        }
+                        div class="form-field" {
+                            label class="block text-xs font-medium text-fg-2 mb-1" { "币种" }
+                            select
+                                name="currency_code"
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            {
+                                @for c in &["CNY", "USD", "EUR"] {
+                                    option value=(*c) selected[cc_val == *c] {
+                                        (match *c {
+                                            "CNY" => "CNY 人民币",
+                                            "USD" => "USD 美元",
+                                            _ => "EUR 欧元",
+                                        })
+                                    }
+                                }
+                            }
+                        }
+                        div class="form-field" {
+                            label class="block text-xs font-medium text-fg-2 mb-1" { "起订量" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="min_order_qty"
+                                value=(moq_val) {};
+                        }
+                        div class="form-field" {
+                            label class="block text-xs font-medium text-fg-2 mb-1" { "交货天数" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="lead_time_days"
+                                value=(ldt_val) {};
+                        }
+                        div class="form-field" {
+                            label class="block text-xs font-medium text-fg-2 mb-1" { "生效日期" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="date"
+                                name="valid_from"
+                                value=(today) {};
+                        }
+                        div class="form-field" {
+                            label class="block text-xs font-medium text-fg-2 mb-1" { "失效日期" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="date"
+                                name="valid_until"
+                                value=(default_valid) {};
+                        }
+                    }
+                }
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        _="on click remove .is-open from #price-modal-pq"
+                    { "取消" }
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { "保存到价格目录" }
+                }
+            }
+        }
+    }
 }

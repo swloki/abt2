@@ -9,6 +9,7 @@ use abt_core::wms::enums::{CycleCountStatus, PickingStatus};
 use abt_core::wms::picking::{IssueItemReq, IssueMaterialReq, PickingService};
 use abt_core::wms::cycle_count::model::CycleCountItem;
 use abt_core::wms::cycle_count::CycleCountService;
+use abt_core::wms::low_stock_alert::service::LowStockAlertService;
 use abt_core::wms::warehouse::model::{Warehouse, WarehouseFilter};
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::work_center::model::{
@@ -100,6 +101,7 @@ fn domain_from_str(s: &str) -> Option<WorkCenterDomain> {
         "requisition" => Some(WorkCenterDomain::Requisition),
         "transfer" => Some(WorkCenterDomain::Transfer),
         "cycle-count" => Some(WorkCenterDomain::CycleCount),
+        "low-stock" => Some(WorkCenterDomain::LowStock),
         _ => None,
     }
 }
@@ -111,6 +113,7 @@ fn domain_slug(d: WorkCenterDomain) -> &'static str {
         WorkCenterDomain::Requisition => "requisition",
         WorkCenterDomain::Transfer => "transfer",
         WorkCenterDomain::CycleCount => "cycle-count",
+        WorkCenterDomain::LowStock => "low-stock",
     }
 }
 
@@ -162,6 +165,7 @@ fn action_domain(action: &str) -> Result<WorkCenterDomain> {
         "cc_start" | "cc_complete" | "cc_cancel" | "cc_adjust" | "cc_approve" | "cc_reject" => {
             WorkCenterDomain::CycleCount
         }
+        "ack_low_stock" => WorkCenterDomain::LowStock,
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     })
 }
@@ -177,6 +181,7 @@ fn domain_detail_url(domain: WorkCenterDomain, doc_id: i64) -> Option<String> {
         WorkCenterDomain::Requisition => None, // 点单据走 req_detail drawer（阶段 3.1 收口，不再跳 detail 页）
         WorkCenterDomain::Transfer => None, // 点单据走 transfer_detail drawer（阶段 3.2 收口）
         WorkCenterDomain::CycleCount => None, // 点单据走 cc_detail drawer（阶段 3.2b 收口）
+        WorkCenterDomain::LowStock => None, // 行内 ack 按钮，不跳详情
     }
 }
 
@@ -205,6 +210,8 @@ fn domain_entries(active: WorkCenterDomain) -> Markup {
             BTN_CLS, "新建发货单", "wc-shipping-create-overlay", "wc-shipping-create-drawer-body",
             crate::routes::wms_work_center::WcShippingCreateDrawerPath::PATH,
         ),
+        // LowStock 是异常提醒，无「新建」入口
+        WorkCenterDomain::LowStock => html! {},
     }
 }
 
@@ -1007,6 +1014,9 @@ async fn dispatch_action(
         "cc_reject" => {
             state.cycle_count_service().reject(ctx, db, form.id).await?;
         }
+        "ack_low_stock" => {
+            state.low_stock_alert_service().ack(ctx, db, form.id).await?;
+        }
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     }
     Ok(())
@@ -1191,14 +1201,15 @@ fn total_badge(total: u64, oob: bool) -> Markup {
     }
 }
 
-/// 5 个环节 tab 定义（label + count badge），供 status_tabs 渲染。
-fn domain_tabs(summary: &WorkCenterSummary) -> [TabItem; 5] {
+/// 6 个环节 tab 定义（label + count badge），供 status_tabs 渲染。
+fn domain_tabs(summary: &WorkCenterSummary) -> [TabItem; 6] {
     [
         (WorkCenterDomain::Arrival, "arrival", "待收货"),
         (WorkCenterDomain::Outbound, "outbound", "待出库"),
         (WorkCenterDomain::Requisition, "requisition", "待领料"),
         (WorkCenterDomain::Transfer, "transfer", "待调拨"),
         (WorkCenterDomain::CycleCount, "cycle-count", "待盘点"),
+        (WorkCenterDomain::LowStock, "low-stock", "低库存"),
     ]
     .map(|(d, value, label)| TabItem {
         value: value.into(),
@@ -1216,6 +1227,7 @@ fn domain_card_head(active: WorkCenterDomain, summary: &WorkCenterSummary) -> Ma
         WorkCenterDomain::Requisition => ("待领料", icon::clipboard_list_icon("w-[15px] h-[15px]"), "生产工单 领料发料"),
         WorkCenterDomain::Transfer => ("待调拨", icon::arrow_left_right_icon("w-[15px] h-[15px]"), "仓间调拨 出入库"),
         WorkCenterDomain::CycleCount => ("待盘点", icon::clipboard_document_icon("w-[15px] h-[15px]"), "库存盘点 审批调整"),
+        WorkCenterDomain::LowStock => ("低库存", icon::info_icon("w-[15px] h-[15px]"), "安全库存预警 确认处理"),
     };
     let s = summary.of(active);
     let total = s.total;
@@ -1284,7 +1296,11 @@ fn render_domain_card(
             (render_domain_filter(active, q, overdue, soon))
             // 队列表格 + 分页
             div class="p-4" {
-                (render_task_table(&result.items, active))
+                @if active == WorkCenterDomain::LowStock {
+                    (render_low_stock_list(&result.items))
+                } @else {
+                    (render_task_table(&result.items, active))
+                }
                 @if result.total_pages > 1 {
                     div class="mt-3" {
                         (pagination(
@@ -1329,13 +1345,15 @@ fn render_domain_filter(active: WorkCenterDomain, q: &WorkCenterQuery, overdue: 
                     type="text" name="keyword" placeholder="搜索单号 / 对象"
                     value=(kw);
             }
-            // 紧急度
-            select id="wc-urgency-select" class="px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
-                name="urgency" {
-                option value="" selected[urg.is_empty()] { "全部紧急度" }
-                option value="overdue" selected[urg == "overdue"] { "逾期" }
-                option value="soon" selected[urg == "soon"] { "临期" }
-                option value="normal" selected[urg == "normal"] { "正常" }
+            // 紧急度（低库存都是 Overdue，不筛）
+            @if active != WorkCenterDomain::LowStock {
+                select id="wc-urgency-select" class="px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                    name="urgency" {
+                    option value="" selected[urg.is_empty()] { "全部紧急度" }
+                    option value="overdue" selected[urg == "overdue"] { "逾期" }
+                    option value="soon" selected[urg == "soon"] { "临期" }
+                    option value="normal" selected[urg == "normal"] { "正常" }
+                }
             }
             // 来源（仅待收货：PO / 工单）
             @if active == WorkCenterDomain::Arrival {
@@ -1350,20 +1368,54 @@ fn render_domain_filter(active: WorkCenterDomain, q: &WorkCenterQuery, overdue: 
             div class="ml-auto flex items-center gap-2" {
                 // 各 domain 收口入口：新建 / 查看全部（侧边栏菜单已废弃，跳转保留的业务路由）
                 (domain_entries(active))
-                @if overdue > 0 {
-                    button type="button"
-                        class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-danger-bg text-danger border border-danger/30 cursor-pointer hover:bg-danger/15 transition-colors"
-                        _="on click set #wc-urgency-select's value to 'overdue' then trigger change on #wc-urgency-select" {
-                        span class="w-1.5 h-1.5 rounded-full bg-danger" {}
-                        (overdue) " 逾期"
+                // 紧急度快捷 pill（低库存都是 Overdue，不显示 urgency pill）
+                @if active != WorkCenterDomain::LowStock {
+                    @if overdue > 0 {
+                        button type="button"
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-danger-bg text-danger border border-danger/30 cursor-pointer hover:bg-danger/15 transition-colors"
+                            _="on click set #wc-urgency-select's value to 'overdue' then trigger change on #wc-urgency-select" {
+                            span class="w-1.5 h-1.5 rounded-full bg-danger" {}
+                            (overdue) " 逾期"
+                        }
+                    }
+                    @if soon > 0 {
+                        button type="button"
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-warn-bg text-warn border border-warn/30 cursor-pointer hover:bg-warn/15 transition-colors"
+                            _="on click set #wc-urgency-select's value to 'soon' then trigger change on #wc-urgency-select" {
+                            span class="w-1.5 h-1.5 rounded-full bg-warn" {}
+                            (soon) " 临期"
+                        }
                     }
                 }
-                @if soon > 0 {
-                    button type="button"
-                        class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-warn-bg text-warn border border-warn/30 cursor-pointer hover:bg-warn/15 transition-colors"
-                        _="on click set #wc-urgency-select's value to 'soon' then trigger change on #wc-urgency-select" {
-                        span class="w-1.5 h-1.5 rounded-full bg-warn" {}
-                        (soon) " 临期"
+            }
+        }
+    }
+}
+
+/// 低库存预警紧凑列表（满宽，一行式：产品+仓名 / 摘要 / 紧急度 badge）。
+/// 替代通用 render_task_table（多列稀疏）——低库存字段少，紧凑列表更清晰。
+fn render_low_stock_list(tasks: &[PendingTask]) -> Markup {
+    if tasks.is_empty() {
+        return html! {
+            div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无预警" }
+        };
+    }
+    html! {
+        div class="mt-2 divide-y divide-border-soft border-y border-border-soft" {
+            @for t in tasks {
+                div class="flex items-center gap-4 py-3" {
+                    // 产品 + 仓库
+                    div class="flex-1 min-w-0" {
+                        div class="text-sm font-medium text-fg truncate" { (t.doc_number) }
+                        div class="text-xs text-muted truncate" { (t.counterparty) }
+                    }
+                    // 摘要（当前 · 安全 · 缺）
+                    div class="text-xs font-mono text-fg-2 whitespace-nowrap shrink-0" {
+                        (t.summary)
+                    }
+                    // 紧急度 badge（低库存都是逾期）
+                    span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger whitespace-nowrap shrink-0" {
+                        "逾期"
                     }
                 }
             }
@@ -1394,7 +1446,9 @@ fn render_task_table(tasks: &[PendingTask], domain: WorkCenterDomain) -> Markup 
                     th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "收到" }
                     th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "到期" }
                     th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "紧急度" }
-                    th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "操作" }
+                    @if domain != WorkCenterDomain::LowStock {
+                        th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "操作" }
+                    }
                 }
             }
             tbody {
@@ -1460,8 +1514,10 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                     (urgency_label)
                 }
             }
-            td class="py-3 px-3 text-right" {
-                (render_row_action(t))
+            @if domain != WorkCenterDomain::LowStock {
+                td class="py-3 px-3 text-right" {
+                    (render_row_action(t))
+                }
             }
         }
     }
@@ -1532,6 +1588,20 @@ fn render_row_action(t: &PendingTask) -> Markup {
         WorkCenterDomain::CycleCount => {
             doc_detail_trigger("cc_detail", t.doc_id, "pending", html! { "详情" (icon::clipboard_list_icon("w-3 h-3")) },
                 "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90")
+        }
+        // 低库存预警：行内 ack（POST action=ack_low_stock，刷新当前 card）
+        WorkCenterDomain::LowStock => {
+            html! {
+                button type="button"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-white text-fg-2 border border-border text-xs font-semibold cursor-pointer hover:bg-surface hover:text-accent"
+                    hx-post=(WmsWorkCenterPath::PATH)
+                    hx-vals=(serde_json::json!({"action": "ack_low_stock", "id": t.doc_id}).to_string())
+                    hx-target="#wc-domain-card"
+                    hx-select="#wc-domain-card"
+                    hx-swap="outerHTML"
+                    hx-confirm="确认此低库存预警已处理？"
+                { (icon::check_circle_icon("w-3.5 h-3.5")) "确认" }
+            }
         }
     }
 }
@@ -2638,3 +2708,4 @@ async fn transfer_drawer_body(
         btn_label,
     ))
 }
+

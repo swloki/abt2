@@ -81,6 +81,7 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
             extra_where: "",
         },
         WorkCenterDomain::Arrival => unreachable!("Arrival 走 UNION 单独处理"),
+        WorkCenterDomain::LowStock => unreachable!("LowStock 走 wms_low_stock_alerts 单独处理"),
     }
 }
 
@@ -102,6 +103,9 @@ impl WorkCenterRepo {
     ) -> Result<(u64, u64, u64)> {
         if domain == WorkCenterDomain::Arrival {
             return Self::count_arrival(db, today).await;
+        }
+        if domain == WorkCenterDomain::LowStock {
+            return Self::count_low_stock(db).await;
         }
         let cfg = simple_cfg(domain);
         let mut qb = QueryBuilder::<Postgres>::new("");
@@ -133,6 +137,10 @@ impl WorkCenterRepo {
         let total = Self::count_domain_filtered(db, domain, filter, today).await?;
         if domain == WorkCenterDomain::Arrival {
             let items = Self::list_arrival_page(db, filter, today, &page).await?;
+            return Ok(PaginatedResult::new(items, total, page.page, page.page_size));
+        }
+        if domain == WorkCenterDomain::LowStock {
+            let items = Self::list_low_stock_page(db, filter, &page).await?;
             return Ok(PaginatedResult::new(items, total, page.page, page.page_size));
         }
         let cfg = simple_cfg(domain);
@@ -182,6 +190,9 @@ impl WorkCenterRepo {
     ) -> Result<u64> {
         if domain == WorkCenterDomain::Arrival {
             return Self::count_arrival_filtered(db, filter, today).await;
+        }
+        if domain == WorkCenterDomain::LowStock {
+            return Self::count_low_stock_filtered(db, filter).await;
         }
         let cfg = simple_cfg(domain);
         let mut qb = QueryBuilder::<Postgres>::new("");
@@ -312,6 +323,75 @@ impl WorkCenterRepo {
 
         let rows = qb.build().fetch_all(&mut *db).await?;
         rows.iter().map(map_arrival_row).collect()
+    }
+
+    // ── LowStock（wms_low_stock_alerts，status=Active）──
+    // urgency 固定 Overdue（缺料即紧急）；无 expected_at（没到期日概念）。
+    // doc_number=产品名，counterparty=仓名，summary="当前 X / 安全 Y"。
+
+    async fn count_low_stock(db: PgExecutor<'_>) -> Result<(u64, u64, u64)> {
+        let row = sqlx::query("SELECT COUNT(*)::int8 AS total FROM wms_low_stock_alerts")
+            .fetch_one(&mut *db)
+            .await?;
+        let total = row.try_get::<i64, _>("total")? as u64;
+        Ok((total, total, 0)) // total, overdue=total（缺料即紧急）, soon=0
+    }
+
+    async fn count_low_stock_filtered(
+        db: PgExecutor<'_>,
+        filter: &PendingTaskFilter,
+    ) -> Result<u64> {
+        // urgency filter：LowStock 都是 Overdue；filter Soon/Normal → 0
+        if filter.urgency.is_some_and(|u| u != Urgency::Overdue) {
+            return Ok(0);
+        }
+        let mut qb = QueryBuilder::<Postgres>::new(
+            "SELECT COUNT(*) FROM wms_low_stock_alerts la \
+             LEFT JOIN products p ON p.product_id = la.product_id AND p.deleted_at IS NULL \
+             LEFT JOIN warehouses w ON w.id = la.warehouse_id \
+             WHERE TRUE",
+        );
+        if let Some(kw) = filter.keyword.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            let pat = format!("%{kw}%");
+            qb.push(" AND (p.pdt_name ILIKE ").push_bind(pat.clone());
+            qb.push(" OR w.name ILIKE ").push_bind(pat).push(")");
+        }
+        let total = qb.build_query_scalar::<i64>().fetch_one(&mut *db).await? as u64;
+        Ok(total)
+    }
+
+    async fn list_low_stock_page(
+        db: PgExecutor<'_>,
+        filter: &PendingTaskFilter,
+        page: &PageParams,
+    ) -> Result<Vec<PendingTask>> {
+        if filter.urgency.is_some_and(|u| u != Urgency::Overdue) {
+            return Ok(vec![]);
+        }
+        let page_size = page.page_size as i64;
+        let offset = ((page.page.max(1) - 1) * page.page_size) as i64;
+        let mut qb = QueryBuilder::<Postgres>::new("");
+        qb.push("SELECT la.id, COALESCE(p.pdt_name, ('产品#' || la.product_id::text)) AS doc_number, ");
+        qb.push("COALESCE(w.name, '') AS counterparty, ");
+        qb.push("('当前 ' || la.current_qty::text || ' · 安全 ' || la.safety_stock::text || ' · 缺 ' || (la.safety_stock - la.current_qty)::text) AS summary, ");
+        qb.push("NULL::date AS expected_at, la.created_at AS received_at, 2 AS urgency_rank ");
+        qb.push("FROM wms_low_stock_alerts la ");
+        qb.push("LEFT JOIN products p ON p.product_id = la.product_id AND p.deleted_at IS NULL ");
+        qb.push("LEFT JOIN warehouses w ON w.id = la.warehouse_id ");
+        qb.push("WHERE TRUE");
+        if let Some(kw) = filter.keyword.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            let pat = format!("%{kw}%");
+            qb.push(" AND (p.pdt_name ILIKE ").push_bind(pat.clone());
+            qb.push(" OR w.name ILIKE ").push_bind(pat).push(")");
+        }
+        qb.push(" ORDER BY la.created_at DESC LIMIT ")
+            .push_bind(page_size)
+            .push(" OFFSET ")
+            .push_bind(offset);
+        let rows = qb.build().fetch_all(&mut *db).await?;
+        rows.iter()
+            .map(|r| map_simple_row(r, WorkCenterDomain::LowStock))
+            .collect()
     }
 }
 

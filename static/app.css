@@ -1531,7 +1531,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .max-w-\[48px\]{max-width:48px;}
 .max-w-\[92vw\]{max-width:92vw;}
 .max-w-\[94vw\]{max-width:94vw;}
-.max-w-\[96vw\]{max-width:96vw;}
 .max-w-\[calc\(100vw-32px\)\]{max-width:calc(100vw - 32px);}
 .max-w-md{max-width:var(--container-md);}
 .max-w-xl{max-width:var(--container-xl);}
@@ -1553,18 +1552,17 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .min-w-\[1000px\]{min-width:1000px;}
 .min-w-\[100px\]{min-width:100px;}
 .min-w-\[1060px\]{min-width:1060px;}
-.min-w-\[1100px\]{min-width:1100px;}
 .min-w-\[120px\]{min-width:120px;}
 .min-w-\[140px\]{min-width:140px;}
 .min-w-\[150px\]{min-width:150px;}
 .min-w-\[160px\]{min-width:160px;}
-.min-w-\[180px\]{min-width:180px;}
 .min-w-\[208px\]{min-width:208px;}
 .min-w-\[20px\]{min-width:20px;}
 .min-w-\[252px\]{min-width:252px;}
 .min-w-\[260px\]{min-width:260px;}
 .min-w-\[280px\]{min-width:280px;}
 .min-w-\[56px\]{min-width:56px;}
+.min-w-\[760px\]{min-width:760px;}
 .min-w-\[800px\]{min-width:800px;}
 .min-w-\[80px\]{min-width:80px;}
 .min-w-\[900px\]{min-width:900px;}
@@ -1575,7 +1573,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .w-\[1000px\]{width:1000px;}
 .w-\[100px\]{width:100px;}
 .w-\[110px\]{width:110px;}
-.w-\[1200px\]{width:1200px;}
 .w-\[120px\]{width:120px;}
 .w-\[130px\]{width:130px;}
 .w-\[13px\]{width:13px;}

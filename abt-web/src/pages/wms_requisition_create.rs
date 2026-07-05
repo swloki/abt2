@@ -8,7 +8,6 @@ use rust_decimal::Decimal;
 
 use abt_core::master_data::product::ProductService;
 use abt_core::shared::types::DomainError;
-use abt_core::wms::inventory_transaction::InventoryTransactionService;
 use abt_core::wms::picking::{CreateManualReq, CreateManualItemReq, PickingService};
 use abt_core::wms::warehouse::model::{Warehouse, WarehouseFilter};
 use abt_core::wms::warehouse::WarehouseService;
@@ -54,7 +53,6 @@ pub async fn get_requisition_create(
         .await?;
     let content = requisition_create_page(
         &warehouses.items,
-        &claims.display_name,
         RequisitionCreatePath::PATH,
         "",
         true,
@@ -89,8 +87,8 @@ pub async fn get_item_row(
     Ok(Html(item_row_fragment(&product, &warehouses.items).into_string()))
 }
 
-/// HTMX: 选工单后加载 BOM 明细行（BOM 需求量 + 已领 + 可用量 + 仓库/库位 cell + 批次）。
-/// 响应头 HX-Trigger-After-Settle: woItemsLoaded（前端监听 → 重编号 + 汇总）。
+/// HTMX: 选工单后加载 BOM 明细行（BOM 需求量 + 已领 + 可用量 + 上下文小字）。
+/// 响应头 HX-Trigger-After-Settle: woItemsLoaded（前端监听 → 汇总计数）。
 #[require_permission("INVENTORY", "create")]
 pub async fn get_requisition_wo_items(
     ctx: RequestContext,
@@ -104,7 +102,7 @@ pub async fn get_requisition_wo_items(
     let product_ids: Vec<i64> = preview.iter().map(|p| p.product_id).collect();
     let products = state
         .product_service()
-        .get_by_ids(&service_ctx, &mut conn, product_ids.clone())
+        .get_by_ids(&service_ctx, &mut conn, product_ids)
         .await
         .unwrap_or_default();
     let product_map: std::collections::HashMap<i64, abt_core::master_data::product::model::Product> =
@@ -113,24 +111,9 @@ pub async fn get_requisition_wo_items(
         .warehouse_service()
         .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
         .await?;
-    // 可用量（基于所选仓库；未选仓库则空 —— 前端选仓库后可重新触发）
-    let avail_map = if params.warehouse_id > 0 {
-        state
-            .inventory_transaction_service()
-            .query_available_batch(&service_ctx, &mut conn, &product_ids, Some(params.warehouse_id))
-            .await
-            .unwrap_or_default()
-    } else {
-        std::collections::HashMap::new()
-    };
-    let html = requisition_wo_item_rows(
-        &preview,
-        &product_map,
-        &avail_map,
-        &warehouses.items,
-        params.warehouse_id,
-    )
-    .into_string();
+    // 可用量不再随工单预载（header 已无统一仓库字段）；各行 bin 级存量由 bin 弹窗 picker 展示
+    let avail_map: std::collections::HashMap<i64, Decimal> = std::collections::HashMap::new();
+    let html = requisition_wo_item_rows(&preview, &product_map, &avail_map, &warehouses.items).into_string();
     Ok(([("HX-Trigger-After-Settle", r#"{"woItemsLoaded":""}"#)], Html(html)))
 }
 
@@ -222,14 +205,22 @@ pub async fn create_requisition(
 
 pub fn requisition_create_page(
     warehouses: &[Warehouse],
-    operator_name: &str,
     post_path: &str,
     after_request_hs: &str,
     show_header: bool,
     with_picker: bool,
 ) -> Markup {
+    // drawer 模式（show_header=false）：drawer body 容器无 padding，外层补 pt + 左右 px；
+    // action bar 用 -mx-6 拉回满宽贴 drawer 底部，对齐草稿 footer。
+    // 独立页（admin_page content 自带 p-8）两者都不加，避免双重 padding / action bar 侵入 content 边距。
+    let outer_cls = if show_header { "" } else { "pt-5 px-6" };
+    let action_cls = if show_header {
+        "sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+    } else {
+        "sticky bottom-0 -mx-6 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+    };
     html! {
-        div {
+        div class=(outer_cls) {
             @if show_header {
                 a href=(format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH))
                     class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
@@ -259,7 +250,7 @@ pub fn requisition_create_page(
                                     hx-trigger="change"
                                     hx-target="#req-item-tbody"
                                     hx-swap="innerHTML"
-                                    hx-vals=(r#"js:{work_order_id: me.value, warehouse_id: document.getElementById('req-warehouse').value}"#);
+                                    hx-vals=(r#"js:{work_order_id: me.value}"#);
                                 input type="text" id="req-wo-display"
                                     class="flex-1 px-3 py-2 border border-border rounded-sm text-sm bg-surface text-fg-2 outline-none"
                                     readonly placeholder="留空为手动创建";
@@ -272,21 +263,6 @@ pub fn requisition_create_page(
                                 { (icon::x_icon("w-3.5 h-3.5")) }
                             }
                         }
-                        // 领料仓库（统一仓：change 批量应用各行 bin cell，复用 app.js wcApplyWarehouseAll）
-                        div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "领料仓库 " span class="required" { "*" }
-                            }
-                            select id="req-warehouse"
-                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
-                                _="on change call wcApplyWarehouseAll(me)"
-                            {
-                                option value="" { "请选择仓库" }
-                                @for w in warehouses {
-                                    option value=(w.id) { (w.name) }
-                                }
-                            }
-                        }
                         // 领料日期
                         div class="form-field" {
                             label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
@@ -296,13 +272,9 @@ pub fn requisition_create_page(
                                 class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
                                 value=(Local::now().format("%Y-%m-%d")) {}
                         }
-                        // 操作员（真实登录用户，只读展示，operator_id 由 ctx.operator_id 落地）
-                        div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "操作员" }
-                            input type="text" readonly value=(operator_name)
-                                class="w-full px-3 py-2 border border-border rounded-sm text-sm text-fg-2 bg-surface outline-none" {}
-                        }
                     }
+                    // 操作员由系统按当前登录用户自动记录（operator_id 由 ctx 落地）—— 对齐 Odoo/ERPNext/OFBiz
+                    p class="text-xs text-muted mt-3" { "操作员由系统按当前登录用户自动记录" }
                 }
                 // ── 领料明细 ──
                 div class="form-section p-0 overflow-hidden" {
@@ -313,17 +285,12 @@ pub fn requisition_create_page(
                         }
                     }
                     div class="overflow-x-auto" {
-                        table class="data-table min-w-[1100px]" {
+                        table class="data-table min-w-[760px]" {
                             thead {
                                 tr {
-                                    th class="w-10 text-center" { "行号" }
-                                    th class="min-w-[180px]" { "产品" }
-                                    th class="w-14" { "单位" }
-                                    th class="w-[90px] text-right" { "需求量" }
-                                    th class="w-[90px] text-right" { "已领" }
-                                    th class="w-[90px] text-right" { "可用量" }
-                                    th class="w-[180px]" { "仓库 / 库位" }
-                                    th class="w-[110px]" { "批次" }
+                                    th class="min-w-[260px]" { "产品" }
+                                    th class="w-[180px]" { "库位" }
+                                    th class="w-[120px]" { "批次" }
                                     th class="w-[110px] text-right" {
                                         "本次领料 " span class="required" { "*" }
                                     }
@@ -349,9 +316,9 @@ pub fn requisition_create_page(
                 }
                 input type="hidden" name="items_json" id="req-items-json" value="[]" {}
                 // ── Action Bar ──
-                div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+                div class=(action_cls)
                 {
-                    div {}
+                    div id="req-foot-hint" class="text-xs text-muted" { "请添加领料明细" }
                     div class="flex gap-3" {
                         @if show_header {
                             a href=(format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH))
@@ -395,7 +362,11 @@ pub fn requisition_create_page(
    });
    // form 提交的 afterSettle 冒泡到 overlay 会命中 overlay_hs 的 `add .open`（其守卫
    // `me is event.target` 在 hyperscript 里恒真）误重开 drawer，阻止冒泡即可。
-   f.addEventListener('htmx:afterSettle', function(e){ e.stopPropagation(); });
+   // 顺带在 settle 后刷新底部汇总 hint（覆盖加行 / BOM 行加载 / 库位 swap 等场景）。
+   f.addEventListener('htmx:afterSettle', function(e){
+     if (typeof reqCalcSummary === 'function') reqCalcSummary();
+     e.stopPropagation();
+   });
  })();
  </script>"#,
                 )
@@ -412,7 +383,6 @@ fn requisition_wo_item_rows(
     product_map: &std::collections::HashMap<i64, abt_core::master_data::product::model::Product>,
     avail_map: &std::collections::HashMap<i64, Decimal>,
     warehouses: &[Warehouse],
-    default_wh: i64,
 ) -> Markup {
     html! {
         @for p in preview {
@@ -423,7 +393,6 @@ fn requisition_wo_item_rows(
                 avail_map.get(&p.product_id).copied(),
                 product_map.get(&p.product_id),
                 warehouses,
-                default_wh,
             ))
         }
     }
@@ -434,11 +403,14 @@ fn item_row_fragment(
     product: &abt_core::master_data::product::model::Product,
     warehouses: &[Warehouse],
 ) -> Markup {
-    req_row_inner(product.product_id, None, None, None, Some(product), warehouses, 0)
+    req_row_inner(product.product_id, None, None, None, Some(product), warehouses)
 }
 
-/// 共用行结构：行号(JS重排) / 产品 / 单位 / 需求量 / 已领 / 可用量 / 仓库库位 / 批次 / 本次领料 / 删除
-/// hidden 同时带 name（binPickerSelect 写回）+ data-k（reqCollectItems 读）+ data-bin-key，对齐 bin_search::warehouse_bin_cell。
+/// 共用行结构（精简后 5 列）：产品（含单位 + 上下文小字）/ 库位 / 批次 / 本次领料 / 删除。
+/// 「需求 / 已领 / 可用量」三列合并为产品格下方一行只读小字（工单模式显示，手动模式隐藏）——
+/// 对齐 Odoo「同行只读 demand + widget 可用量」与 ERPNext「上下文只读」的共识，不占独立列。
+/// 仓库走 header 整单 select（change 触发 binReload → 各行库位 select 按 product + 仓库重载），行内仅库位下拉。
+/// 行内 hidden product_id（reqCollectItems 读）+ 库位 select（hx-get `/api/bin-picker?fmt=options`）。
 fn req_row_inner(
     product_id: i64,
     bom_qty: Option<Decimal>,
@@ -446,10 +418,8 @@ fn req_row_inner(
     avail_qty: Option<Decimal>,
     product: Option<&abt_core::master_data::product::model::Product>,
     warehouses: &[Warehouse],
-    default_wh: i64,
 ) -> Markup {
     let bid = format!("req-bin-{}", product_id);
-    let auto_wh = if default_wh > 0 { default_wh.to_string() } else { String::new() };
     // 工单模式默认本次领料量 = max(需求 - 已领, 0)；手动模式为空
     let default_qty = match (bom_qty, issued_qty) {
         (Some(b), i) => {
@@ -460,33 +430,26 @@ fn req_row_inner(
     };
     html! {
         tr data-row {
-            td class="text-muted text-xs text-center line-num" {}
             td class="min-w-0" {
                 @if let Some(p) = product {
-                    div class="text-sm text-fg font-medium leading-tight truncate" { (p.pdt_name) }
-                    div class="text-xs text-muted font-mono truncate" { (p.product_code) }
-                    div class="text-xs text-fg-2 truncate" { (p.meta.specification) }
+                    div class="text-sm text-fg font-medium leading-tight truncate" {
+                        (p.pdt_name)
+                        @if !p.unit.is_empty() {
+                            span class="text-xs text-muted ml-1" { "(" (p.unit) ")" }
+                        }
+                    }
+                    @if !p.product_code.is_empty() {
+                        div class="text-xs text-muted font-mono truncate" { (p.product_code) }
+                    }
+                    @if !p.meta.specification.is_empty() {
+                        div class="text-xs text-fg-2 truncate" { (p.meta.specification) }
+                    }
                 } @else {
                     span class="text-xs text-muted" { "产品 #" (product_id) }
                 }
+                (req_ctx_line(bom_qty, issued_qty, avail_qty))
             }
-            td class="text-xs text-fg-2 text-center whitespace-nowrap" {
-                @if let Some(p) = product { (p.unit) }
-            }
-            td class="text-xs text-fg-2 text-right font-mono tabular-nums whitespace-nowrap" {
-                @if let Some(q) = bom_qty { (fmt_qty(q)) } @else { "—" }
-            }
-            td class="text-xs text-fg-2 text-right font-mono tabular-nums whitespace-nowrap" {
-                @if let Some(q) = issued_qty { (fmt_qty(q)) } @else { "—" }
-            }
-            td class="text-xs text-right font-mono tabular-nums whitespace-nowrap" {
-                @if let Some(q) = avail_qty {
-                    (fmt_qty(q))
-                } @else {
-                    span class="text-muted" { "—" }
-                }
-            }
-            td { (warehouse_bin_cell(&bid, product_id, warehouses, &auto_wh, "outbound")) }
+            td { (warehouse_bin_cell(&bid, product_id, warehouses, "", "outbound")) }
             td {
                 input type="text" name="batch_no" data-k="batch_no"
                     class="w-full px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" {}
@@ -494,16 +457,63 @@ fn req_row_inner(
             td {
                 input type="number" step="any" name="requested_qty" data-k="requested_qty"
                     value=(default_qty)
+                    _="on input call reqCalcSummary()"
                     class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent"
                     placeholder="0" {}
             }
             td {
                 button type="button" title="删除行"
                     class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger"
-                    _="on click remove closest <tr/> then call reqRenumber()"
+                    _="on click remove closest <tr/> then call reqCalcSummary()"
                 { (icon::x_icon("w-3.5 h-3.5")) }
             }
             input type="hidden" name="product_id" value=(product_id) {}
+        }
+    }
+}
+
+/// 产品格下方的「需求 / 已领 / 可用」上下文小字（工单模式，bom_qty=Some 时渲染）。
+/// - 已领完（issued >= bom）：绿字「✓ 已领完」
+/// - 缺料（可用 < 待领）：红字「可用 X（缺 Y）」
+/// - 正常：muted 灰字「需求 X · 已领 Y · 可用 Z」
+/// 手动模式（bom_qty=None）返回空，产品格不显示上下文。
+fn req_ctx_line(
+    bom_qty: Option<Decimal>,
+    issued_qty: Option<Decimal>,
+    avail_qty: Option<Decimal>,
+) -> Markup {
+    let Some(bom) = bom_qty else { return html! {}; };
+    let issued = issued_qty.unwrap_or(Decimal::ZERO);
+    // 已领完（含超耗）
+    if issued >= bom {
+        return html! {
+            div class="text-xs text-success font-mono mt-0.5 whitespace-nowrap" { "✓ 已领完" }
+        };
+    }
+    let pending = bom - issued; // > 0
+    // 可用量：未选仓库时后端返回 None → 显示「—」，不判缺料（实际库存未知，非缺料）
+    match avail_qty {
+        None => html! {
+            div class="text-xs text-muted font-mono mt-0.5 whitespace-nowrap" {
+                "需求 " (fmt_qty(bom))
+                " · 已领 " (fmt_qty(issued))
+                " · 可用 —"
+            }
+        },
+        Some(avail) => {
+            let gap = pending - avail;
+            let short = gap > Decimal::ZERO;
+            let cls = if short { "text-danger" } else { "text-muted" };
+            html! {
+                div class=(format!("text-xs {cls} font-mono mt-0.5 whitespace-nowrap")) {
+                    "需求 " (fmt_qty(bom))
+                    " · 已领 " (fmt_qty(issued))
+                    " · 可用 " (fmt_qty(avail))
+                    @if short {
+                        "（缺 " (fmt_qty(gap)) "）"
+                    }
+                }
+            }
         }
     }
 }

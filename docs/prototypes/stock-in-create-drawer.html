@@ -1,0 +1,297 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新建入库单 Drawer 设计稿</title>
+<style>
+:root {
+  --bg: #ffffff; --surface: #f0f2f7; --surface-raised: #f8f9fc;
+  --fg: #0f172a; --fg-2: #3b4a63; --muted: #64748b;
+  --border: #e2e8f0; --border-soft: #eef1f6;
+  --accent: #2563eb; --accent-on: #ffffff; --accent-hover: #3b82f6;
+  --accent-bg: rgba(37,99,235,0.05);
+  --success: #16a34a; --success-bg: rgba(22,163,74,0.06);
+  --warn: #d97706; --warn-bg: rgba(217,119,6,0.06);
+  --danger: #dc2626;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+  --shadow-focus: 0 0 0 3px rgba(37,99,235,0.12);
+  --shadow-lg: 0 12px 40px rgba(15,23,42,0.08), 0 4px 12px rgba(15,23,42,0.04);
+  --radius-sm: 6px; --radius-md: 8px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body { font-family: var(--font-body); background: #c9d2e0; color: var(--fg); }
+.drawer-overlay { position: fixed; inset: 0; z-index: 90; display: flex; justify-content: flex-end; background: rgba(15,23,42,0.4); }
+.drawer-panel { background: var(--bg); height: 100vh; width: 1000px; max-width: 92vw; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
+.drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border-soft); flex-shrink: 0; }
+.drawer-header h2 { font-size: 17px; font-weight: 700; color: var(--fg); letter-spacing: -0.01em; }
+.drawer-close { background: transparent; border: none; cursor: pointer; color: var(--muted); padding: 4px; line-height: 1; border-radius: var(--radius-sm); transition: all 0.15s; }
+.drawer-close:hover { background: var(--surface); color: var(--fg); }
+.drawer-close svg { width: 20px; height: 20px; display: block; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+.drawer-footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--border-soft); flex-shrink: 0; background: var(--bg); }
+.segmented { display: inline-flex; background: var(--surface); border-radius: var(--radius-sm); padding: 3px; gap: 2px; }
+.segmented button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border: none; background: transparent; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border-radius: 4px; transition: all 0.18s; white-space: nowrap; }
+.segmented button.active { background: var(--bg); color: var(--accent); box-shadow: 0 1px 3px rgba(15,23,42,0.08); font-weight: 600; }
+.segmented button svg { width: 15px; height: 15px; }
+.top-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.date-field { display: flex; align-items: center; gap: 8px; }
+.date-field label { font-size: 13px; font-weight: 500; color: var(--fg-2); white-space: nowrap; }
+.date-field input { font-family: inherit; font-size: 13px; padding: 7px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg); background: var(--bg); outline: none; transition: all 0.15s; width: 140px; }
+.date-field input:focus { border-color: var(--accent); box-shadow: var(--shadow-focus); }
+.section-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 12px; }
+.section-label svg { width: 16px; height: 16px; color: var(--accent); }
+.section-label .count { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--muted); }
+.po-card { background: var(--surface-raised); border: 1px solid var(--border-soft); border-radius: var(--radius-md); overflow: hidden; }
+.po-card.is-collapsed .po-card-body { display: none; }
+.po-card.is-collapsed .po-toggle { transform: rotate(-90deg); }
+.po-card-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); cursor: pointer; transition: background 0.15s; }
+.po-card-header:hover { background: rgba(0,0,0,0.015); }
+.po-toggle { font-size: 10px; color: var(--muted); transition: transform 0.15s; display: inline-block; line-height: 1; }
+.po-doc { font-size: 14px; font-weight: 600; color: var(--fg); font-family: var(--font-mono); }
+.po-meta { font-size: 12px; color: var(--muted); }
+.po-status { font-size: 11px; padding: 2px 8px; border-radius: 9999px; background: var(--warn-bg); color: var(--warn); font-weight: 500; }
+.po-remove { margin-left: auto; font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: color 0.15s; }
+.po-remove:hover { color: var(--danger); }
+.po-card-body { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th { padding: 10px 12px; text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; letter-spacing: 0.02em; background: var(--surface-raised); border-bottom: 1px solid var(--border-soft); white-space: nowrap; }
+.data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; font-size: 13px; color: var(--fg); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover { background: var(--accent-bg); }
+.pending-hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.cell-input { width: 100%; padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: inherit; color: var(--fg); background: var(--bg); outline: none; transition: all 0.15s; }
+.cell-input.qty { width: 80px; text-align: right; font-family: var(--font-mono); }
+.cell-input:focus { border-color: var(--accent); box-shadow: var(--shadow-focus); }
+.cell-select { width: 100%; padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: inherit; color: var(--fg); background: var(--bg); outline: none; cursor: pointer; }
+.cell-select:focus { border-color: var(--accent); box-shadow: var(--shadow-focus); }
+.bin-btn { width: 100%; display: flex; align-items: center; gap: 4px; padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; background: var(--bg); color: var(--accent); cursor: pointer; text-align: left; transition: all 0.15s; position: relative; }
+.bin-btn:hover { border-color: var(--accent); }
+.bin-btn .bin-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bin-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+.bin-btn[data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; font-size: 11px; padding: 5px 10px; border-radius: 4px; white-space: nowrap; z-index: 10; pointer-events: none; }
+.add-item-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 10px; border: 1px dashed var(--border); border-radius: var(--radius-md); background: transparent; color: var(--accent); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; margin-top: 12px; font-family: inherit; }
+.add-item-btn:hover { border-color: var(--accent); background: var(--accent-bg); }
+.add-item-btn svg { width: 14px; height: 14px; }
+.source-pick-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border: 1px dashed var(--accent); border-radius: var(--radius-md); background: var(--accent-bg); color: var(--accent); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; width: 100%; font-family: inherit; }
+.source-pick-btn:hover { background: rgba(37,99,235,0.1); }
+.source-pick-btn svg { width: 16px; height: 16px; }
+.remark-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: inherit; color: var(--fg); background: var(--bg); outline: none; resize: vertical; min-height: 64px; transition: all 0.15s; }
+.remark-input:focus { border-color: var(--accent); box-shadow: var(--shadow-focus); }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: var(--radius-sm); font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: none; white-space: nowrap; }
+.btn svg { width: 16px; height: 16px; }
+.btn-secondary { background: var(--bg); color: var(--fg-2); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--surface); border-color: rgba(37,99,235,0.3); color: var(--accent); }
+.btn-primary { background: var(--accent); color: var(--accent-on); box-shadow: 0 1px 2px rgba(37,99,235,0.2); }
+.btn-primary:hover { background: var(--accent-hover); }
+.empty-hint { text-align: center; padding: 28px 16px; color: var(--muted); font-size: 13px; }
+.empty-hint svg { width: 28px; height: 28px; margin-bottom: 8px; opacity: 0.5; }
+.proto-switcher { position: fixed; top: 16px; left: 16px; z-index: 200; display: flex; flex-direction: column; gap: 8px; background: rgba(15,23,42,0.9); padding: 10px; border-radius: 8px; }
+.proto-switcher button { padding: 6px 14px; border: none; border-radius: 5px; font-size: 12px; color: #fff; background: rgba(255,255,255,0.12); cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
+.proto-switcher button.active { background: var(--accent); }
+.proto-switcher button:hover:not(.active) { background: rgba(255,255,255,0.22); }
+.state-panel { display: none; }
+.state-panel.active { display: block; }
+.wo-card { background: var(--surface-raised); border: 1px solid var(--border-soft); border-radius: var(--radius-md); overflow: hidden; }
+.wo-card-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); }
+.wo-doc { font-size: 14px; font-weight: 600; color: var(--fg); font-family: var(--font-mono); }
+.wo-product { font-size: 13px; color: var(--fg-2); }
+.wo-progress { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+.divider { height: 1px; background: var(--border-soft); }
+</style>
+</head>
+<body>
+<div class="proto-switcher">
+  <button class="active" onclick="showState('purchase-empty')">A. 采购入库（空）</button>
+  <button onclick="showState('purchase-filled')">B. 采购入库（已选PO）</button>
+  <button onclick="showState('production')">C. 生产入库</button>
+</div>
+
+<!-- A. 采购入库（空状态） -->
+<div class="state-panel active" id="state-purchase-empty">
+  <div class="drawer-overlay"><div class="drawer-panel">
+    <div class="drawer-header">
+      <h2>新建入库单</h2>
+      <button class="drawer-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="drawer-body">
+      <div class="top-bar">
+        <div class="segmented">
+          <button class="active" onclick="showState('purchase-empty')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7h14l-1 12a2 2 0 01-2 2H8a2 2 0 01-2-2L5 7z"/><path d="M9 7V5a3 3 0 016 0v2"/></svg>采购入库</button>
+          <button onclick="showState('production')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 20h20M5 20V8l5 4V8l5 4V8l4 3v9"/></svg>生产入库</button>
+        </div>
+        <div class="date-field"><label>入库日期</label><input type="date" value="2026-07-04"></div>
+      </div>
+      <div>
+        <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg>来源关联</div>
+        <button class="source-pick-btn" onclick="showState('purchase-filled')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>选择采购订单</button>
+        <p style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center;">未选择采购订单，也可在下方手动添加物料</p>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>入库明细<span class="count">共 0 项</span></div>
+        <div class="empty-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 7l-8-4-8 4 8 4 8-4z"/><path d="M4 12l8 4 8-4M4 17l8 4 8-4"/></svg><p>暂无物料，选择采购订单或手动添加</p></div>
+        <button class="add-item-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>手动添加物料</button>
+      </div>
+      <div>
+        <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>备注</div>
+        <textarea class="remark-input" placeholder="输入备注信息…"></textarea>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary">取消</button>
+      <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>确认入库</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- B. 采购入库（已选 PO） -->
+<div class="state-panel" id="state-purchase-filled">
+  <div class="drawer-overlay"><div class="drawer-panel">
+    <div class="drawer-header">
+      <h2>新建入库单</h2>
+      <button class="drawer-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="drawer-body">
+      <div class="top-bar">
+        <div class="segmented">
+          <button class="active" onclick="showState('purchase-filled')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7h14l-1 12a2 2 0 01-2 2H8a2 2 0 01-2-2L5 7z"/><path d="M9 7V5a3 3 0 016 0v2"/></svg>采购入库</button>
+          <button onclick="showState('production')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 20h20M5 20V8l5 4V8l5 4V8l4 3v9"/></svg>生产入库</button>
+        </div>
+        <div class="date-field"><label>入库日期</label><input type="date" value="2026-07-04"></div>
+      </div>
+      <div>
+        <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg>来源关联<span class="count">1 张采购订单</span></div>
+        <div class="po-card" id="po-card-1">
+          <div class="po-card-header" onclick="toggleCard('po-card-1')">
+            <span class="po-toggle">&#9660;</span>
+            <span class="po-doc">PO-2026-06-000455</span>
+            <span class="po-meta">开平市亿鑫光电科技有限公司</span>
+            <span class="po-status">部分到货</span>
+            <button class="po-remove" onclick="event.stopPropagation();">移除</button>
+          </div>
+          <div class="po-card-body">
+            <table class="data-table">
+              <thead><tr><th>产品</th><th style="width:150px;">目标仓库</th><th style="width:90px;text-align:right;">入库数量</th><th style="width:160px;">目标库位</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><div style="font-family:var(--font-mono);font-size:12px;">SKU-2835-CW</div><div style="font-size:13px;">2835/冷白0.5W/RA70</div><div class="pending-hint">订单 1,000 · 已收 900 · 待入库 100</div></td>
+                  <td><select class="cell-select"><option>原料仓</option><option>成品仓</option></select></td>
+                  <td><input class="cell-input qty" type="number" step="any" value="100"></td>
+                  <td><button class="bin-btn" data-tooltip="上架策略：同物料合并 — 自动分配至已有库位，满则就近"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg><span class="bin-label">A-01-03</span></button></td>
+                </tr>
+                <tr>
+                  <td><div style="font-family:var(--font-mono);font-size:12px;">SKU-5050-RGB</div><div style="font-size:13px;">5050/RGB/全彩灯珠</div><div class="pending-hint">订单 500 · 已收 450 · 待入库 50</div></td>
+                  <td><select class="cell-select"><option>原料仓</option><option>成品仓</option></select></td>
+                  <td><input class="cell-input qty" type="number" step="any" value="50"></td>
+                  <td><button class="bin-btn" data-tooltip="上架策略：同物料合并 — 自动分配至已有库位，满则就近"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg><span class="bin-label">自动分配</span></button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="po-card is-collapsed" id="po-card-2" style="margin-top:10px;">
+          <div class="po-card-header" onclick="toggleCard('po-card-2')">
+            <span class="po-toggle">&#9660;</span>
+            <span class="po-doc">PO-2026-06-000423</span>
+            <span class="po-meta">111</span>
+            <span class="po-status">部分到货</span>
+            <button class="po-remove" onclick="event.stopPropagation();">移除</button>
+          </div>
+          <div class="po-card-body">
+            <table class="data-table"><thead><tr><th>产品</th><th>目标仓库</th><th style="text-align:right;">入库数量</th><th>目标库位</th></tr></thead><tbody><tr><td>SKU-TEST · 测试物料</td><td><select class="cell-select"><option>原料仓</option></select></td><td><input class="cell-input qty" type="number" value="20"></td><td><button class="bin-btn"><span class="bin-label">自动分配</span></button></td></tr></tbody></table>
+          </div>
+        </div>
+        <button class="source-pick-btn" style="margin-top:12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>添加更多采购订单</button>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>补充物料<span class="count">共 3 项 · 170 件</span></div>
+        <button class="add-item-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>手动添加物料</button>
+      </div>
+      <div>
+        <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>备注</div>
+        <textarea class="remark-input" placeholder="输入备注信息…"></textarea>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary">取消</button>
+      <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>确认入库</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- C. 生产入库 -->
+<div class="state-panel" id="state-production">
+  <div class="drawer-overlay"><div class="drawer-panel">
+    <div class="drawer-header">
+      <h2>新建入库单</h2>
+      <button class="drawer-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="drawer-body">
+      <div class="top-bar">
+        <div class="segmented">
+          <button onclick="showState('purchase-empty')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7h14l-1 12a2 2 0 01-2 2H8a2 2 0 01-2-2L5 7z"/><path d="M9 7V5a3 3 0 016 0v2"/></svg>采购入库</button>
+          <button class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 20h20M5 20V8l5 4V8l5 4V8l4 3v9"/></svg>生产入库</button>
+        </div>
+        <div class="date-field"><label>入库日期</label><input type="date" value="2026-07-04"></div>
+      </div>
+      <div>
+        <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg>来源关联</div>
+        <div class="wo-card">
+          <div class="wo-card-header">
+            <span class="wo-doc">WO-2026-06-000809</span>
+            <span class="wo-product">注塑模组/6313/白/24V</span>
+            <span class="wo-progress">完工 500 · 已入库 300 · 待入库 200</span>
+            <button class="po-remove">移除</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead><tr><th>完工产品</th><th style="width:150px;">目标仓库</th><th style="width:90px;text-align:right;">入库数量</th><th style="width:160px;">目标库位</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><div style="font-family:var(--font-mono);font-size:12px;">FG-ZS-6313-W-24V</div><div style="font-size:13px;">注塑模组/6313/白/24V</div><div class="pending-hint">完工 500 · 已入库 300 · 待入库 200</div></td>
+                  <td><select class="cell-select"><option>成品仓</option><option>原料仓</option></select></td>
+                  <td><input class="cell-input qty" type="number" step="any" value="200"></td>
+                  <td><button class="bin-btn" data-tooltip="上架策略：同物料合并 — 自动分配至已有库位，满则就近"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg><span class="bin-label">自动分配</span></button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <button class="source-pick-btn" style="margin-top:12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>选择生产工单</button>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>补充物料<span class="count">共 1 项 · 200 件</span></div>
+        <button class="add-item-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>手动添加物料</button>
+      </div>
+      <div>
+        <div class="section-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>备注</div>
+        <textarea class="remark-input" placeholder="输入备注信息…"></textarea>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary">取消</button>
+      <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>确认入库</button>
+    </div>
+  </div></div>
+</div>
+
+<script>
+function showState(id) {
+  document.querySelectorAll('.state-panel').forEach(function(p) { p.classList.remove('active'); });
+  document.getElementById('state-' + id).classList.add('active');
+  var labels = {'purchase-empty':'A. 采购入库（空）','purchase-filled':'B. 采购入库（已选PO）','production':'C. 生产入库'};
+  document.querySelectorAll('.proto-switcher button').forEach(function(b) {
+    b.classList.toggle('active', b.textContent.trim() === labels[id]);
+  });
+}
+function toggleCard(id) {
+  document.getElementById(id).classList.toggle('is-collapsed');
+}
+</script>
+</body>
+</html>

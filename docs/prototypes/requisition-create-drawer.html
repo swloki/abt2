@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>新建领料单 drawer · 精简草稿</title>
+<style>
+  :root {
+    --bg:#ffffff; --surface:#f0f2f7; --surface-raised:#f8f9fc;
+    --fg:#0f172a; --fg-2:#3b4a63; --muted:#64748b;
+    --border:#e2e8f0; --border-soft:#eef1f6;
+    --accent:#2563eb; --accent-on:#ffffff; --accent-hover:#3b82f6; --accent-bg:rgba(37,99,235,.05);
+    --success:#16a34a; --success-bg:rgba(22,163,74,.06);
+    --warn:#d97706; --warn-bg:rgba(217,119,6,.06);
+    --danger:#dc2626; --danger-bg:rgba(220,38,38,.05);
+    --radius-sm:6px; --radius-md:8px; --radius-lg:12px;
+    --shadow-card:0 1px 3px rgba(15,23,42,.04), 0 0 0 1px rgba(15,23,42,.03);
+    --shadow-md:0 4px 16px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
+    --shadow-focus:0 0 0 3px rgba(37,99,235,.12);
+    --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif;
+    --font-mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--surface); color:var(--fg); font-family:var(--font-body); font-size:14px; line-height:1.55; }
+  .wrap { max-width:1280px; margin:0 auto; padding:32px 24px 80px; }
+
+  /* ── 页头 ── */
+  .page-head { margin-bottom:24px; }
+  .page-head h1 { font-size:21px; font-weight:700; margin:0 0 6px; letter-spacing:-.01em; }
+  .page-head p { margin:0; color:var(--muted); font-size:13px; }
+  .badge-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:9999px; font-size:12px; font-weight:500; background:var(--accent-bg); color:var(--accent); }
+  .badge.warn { background:var(--warn-bg); color:var(--warn); }
+  .badge.success { background:var(--success-bg); color:var(--success); }
+  .badge.danger { background:var(--danger-bg); color:var(--danger); }
+  .badge.muted { background:var(--surface); color:var(--muted); }
+
+  /* ── 对比区 ── */
+  .compare { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:24px 0; }
+  .compare-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:18px; box-shadow:var(--shadow-card); }
+  .compare-card.now { border-color:var(--danger); border-color:#fecaca; }
+  .compare-card.new { border-color:#bbf7d0; box-shadow:0 0 0 1px rgba(22,163,74,.08), var(--shadow-card); }
+  .compare-card h3 { margin:0 0 4px; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .compare-card .sub { color:var(--muted); font-size:12px; margin-bottom:14px; }
+  .stat-line { display:flex; gap:10px; margin-bottom:12px; font-size:12px; }
+  .stat { flex:1; background:var(--surface); border-radius:var(--radius-sm); padding:8px 10px; }
+  .stat .n { font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--fg); display:block; }
+  .stat .l { color:var(--muted); font-size:11px; }
+  .stat .n.down { color:var(--success); }
+
+  /* ── drawer 容器（模拟） ── */
+  .drawer { background:var(--bg); border:1px solid var(--border-soft); border-radius:var(--radius-md); box-shadow:var(--shadow-md); overflow:hidden; }
+  .drawer-bar { display:flex; align-items:center; justify-content:space-between; padding:18px 24px; border-bottom:1px solid var(--border-soft); }
+  .drawer-bar .title { font-size:16px; font-weight:700; }
+  .drawer-bar .title .mode { font-size:12px; font-weight:500; color:var(--muted); margin-left:8px; }
+  .x { width:32px; height:32px; border:none; background:transparent; color:var(--muted); cursor:pointer; border-radius:var(--radius-sm); font-size:18px; }
+  .x:hover { background:var(--surface); color:var(--fg); }
+  .drawer-body { padding:20px 24px; }
+
+  /* mode tabs */
+  .mode-tabs { display:flex; gap:4px; padding:0 24px; border-bottom:1px solid var(--border-soft); }
+  .mode-tab { padding:10px 14px; border:none; background:transparent; cursor:pointer; font-size:13px; color:var(--muted); border-bottom:2px solid transparent; font-family:inherit; }
+  .mode-tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+
+  /* form-section */
+  .section { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:18px; margin-bottom:16px; }
+  .section-head { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border-soft); }
+  .section-head .ico { color:var(--muted); }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px 20px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px 20px; }
+  .field { }
+  .field label { display:block; font-size:12px; font-weight:500; color:var(--fg-2); margin-bottom:4px; white-space:nowrap; }
+  .field label .req { color:var(--danger); }
+  .input, .select { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px; font-family:inherit; background:var(--bg); color:var(--fg); outline:none; }
+  .input:focus, .select:focus { border-color:var(--accent); box-shadow:var(--shadow-focus); }
+  .input.readonly { background:var(--surface); color:var(--fg-2); }
+  .input.mono { font-family:var(--font-mono); }
+  .wo-pick { display:flex; gap:8px; }
+  .wo-pick .input { flex:1; }
+  .btn-sm { padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--fg-2); font-size:13px; cursor:pointer; font-family:inherit; }
+  .btn-sm:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-sm.clear { padding:8px 10px; color:var(--muted); }
+  .btn-sm.clear:hover { color:var(--danger); border-color:var(--danger); }
+
+  /* 明细表 */
+  .items-head { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; margin-bottom:10px; }
+  .items-head .count { margin-left:auto; font-size:12px; font-weight:400; color:var(--muted); }
+  .table-wrap { overflow-x:auto; }
+  table.data { width:100%; border-collapse:collapse; font-size:13px; }
+  table.data th { padding:10px 8px; text-align:left; font-weight:600; font-size:12px; color:var(--fg-2); border-bottom:1px solid var(--border); background:var(--surface-raised); white-space:nowrap; }
+  table.data td { padding:8px; border-bottom:1px solid var(--border-soft); vertical-align:middle; }
+  table.data tr:last-child td { border-bottom:none; }
+  .prod-cell { min-width:240px; }
+  .prod-name { font-size:13px; font-weight:500; color:var(--fg); }
+  .prod-code { font-size:11px; color:var(--muted); font-family:var(--font-mono); }
+  .prod-spec { font-size:11px; color:var(--fg-2); }
+  .ctx-line { font-size:11px; color:var(--muted); margin-top:2px; font-family:var(--font-mono); }
+  .ctx-line .dem { color:var(--fg-2); }
+  .ctx-line .iss { color:var(--success); }
+  .ctx-line .av { color:var(--accent); }
+  .ctx-line .short { color:var(--danger); font-weight:600; }
+  .unit-tag { display:inline-block; font-size:11px; color:var(--muted); margin-left:6px; }
+  .num-input { width:84px; text-align:right; font-family:var(--font-mono); }
+  .bin-input, .batch-input { width:120px; font-family:var(--font-mono); font-size:12px; }
+  .row-del { width:28px; height:28px; border:none; background:transparent; color:var(--muted); cursor:pointer; border-radius:var(--radius-sm); }
+  .row-del:hover { color:var(--danger); background:var(--danger-bg); }
+
+  /* 当前(老)明细表的密集列 */
+  table.old-data { font-size:12px; }
+  table.old-data th, table.old-data td { padding:6px 4px; font-size:11px; }
+  table.old-data .num-input { width:56px; }
+
+  /* 添加物料按钮 */
+  .add-btn { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; padding:10px; border:1px dashed var(--border); border-radius:var(--radius-sm); background:transparent; color:var(--accent); font-size:13px; font-weight:500; cursor:pointer; margin-top:12px; font-family:inherit; }
+  .add-btn:hover { background:var(--accent-bg); border-color:var(--accent); }
+
+  /* 备注 */
+  .remark { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px; font-family:inherit; resize:vertical; min-height:44px; outline:none; }
+  .remark:focus { border-color:var(--accent); box-shadow:var(--shadow-focus); }
+
+  /* 底部 */
+  .drawer-foot { display:flex; justify-content:space-between; align-items:center; padding:14px 24px; border-top:1px solid var(--border-soft); background:var(--bg); }
+  .foot-hint { font-size:12px; color:var(--muted); }
+  .foot-hint b { color:var(--fg-2); font-family:var(--font-mono); }
+  .foot-actions { display:flex; gap:12px; }
+  .btn-cancel { padding:9px 18px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--fg-2); font-size:13px; font-weight:500; cursor:pointer; font-family:inherit; }
+  .btn-cancel:hover { background:var(--surface); color:var(--accent); }
+  .btn-submit { padding:9px 18px; border:none; border-radius:var(--radius-sm); background:var(--accent); color:var(--accent-on); font-size:13px; font-weight:500; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 2px rgba(37,99,235,.2); }
+  .btn-submit:hover { background:var(--accent-hover); }
+
+  /* 字段处置表 */
+  .legend { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:18px; margin-top:16px; box-shadow:var(--shadow-card); }
+  .legend h3 { margin:0 0 12px; font-size:14px; font-weight:600; }
+  .legend table { width:100%; border-collapse:collapse; font-size:12px; }
+  .legend th, .legend td { padding:8px 10px; text-align:left; border-bottom:1px solid var(--border-soft); }
+  .legend th { color:var(--muted); font-weight:500; font-size:11px; }
+  .verdict { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:500; }
+  .v-keep { background:var(--success-bg); color:var(--success); }
+  .v-merge { background:var(--accent-bg); color:var(--accent); }
+  .v-del { background:var(--danger-bg); color:var(--danger); }
+  .v-move { background:var(--warn-bg); color:var(--warn); }
+
+  .hidden { display:none; }
+
+  .section-note { background:#eff6ff; border:1px solid #dbeafe; border-radius:var(--radius-sm); padding:8px 12px; font-size:12px; color:#1e40af; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="page-head">
+    <h1>新建领料单 drawer · 精简草稿</h1>
+    <p>参考 Odoo / ERPNext / OFBiz 三家 ERP 共识精简。下方为可交互草稿——切换工单/手动模式、点字段看真实观感。</p>
+    <div class="badge-row">
+      <span class="badge">明细列 10 → 5</span>
+      <span class="badge">头部字段 4 → 3</span>
+      <span class="badge success">仓库挪 header</span>
+      <span class="badge warn">demand/已领/可用量 合并为小字</span>
+      <span class="badge danger">删行号 / 删操作员</span>
+    </div>
+  </div>
+
+  <!-- ── 对比区 ── -->
+  <div class="compare">
+    <div class="compare-card now">
+      <h3>当前 <span class="badge danger">过密</span></h3>
+      <div class="sub">头部 4 字段 + 明细 10 列，信息密度高、列宽拥挤</div>
+      <div class="stat-line">
+        <div class="stat"><span class="n">4</span><span class="l">头部字段</span></div>
+        <div class="stat"><span class="n">10</span><span class="l">明细列</span></div>
+        <div class="stat"><span class="n">~1100</span><span class="l">最小宽度 px</span></div>
+      </div>
+      <table class="data old-data">
+        <thead><tr>
+          <th>行号</th><th>产品</th><th>单位</th><th>需求量</th><th>已领</th><th>可用量</th><th>仓库/库位</th><th>批次</th><th>本次领料</th><th></th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td style="text-align:center;color:var(--muted)">1</td>
+            <td><div class="prod-name">螺丝 M6×12</div><div class="prod-code">P-1001</div></td>
+            <td style="text-align:center">件</td>
+            <td class="num-input" style="text-align:right">1000</td>
+            <td class="num-input" style="text-align:right">600</td>
+            <td class="num-input" style="text-align:right">480</td>
+            <td><select class="select" style="font-size:11px"><option>A 仓 · A-01-03</option></select></td>
+            <td><input class="input mono" style="width:60px;font-size:11px" value="B202603"></td>
+            <td><input class="input num-input" value="400"></td>
+            <td>×</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="compare-card new">
+      <h3>精简后 <span class="badge success">清爽</span></h3>
+      <div class="sub">头部 3 字段（删操作员）+ 明细 5 列（需求/已领/可用量合并为产品下方小字）</div>
+      <div class="stat-line">
+        <div class="stat"><span class="n down">3</span><span class="l">头部字段</span></div>
+        <div class="stat"><span class="n down">5</span><span class="l">明细列</span></div>
+        <div class="stat"><span class="n down">~720</span><span class="l">最小宽度 px</span></div>
+      </div>
+      <table class="data">
+        <thead><tr>
+          <th class="prod-cell">产品</th><th>库位</th><th>批次</th><th style="text-align:right">本次领料</th><th></th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="prod-name">螺丝 M6×12 <span class="unit-tag">件</span></div>
+              <div class="prod-code">P-1001 · 国标 GB/T 5783</div>
+              <div class="ctx-line"><span class="dem">需求 1000</span> · <span class="iss">已领 600</span> · <span class="av">可用 480</span></div>
+            </td>
+            <td><select class="select bin-input"><option>A-01-03</option></select></td>
+            <td><input class="input batch-input" value="B202603"></td>
+            <td style="text-align:right"><input class="input num-input" value="400"></td>
+            <td><button class="row-del">×</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 完整 drawer（精简后） ── -->
+  <div class="drawer">
+    <div class="drawer-bar">
+      <div class="title">新建领料单 <span class="mode">· 精简方案</span></div>
+      <button class="x">×</button>
+    </div>
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="wo">工单模式（带 BOM 上下文）</button>
+      <button class="mode-tab" data-mode="manual">手动模式（无工单）</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- 头部：3 字段 -->
+      <div class="section">
+        <div class="section-head"><span class="ico">📋</span> 工单信息</div>
+        <div class="grid-3">
+          <div class="field">
+            <label>关联工单</label>
+            <div class="wo-pick" id="wo-field">
+              <input class="input mono readonly" id="wo-display" value="WO-2026-0170" readonly>
+              <button class="btn-sm">选择</button>
+              <button class="btn-sm clear" title="清除">×</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>领料仓库 <span class="req">*</span></label>
+            <select class="select"><option>原材料仓 (A)</option><option>半成品仓 (B)</option></select>
+          </div>
+          <div class="field">
+            <label>领料日期 <span class="req">*</span></label>
+            <input class="input mono" value="2026-07-05">
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px">
+          操作员由系统自动记录（登录用户），不在表单展示 — 对齐 Odoo/ERPNext/OFBiz
+        </div>
+      </div>
+
+      <!-- 明细 -->
+      <div class="section">
+        <div class="items-head">
+          <span style="display:flex;align-items:center;gap:8px">📦 领料明细</span>
+          <span class="count" id="item-count">共 3 项</span>
+        </div>
+
+        <!-- 工单模式行 -->
+        <div id="wo-mode">
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr>
+                <th class="prod-cell">产品</th><th>库位</th><th>批次</th><th style="text-align:right">本次领料 <span style="color:var(--danger)">*</span></th><th></th>
+              </tr></thead>
+              <tbody>
+                <!-- 正常：还剩需求 -->
+                <tr>
+                  <td>
+                    <div class="prod-name">螺丝 M6×12 <span class="unit-tag">件</span></div>
+                    <div class="prod-code">P-1001 · GB/T 5783</div>
+                    <div class="ctx-line"><span class="dem">需求 1000</span> · <span class="iss">已领 600</span> · <span class="av">可用 480</span></div>
+                  </td>
+                  <td><select class="select bin-input"><option>A-01-03</option><option>A-01-04</option></select></td>
+                  <td><input class="input batch-input" value="B202603"></td>
+                  <td style="text-align:right"><input class="input num-input" value="400"></td>
+                  <td><button class="row-del">×</button></td>
+                </tr>
+                <!-- 缺料：可用量红字 -->
+                <tr>
+                  <td>
+                    <div class="prod-name">不锈钢板 1.5mm <span class="unit-tag">kg</span></div>
+                    <div class="prod-code">P-2048 · 304 不锈钢</div>
+                    <div class="ctx-line"><span class="dem">需求 50</span> · <span class="iss">已领 0</span> · <span class="short">可用 12（缺 38）</span></div>
+                  </td>
+                  <td><select class="select bin-input"><option>A-03-01</option></select></td>
+                  <td><input class="input batch-input" placeholder="可选"></td>
+                  <td style="text-align:right"><input class="input num-input" value="12" style="border-color:var(--warn)"></td>
+                  <td><button class="row-del">×</button></td>
+                </tr>
+                <!-- 已领完：本次空 -->
+                <tr>
+                  <td>
+                    <div class="prod-name">尼龙垫圈 Ø6 <span class="unit-tag">件</span></div>
+                    <div class="prod-code">P-1099 · PA66</div>
+                    <div class="ctx-line"><span class="dem">需求 2000</span> · <span class="iss">已领 2000</span> · <span style="color:var(--success)">✓ 已领完</span></div>
+                  </td>
+                  <td><select class="select bin-input"><option>—</option></select></td>
+                  <td><input class="input batch-input" placeholder="可选"></td>
+                  <td style="text-align:right"><input class="input num-input" placeholder="0" style="color:var(--muted)"></td>
+                  <td><button class="row-del">×</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 手动模式行（无小字上下文） -->
+        <div id="manual-mode" class="hidden">
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr>
+                <th class="prod-cell">产品</th><th>库位</th><th>批次</th><th style="text-align:right">本次领料 <span style="color:var(--danger)">*</span></th><th></th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="prod-name">密封圈 O型 Ø20 <span class="unit-tag">件</span></div>
+                    <div class="prod-code">P-3301 · 丁腈橡胶 NBR</div>
+                  </td>
+                  <td><select class="select bin-input"><option>A-02-05</option></select></td>
+                  <td><input class="input batch-input" placeholder="可选"></td>
+                  <td style="text-align:right"><input class="input num-input" value="100"></td>
+                  <td><button class="row-del">×</button></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="prod-name">润滑油 ISO VG46 <span class="unit-tag">L</span></div>
+                    <div class="prod-code">P-4012 · 美孚 DTE 24</div>
+                  </td>
+                  <td><select class="select bin-input"><option>C-01-01</option></select></td>
+                  <td><input class="input batch-input" value="L202606"></td>
+                  <td style="text-align:right"><input class="input num-input" value="5"></td>
+                  <td><button class="row-del">×</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <button class="add-btn">＋ 添加物料</button>
+      </div>
+
+      <!-- 备注 -->
+      <div class="section">
+        <label style="display:block;font-size:12px;font-weight:500;color:var(--fg-2);margin-bottom:4px">备注</label>
+        <textarea class="remark" placeholder="领料用途 / 备注…"></textarea>
+      </div>
+    </div>
+
+    <div class="drawer-foot">
+      <div class="foot-hint" id="foot-hint">将提交 <b>2</b> 项领料明细 · 仓库 <b>原材料仓</b></div>
+      <div class="foot-actions">
+        <button class="btn-cancel">取消</button>
+        <button class="btn-submit">✓ 提交领料单</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 字段处置表 ── -->
+  <div class="legend">
+    <h3>字段处置依据（三家 ERP 共识）</h3>
+    <table>
+      <thead><tr><th>字段</th><th>当前</th><th>处置</th><th>依据</th></tr></thead>
+      <tbody>
+        <tr><td>行号</td><td>明细列</td><td><span class="verdict v-del">删除</span></td><td>Odoo 用隐藏 sequence 拖拽排序；ERPNext/OFBiz 均无行号列</td></tr>
+        <tr><td>操作员</td><td>头部只读</td><td><span class="verdict v-del">删除</span></td><td>三家均由系统按当前用户自动记录（Odoo user_id / ERPNext owner / OFBiz issuedByUserLoginId）</td></tr>
+        <tr><td>仓库</td><td>行内 cell</td><td><span class="verdict v-move">挪 header</span></td><td>三家均把仓库放单据头（Odoo location_id / ERPNext from_warehouse / OFBiz facilityId），行内仅在多库位组时可选</td></tr>
+        <tr><td>需求量(BOM)</td><td>明细列</td><td><span class="verdict v-merge">合并小字</span></td><td>工单模式留作只读上下文（Odoo "Demand" 同行只读）；手动模式隐藏</td></tr>
+        <tr><td>已领</td><td>明细列</td><td><span class="verdict v-merge">合并小字</span></td><td>Odoo 与本次合并为累计 quantity；这里做只读小字，保留现场对账价值</td></tr>
+        <tr><td>可用量</td><td>明细列</td><td><span class="verdict v-merge">合并小字</span></td><td>三家均不占正经列（Odoo widget / ERPNext 折叠 / OFBiz 用缺口替代）；缺料时红字提示</td></tr>
+        <tr><td>单位</td><td>明细列</td><td><span class="verdict v-merge">并入产品格</span></td><td>ERPNext 仅 UOM 不同时显示；OFBiz 存 Product 不显示</td></tr>
+        <tr><td>产品</td><td>明细列</td><td><span class="verdict v-keep">保留</span></td><td>三家必留</td></tr>
+        <tr><td>库位</td><td>行内 cell</td><td><span class="verdict v-keep">保留行内</span></td><td>同物料可在多库位领取；保留行内窄列（可空）</td></tr>
+        <tr><td>批次</td><td>明细列</td><td><span class="verdict v-keep">保留行内</span></td><td>批次物料必填；三家均保留（Odoo/ERPNext 默认折叠，按 tracking 显示）</td></tr>
+        <tr><td>本次领料</td><td>明细列</td><td><span class="verdict v-keep">保留</span></td><td>唯一可编辑数量，三家核心</td></tr>
+        <tr><td>关联工单</td><td>头部</td><td><span class="verdict v-keep">保留</span></td><td>ABT 工单领料链路必需；空=手动模式</td></tr>
+        <tr><td>领料日期</td><td>头部</td><td><span class="verdict v-keep">保留</span></td><td>后端 requisition_date 必填</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  // mode tabs
+  const tabs = document.querySelectorAll('.mode-tab');
+  const woMode = document.getElementById('wo-mode');
+  const manualMode = document.getElementById('manual-mode');
+  const woField = document.getElementById('wo-display');
+  const itemCount = document.getElementById('item-count');
+  const footHint = document.getElementById('foot-hint');
+  function setMode(mode) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+    if (mode === 'wo') {
+      woMode.classList.remove('hidden');
+      manualMode.classList.add('hidden');
+      woField.value = 'WO-2026-0170';
+      itemCount.textContent = '共 3 项';
+      footHint.innerHTML = '将提交 <b>2</b> 项领料明细 · 仓库 <b>原材料仓</b>';
+    } else {
+      woMode.classList.add('hidden');
+      manualMode.classList.remove('hidden');
+      woField.value = '（留空为手动创建）';
+      itemCount.textContent = '共 2 项';
+      footHint.innerHTML = '将提交 <b>2</b> 项领料明细 · 仓库 <b>原材料仓</b>';
+    }
+  }
+  tabs.forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
+
+  // row delete demo
+  document.querySelectorAll('.row-del').forEach(b => b.addEventListener('click', e => {
+    e.target.closest('tr').remove();
+  }));
+</script>
+</body>
+</html>

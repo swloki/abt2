@@ -62,6 +62,12 @@ pub struct RejectQuotationPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/quotations/{id}/print")]
+pub struct QuotationPrintPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/quotations/products")]
 pub struct QuotationProductsPath;
 
@@ -86,6 +92,7 @@ pub fn router() -> Router<AppState> {
         .route(SubmitQuotationPath::PATH, post(quotation_detail::submit_quotation))
         .route(AcceptQuotationPath::PATH, post(quotation_detail::accept_quotation))
         .route(RejectQuotationPath::PATH, post(quotation_detail::reject_quotation))
+        .route(QuotationPrintPath::PATH, get(quotation_detail::print_quotation))
                 .route(QuotationItemRowPath::PATH, get(quotation_create::get_quotation_item_row))
         .route(QuotationCustomerContactsPath::PATH, get(quotation_create::get_customer_contacts))
 }

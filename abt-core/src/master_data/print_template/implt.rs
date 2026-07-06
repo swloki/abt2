@@ -83,6 +83,14 @@ impl super::service::PrintTemplateService for PrintTemplateServiceImpl {
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 
+    async fn list_by_document_type(
+        &self,
+        db: PgExecutor<'_>,
+        document_type: &str,
+    ) -> Result<Vec<PrintTemplate>> {
+        self.repo.list_by_document_type(db, document_type).await
+    }
+
     async fn set_default(
         &self,
         _ctx: &ServiceContext,

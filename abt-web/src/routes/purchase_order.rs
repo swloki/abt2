@@ -38,6 +38,12 @@ pub struct PODetailPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders/{id}/print")]
+pub struct POPrintPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/orders/{id}/confirm")]
 pub struct POConfirmPath {
     pub id: i64,
@@ -71,6 +77,7 @@ pub fn router() -> Router<AppState> {
         .route(POSupplierDetailPath::PATH, get(purchase_order_create::get_po_supplier_detail))
         .route("/admin/purchase/orders/tax-rates", get(purchase_order_create::get_tax_rates))
         .route(PODetailPath::PATH, get(purchase_order_detail::get_po_detail))
+        .route(POPrintPath::PATH, get(purchase_order_detail::print_purchase_order))
         .route(POConfirmPath::PATH, post(purchase_order_detail::confirm_po))
         .route(POCancelPath::PATH, post(purchase_order_detail::cancel_po))
         .route("/admin/purchase/orders/{id}/submit", post(purchase_order_detail::submit_po))

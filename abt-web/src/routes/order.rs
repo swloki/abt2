@@ -38,6 +38,12 @@ pub struct OrderDetailPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/orders/{id}/print")]
+pub struct OrderPrintPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/orders/{id}/edit-form")]
 pub struct OrderEditFormPath {
     pub id: i64,
@@ -89,6 +95,7 @@ pub fn router() -> Router<AppState> {
                 .route(OrderItemRowPath::PATH, get(sales_order_create::get_order_item_row))
         .route(OrderCustomerContactsPath::PATH, get(sales_order_create::get_customer_contacts))
         .route(OrderDetailPath::PATH, get(sales_order_detail::get_order_detail))
+        .route(OrderPrintPath::PATH, get(sales_order_detail::print_order))
         .route(OrderEditFormPath::PATH, get(sales_order_edit::get_order_edit).post(sales_order_edit::update_order))
         .route(DeleteOrderPath::PATH, post(sales_order_list::delete_order))
         .route(ConfirmOrderPath::PATH, post(sales_order_detail::confirm_order))

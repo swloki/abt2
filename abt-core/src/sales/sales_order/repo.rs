@@ -22,8 +22,8 @@ impl SalesOrderRepo {
         params: &CreateSalesOrderParams<'_>,
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            r#"INSERT INTO sales_orders (doc_number, customer_id, contact_id, sales_rep_id, total_amount, total_cost, payment_terms, delivery_terms, delivery_address, remark, operator_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            r#"INSERT INTO sales_orders (doc_number, customer_id, contact_id, sales_rep_id, total_amount, total_cost, payment_terms, delivery_terms, delivery_address, remark, operator_id, profit_center_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                RETURNING id"#,
         )
         .bind(params.doc_number)
@@ -37,6 +37,7 @@ impl SalesOrderRepo {
         .bind(params.delivery_address)
         .bind(params.remark)
         .bind(params.operator_id)
+        .bind(params.profit_center_id)
         .fetch_one(executor)
         .await?;
         Ok(row)
@@ -90,6 +91,10 @@ impl SalesOrderRepo {
             sets.push(format!("remark = ${param_idx}"));
             param_idx += 1;
         }
+        if req.profit_center_id.is_some() {
+            sets.push(format!("profit_center_id = ${param_idx}"));
+            param_idx += 1;
+        }
 
         if sets.is_empty() {
             return Ok(());
@@ -118,6 +123,9 @@ impl SalesOrderRepo {
             q = q.bind(v);
         }
         if let Some(ref v) = req.remark {
+            q = q.bind(v);
+        }
+        if let Some(v) = req.profit_center_id {
             q = q.bind(v);
         }
 

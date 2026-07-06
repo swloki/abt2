@@ -569,6 +569,10 @@ impl AppState {
         abt_core::fms::cost_accounting::new_cost_accounting_service()
     }
 
+    pub fn print_template_service(&self) -> impl abt_core::master_data::print_template::PrintTemplateService {
+        abt_core::master_data::print_template::new_print_template_service(self.pool.clone())
+    }
+
     /// 生成下一个 task_id
     pub fn next_task_id(&self) -> i64 {
         self.next_task_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed)

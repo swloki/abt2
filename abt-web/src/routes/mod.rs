@@ -63,6 +63,7 @@ pub mod om;
 pub mod qms;
 pub mod fms;
 pub mod excel;
+pub mod print_template;
 use axum::{Router, routing::get, middleware};
 
 use crate::auth::middleware::auth_middleware;
@@ -144,6 +145,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(user::router())
                 .merge(role::router())
                 .merge(department::router())
+                .merge(print_template::router())
                 // ── Excel Import/Export ──
                 .merge(excel::router())
                 .merge(crate::components::product_picker::router())

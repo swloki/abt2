@@ -5,6 +5,8 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 
 use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::print_template::PrintTemplateService;
+use abt_core::master_data::product::model::Product;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::wms::picking::model::*;
@@ -151,6 +153,171 @@ pub async fn cancel_shipping(
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+/// 打印发货单：用默认 delivery_note 模板 + 真实业务数据渲染，返回完整 HTML 供浏览器打印。
+#[require_permission("SHIPPING", "read")]
+pub async fn print_shipping(
+    path: ShippingPrintPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+
+    let shipping_svc = state.picking_service();
+    let customer_svc = state.customer_service();
+    let order_svc = state.sales_order_service();
+    let product_svc = state.product_service();
+    let user_svc = state.user_service();
+    let print_svc = state.print_template_service();
+
+    let shipping = shipping_svc
+        .find_by_id(&service_ctx, &mut conn, path.id)
+        .await?;
+    let items = shipping_svc
+        .list_items(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+
+    // ── 客户信息 ──
+    let customer_name = match shipping.partner_id {
+        Some(cid) => customer_svc
+            .get(&service_ctx, &mut conn, cid)
+            .await
+            .map(|c| c.name)
+            .unwrap_or_default(),
+        None => String::new(),
+    };
+
+    // 联系人 + 地址（取首选）
+    let (contact_phone, contact_name, customer_address) = match shipping.partner_id {
+        Some(cid) => {
+            let contacts = customer_svc
+                .list_contacts(&service_ctx, &mut conn, cid)
+                .await
+                .unwrap_or_default();
+            let addresses = customer_svc
+                .list_addresses(&service_ctx, &mut conn, cid)
+                .await
+                .unwrap_or_default();
+            let primary_contact = contacts.iter().find(|c| c.is_primary).or(contacts.first());
+            let default_addr = addresses.iter().find(|a| a.is_default).or(addresses.first());
+            let phone = primary_contact
+                .and_then(|c| c.phone.clone())
+                .unwrap_or_default();
+            let contact = primary_contact
+                .map(|c| c.name.clone())
+                .unwrap_or_default();
+            let addr = default_addr
+                .map(|a| {
+                    format!(
+                        "{}{}{} {}",
+                        a.province,
+                        a.city,
+                        a.district.as_deref().unwrap_or(""),
+                        a.detail
+                    )
+                })
+                .unwrap_or_default();
+            (phone, contact, addr)
+        }
+        None => (String::new(), String::new(), String::new()),
+    };
+
+    // ── 销售订单信息（金额 / 收货地址 / 销售员）──
+    let (order_total, order_delivery_addr, sales_rep_name) = match shipping.source_id {
+        Some(oid) => {
+            match order_svc.find_by_id(&service_ctx, &mut conn, oid).await {
+                Ok(o) => {
+                    let rep_name = user_svc
+                        .get_user(&service_ctx, &mut conn, o.sales_rep_id)
+                        .await
+                        .map(|u| u.display_name.unwrap_or(u.username))
+                        .unwrap_or_default();
+                    (o.total_amount, o.delivery_address, rep_name)
+                }
+                Err(_) => (rust_decimal::Decimal::ZERO, String::new(), String::new()),
+            }
+        }
+        None => (rust_decimal::Decimal::ZERO, String::new(), String::new()),
+    };
+
+    // 收货地址优先用订单上的，其次客户默认地址
+    let final_address = if order_delivery_addr.is_empty() {
+        customer_address
+    } else {
+        order_delivery_addr
+    };
+
+    // ── 状态文案 ──
+    let status_text = match shipping.status {
+        PickingStatus::Draft => "草稿",
+        PickingStatus::Confirmed => "已确认",
+        PickingStatus::Done => "已发货",
+        PickingStatus::Cancelled => "已取消",
+    };
+
+    // ── 产品明细 ──
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let product_map: HashMap<i64, Product> = if product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        product_svc
+            .get_by_ids(&service_ctx, &mut conn, product_ids)
+            .await
+            .map(|products| products.into_iter().map(|p| (p.product_id, p)).collect())
+            .unwrap_or_default()
+    };
+
+    let detail_items: Vec<serde_json::Value> = items
+        .iter()
+        .map(|item| {
+            let product = product_map.get(&item.product_id);
+            serde_json::json!({
+                "产品编码": product.map(|p| p.product_code.as_str()).unwrap_or(""),
+                "产品名称": product.map(|p| p.pdt_name.as_str()).unwrap_or(""),
+                "规格型号": product.map(|p| p.meta.specification.as_str()).unwrap_or(""),
+                "单位": product.map(|p| p.unit.as_str()).unwrap_or(""),
+                "本次出库数量": fmt_qty(item.qty_requested),
+                "批次号": item.batch_no.as_deref().unwrap_or(""),
+                "单价": "",
+                "金额": "",
+                "行备注": item.remark.as_str(),
+            })
+        })
+        .collect();
+
+    // ── 渲染 ──
+    let vars = serde_json::json!({
+        "出库单号": shipping.doc_number,
+        "出库日期": shipping.created_at.format("%Y-%m-%d").to_string(),
+        "计划日期": shipping.scheduled_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default(),
+        "客户全称": customer_name,
+        "收货地址": final_address,
+        "联系电话": contact_phone,
+        "收货人": contact_name,
+        "客户经理": sales_rep_name,
+        "订单总金额": order_total.to_string(),
+        "大写金额": "",
+        "备注": shipping.remark,
+        "单据状态": status_text,
+        "明细": detail_items,
+        "公司名称": "江门市艾伯特照明科技有限公司",
+        "打印时间": chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+    });
+
+    let html = print_svc
+        .render_default(&mut conn, "delivery_note", vars)
+        .await?;
+
+    // 自动弹出打印对话框
+    Ok(Html(format!(
+        "{html}<script>window.onload=function(){{window.print()}}</script>"
+    )))
+}
+
 // ── Workflow Steps ──
 
 fn workflow_steps(current: PickingStatus) -> Markup {
@@ -279,6 +446,10 @@ fn shipping_detail_page(
                 a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                     href=(format!("{}?restore=true", ShippingListPath::PATH))
                 { "返回列表" }
+                button
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _=(format!("on click set #print-frame's src to '{}'", ShippingPrintPath { id: s.id }.to_string()))
+                { (icon::printer_icon("w-4 h-4")) "打印" }
                 @if s.status == PickingStatus::Draft {
                     button
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
@@ -360,6 +531,8 @@ fn shipping_detail_page(
             }
         }
     }
+    // 隐藏 iframe：打印按钮触发时加载打印内容，load 后自动唤起打印对话框
+    iframe id="print-frame" class="hidden" {}
 }
 }
 

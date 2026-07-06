@@ -10,3 +10,4 @@ pub mod routing;
 pub mod bom_labor_process;
 pub mod work_center;
 pub mod work_calendar;
+pub mod print_template;

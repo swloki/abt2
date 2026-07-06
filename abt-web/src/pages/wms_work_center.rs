@@ -30,14 +30,16 @@ use std::collections::HashMap;
 use crate::components::icon;
 use crate::components::overlay::drawer_shell;
 use crate::components::pagination::pagination;
-use abt_core::wms::picking::model::{PoReceiveRow, ReceivePurchaseReq, ShipRowReq};
+use abt_core::wms::picking::model::{PoReceiveRow, ReceivePurchaseReq, ShipRowReq, ShippingHubSummary};
 use abt_core::wms::inventory_transaction::{model::RecordTransactionReq, InventoryTransactionService};
 use abt_core::wms::inventory::InventoryService;
 use abt_core::mes::work_order::WorkOrderService;
+use abt_core::sales::sales_order::SalesOrderService;
+use abt_core::shared::identity::UserService;
 use crate::errors::Result;
 use abt_core::shared::types::error::DomainError;
 use crate::layout::page::admin_page;
-use crate::routes::shipping::ShippingDetailPath;
+use crate::routes::shipping::ShippingPrintPath;
 use crate::routes::wms_work_center::WmsWorkCenterPath;
 use crate::utils::fmt_qty;
 use crate::utils::{empty_as_none, RequestContext};
@@ -169,23 +171,7 @@ fn action_domain(action: &str) -> Result<WorkCenterDomain> {
     })
 }
 
-/// 单据号深链：按环节映射到对应业务域详情页 URL。
-/// Arrival（PO/工单）详情按 source_kind 在 render_task_row 拼，这里返回 None。
-/// 分层约定：abt-core 不硬编码前端 URL，跳转路径在 abt-web 层按 domain + doc_id 拼接。
-fn domain_detail_url(domain: WorkCenterDomain, doc_id: i64) -> Option<String> {
-    match domain {
-        // Arrival（PO/工单）详情按 source_kind 在 render_task_row 拼，这里返回 None
-        WorkCenterDomain::Arrival => None,
-        WorkCenterDomain::Outbound => Some(ShippingDetailPath { id: doc_id }.to_string()),
-        WorkCenterDomain::Requisition => None, // 点单据走 req_detail drawer（阶段 3.1 收口，不再跳 detail 页）
-        WorkCenterDomain::Transfer => None, // 点单据走 transfer_detail drawer（阶段 3.2 收口）
-        WorkCenterDomain::CycleCount => None, // 点单据走 cc_detail drawer（阶段 3.2b 收口）
-        WorkCenterDomain::LowStock => None, // 行内 ack 按钮，不跳详情
-    }
-}
-
-/// 各 domain tab 的收口入口：CycleCount/Requisition/Transfer 已 drawer 化；
-/// Arrival/Outbound 仍跳独立 Create 路由（待 drawer 化）。
+/// 各 domain tab 的收口入口：全部已 drawer 化。
 fn domain_entries(active: WorkCenterDomain) -> Markup {
     const BTN_CLS: &str = "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90";
     match active {
@@ -417,6 +403,403 @@ fn req_detail_actions(status: PickingStatus, id: i64, view: &str) -> Markup {
         },
         _ => html! {},
     }
+}
+
+// ── 发货详情 drawer（替代跳转发货详情页，Issue #188）──
+// 只读展示，不提供操作按钮（"直接发货" 是行内操作，"新建发货单" 是创建入口）。
+
+/// 发货详情 drawer body（替代独立 shipping detail 页）：
+/// 单据头（单号/状态/客户/日期）+ 行项目（产品/申请数/实发数）。
+async fn ship_detail_drawer_body(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    id: i64,
+) -> Result<Markup> {
+    let picking_svc = state.picking_service();
+    let s = picking_svc.find_by_id(ctx, db, id).await?;
+    let items = picking_svc.list_items(ctx, db, id).await.unwrap_or_default();
+    let hub = picking_svc
+        .hub_summary(ctx, db, id)
+        .await
+        .unwrap_or(ShippingHubSummary {
+            pending_ship_qty: Decimal::ZERO,
+            shipped_qty: Decimal::ZERO,
+            shortage: None,
+        });
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
+
+    // ── Odoo-aligned: Delivery Info (客户 + 收货地址/联系人) ──
+    let (customer_name, address_text, contact_info) = if let Some(pid) = s.partner_id {
+        let cust_svc = state.customer_service();
+        let name = cust_svc
+            .get(ctx, db, pid)
+            .await
+            .map(|c| c.name)
+            .unwrap_or_else(|_| "—".into());
+        let addresses = cust_svc
+            .list_addresses(ctx, db, pid)
+            .await
+            .unwrap_or_default();
+        let default_addr = addresses.iter().find(|a| a.is_default).or(addresses.first());
+        let addr = default_addr
+            .map(|a| {
+                format!(
+                    "{}{}{} {}",
+                    a.province,
+                    a.city,
+                    a.district.as_deref().unwrap_or(""),
+                    a.detail
+                )
+            })
+            .unwrap_or_else(|| "—".into());
+        let contact = default_addr
+            .and_then(|a| {
+                if a.contact_name.is_some() || a.contact_phone.is_some() {
+                    Some(format!(
+                        "{}{}",
+                        a.contact_name.as_deref().unwrap_or(""),
+                        a.contact_phone
+                            .as_deref()
+                            .map(|p| format!("  {}", p))
+                            .unwrap_or_default(),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| "—".into());
+        (name, addr, contact)
+    } else {
+        ("—".into(), "—".into(), "—".into())
+    };
+
+    // ── Odoo-aligned: Source Document & Warehouse ──
+    let order_number = match s.source_id {
+        Some(oid) => state
+            .sales_order_service()
+            .find_by_id(ctx, db, oid)
+            .await
+            .map(|o| o.doc_number)
+            .unwrap_or_else(|_| "—".into()),
+        None => "—".into(),
+    };
+    let warehouse_name = match s.from_warehouse_id {
+        Some(wid) => state
+            .warehouse_service()
+            .get(ctx, db, wid)
+            .await
+            .map(|w| w.name)
+            .unwrap_or_else(|_| "—".into()),
+        None => "—".into(),
+    };
+    // ── Odoo-aligned: Responsible ──
+    let operator_name = state
+        .user_service()
+        .get_user(ctx, db, s.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+
+    let (status_text, status_cls) = picking_status_label(s.status);
+
+    // ── Items table (Odoo stock.move Operations tab) ──
+    let mut rows = html! {};
+    for (idx, it) in items.iter().enumerate() {
+        let p = product_map.get(&it.product_id);
+        let pcode = p.map(|p| p.product_code.as_str()).unwrap_or("—");
+        let pname = p.map(|p| p.pdt_name.as_str()).unwrap_or("—");
+        let spec = p.map(|p| p.meta.specification.as_str()).unwrap_or("—");
+        let unit = p.map(|p| p.unit.as_str()).unwrap_or("—");
+        rows = html! {
+            (rows)
+            tr class="border-b border-border-soft last:border-b-0" {
+                td class="py-2 px-2 text-xs text-muted font-mono w-8 text-center" { (idx + 1) }
+                td class="py-2 px-2 text-xs font-mono text-fg" { (pcode) }
+                td class="py-2 px-2 text-xs text-fg-2" { (pname) }
+                td class="py-2 px-2 text-xs text-muted max-w-[120px] truncate" { (spec) }
+                td class="py-2 px-2 text-xs text-muted" { (unit) }
+                td class="py-2 px-2 text-xs font-mono text-fg text-right" { (fmt_qty(it.qty_requested)) }
+                td class="py-2 px-2 text-xs font-mono text-muted text-right" { (fmt_qty(it.qty_done)) }
+            }
+        };
+    }
+
+    let inner = html! {
+        // ── 来源链 (Odoo Source Document) ──
+        @if s.source_id.is_some() {
+            div class="flex items-center gap-2 text-xs text-muted mb-3 px-1" {
+                span class="font-medium" { "来源订单 " }
+                span class="font-mono text-accent" { (order_number) }
+                span { "→" }
+                span class="font-mono text-fg font-semibold" { (s.doc_number) }
+            }
+        }
+        // ── 统计带 (pending / shipped / stock) ──
+        div class="flex rounded-md border border-border-soft mb-4 overflow-hidden" {
+            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5 border-r border-border-soft" {
+                span class="font-mono text-base font-bold text-fg tabular-nums" { (fmt_qty(hub.pending_ship_qty)) }
+                span class="text-[11px] text-muted font-medium" { "待发" }
+            }
+            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5 border-r border-border-soft" {
+                span class="font-mono text-base font-bold text-fg tabular-nums" { (fmt_qty(hub.shipped_qty)) }
+                span class="text-[11px] text-muted font-medium" { "已发" }
+            }
+            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5" {
+                @if hub.shortage.is_some() {
+                    span class="font-mono text-base font-bold text-danger tabular-nums" { "缺货" }
+                } @else {
+                    span class="font-mono text-base font-bold text-success tabular-nums" { "充足" }
+                }
+                span class="text-[11px] text-muted font-medium" { "库存" }
+            }
+        }
+        // ── 单据头 + 发货信息 grid (Odoo Delivery + Scheduling + Locations) ──
+        div class="mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center justify-between mb-3" {
+                div class="flex items-center gap-2" {
+                    span class="text-base font-mono font-bold text-fg" { (s.doc_number) }
+                    span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
+                        (status_text)
+                    }
+                }
+                button type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors"
+                    _=(format!("on click set #wc-print-frame's src to '{}'",
+                        ShippingPrintPath { id: s.id }.to_string()))
+                    { (icon::printer_icon("w-3.5 h-3.5")) "打印" }
+            }
+            div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs" {
+                // Delivery Info
+                div class="col-span-full mb-1" {
+                    span class="text-[11px] uppercase tracking-wide text-muted font-semibold" { "发货信息" }
+                }
+                div {
+                    span class="text-muted" { "客户 " }
+                    span class="text-fg-2 font-medium" { (customer_name) }
+                }
+                div {
+                    span class="text-muted" { "发货仓库 " }
+                    span class="text-fg-2" { (warehouse_name) }
+                }
+                div {
+                    span class="text-muted" { "收货地址 " }
+                    span class="text-fg-2" { (address_text) }
+                }
+                div {
+                    span class="text-muted" { "联系人 " }
+                    span class="text-fg-2" { (contact_info) }
+                }
+                // Scheduling
+                div class="col-span-full mt-2 mb-1" {
+                    span class="text-[11px] uppercase tracking-wide text-muted font-semibold" { "计划" }
+                }
+                div {
+                    span class="text-muted" { "预计发货 " }
+                    span class="font-mono text-fg-2" {
+                        (s.scheduled_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into()))
+                    }
+                }
+                div {
+                    span class="text-muted" { "操作员 " }
+                    span class="text-fg-2" { (operator_name) }
+                }
+            }
+        }
+        // ── 明细表格 (Odoo Operations tab) ──
+        div class="mb-1" {
+            div class="text-xs font-semibold text-muted mb-2" { "产品明细（" (items.len()) " 项）" }
+            @if items.is_empty() {
+                div class="rounded-sm border border-border-soft px-3 py-4 text-center text-sm text-muted" { "暂无明细" }
+            } @else {
+                div class="rounded-sm border border-border-soft overflow-hidden" {
+                    table class="w-full text-xs" {
+                        thead {
+                            tr class="bg-surface border-b border-border-soft" {
+                                th class="py-2 px-2 text-left text-muted font-semibold w-8" { "#" }
+                                th class="py-2 px-2 text-left text-muted font-semibold" { "产品编码" }
+                                th class="py-2 px-2 text-left text-muted font-semibold" { "产品名称" }
+                                th class="py-2 px-2 text-left text-muted font-semibold" { "规格" }
+                                th class="py-2 px-2 text-left text-muted font-semibold" { "单位" }
+                                th class="py-2 px-2 text-right text-muted font-semibold" { "需求数量" }
+                                th class="py-2 px-2 text-right text-muted font-semibold" { "已发货" }
+                            }
+                        }
+                        tbody { (rows) }
+                    }
+                }
+            }
+        }
+        // ── 备注 (Odoo Note tab) ──
+        @if !s.remark.is_empty() {
+            div class="mt-4 p-3 rounded-sm bg-surface border border-border-soft" {
+                span class="text-xs text-muted font-medium" { "备注：" }
+                span class="text-xs text-fg-2" { (s.remark) }
+            }
+        }
+        // 隐藏 iframe：打印按钮 set src 后，print_shipping 响应自带 window.print()
+        iframe id="wc-print-frame" class="hidden" {}
+    };
+
+    Ok(req_detail_shell("发货详情", inner))
+}
+
+// ── 到货详情 drawer（Issue #189：Arrival 单号可点击，按 source_kind 分 PO/WO）──
+
+/// 采购到货详情 drawer body（只读）：PO 头 + 行项目（订购/已收）。
+async fn arrival_po_detail_drawer_body(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    id: i64,
+) -> Result<Markup> {
+    let po_svc = state.purchase_order_service();
+    let po = po_svc.get(ctx, db, id).await?;
+    let items = po_svc.list_items(ctx, db, id).await.unwrap_or_default();
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
+    let supplier_name = state
+        .supplier_service()
+        .get(ctx, db, po.supplier_id)
+        .await
+        .map(|s| s.name)
+        .unwrap_or_else(|_| format!("供应商 #{}", po.supplier_id));
+    let (status_label, status_cls) = match po.status {
+        abt_core::purchase::enums::PurchaseOrderStatus::PartiallyReceived => ("部分到货", "text-warn bg-warn-bg"),
+        abt_core::purchase::enums::PurchaseOrderStatus::Confirmed => ("待收货", "text-accent bg-accent-bg"),
+        abt_core::purchase::enums::PurchaseOrderStatus::Received => ("已收货", "text-success bg-success-bg"),
+        abt_core::purchase::enums::PurchaseOrderStatus::Draft => ("草稿", "text-muted bg-surface"),
+        abt_core::purchase::enums::PurchaseOrderStatus::Closed => ("已关闭", "text-muted bg-surface"),
+        abt_core::purchase::enums::PurchaseOrderStatus::Cancelled => ("已取消", "text-danger bg-danger-bg"),
+        abt_core::purchase::enums::PurchaseOrderStatus::PendingApproval => ("待审批", "text-warn bg-warn-bg"),
+    };
+
+    let mut rows = html! {};
+    for it in &items {
+        let pname = product_map
+            .get(&it.product_id)
+            .map(|p| p.pdt_name.clone())
+            .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+        let pcode = product_map
+            .get(&it.product_id)
+            .map(|p| p.product_code.clone())
+            .unwrap_or_default();
+        rows = html! {
+            (rows)
+            div class="flex items-center justify-between px-3 py-2 gap-2" {
+                div class="min-w-0" {
+                    div class="text-sm text-fg-2 truncate" { (pname) }
+                    div class="text-xs text-muted truncate" { (pcode) }
+                }
+                div class="text-right shrink-0" {
+                    div class="text-sm font-mono text-fg" { "订购 " (fmt_qty(it.quantity)) }
+                    div class="text-xs font-mono text-muted" { "已收 " (fmt_qty(it.received_qty)) }
+                }
+            }
+        };
+    }
+
+    let inner = html! {
+        div class="mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="text-base font-mono font-bold text-fg" { (po.doc_number) }
+                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
+                    (status_label)
+                }
+            }
+            div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
+                div {
+                    span class="text-muted" { "供应商 " }
+                    span class="text-fg-2" { (supplier_name) }
+                }
+                div {
+                    span class="text-muted" { "下单日期 " }
+                    span class="font-mono text-fg-2" {
+                        (po.created_at.format("%Y-%m-%d").to_string())
+                    }
+                }
+            }
+        }
+        div {
+            div class="text-xs font-semibold text-muted mb-2" { "明细（" (items.len()) " 项）" }
+            div class="rounded-sm border border-border-soft divide-y divide-border-soft" {
+                @if items.is_empty() {
+                    div class="px-3 py-4 text-center text-sm text-muted" { "暂无明细" }
+                } @else {
+                    (rows)
+                }
+            }
+        }
+    };
+
+    Ok(req_detail_shell("采购到货详情", inner))
+}
+
+/// 生产入库详情 drawer body（只读）：工单头 + 产品（完工/已入库）。
+async fn arrival_wo_detail_drawer_body(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    id: i64,
+) -> Result<Markup> {
+    let wo = state.work_order_service().find_by_id(ctx, db, id).await?;
+    let product = state.product_service().get(ctx, db, wo.product_id).await?;
+    let received: Decimal = state
+        .inventory_transaction_service()
+        .find_by_source(ctx, db, "work_order", id)
+        .await
+        .unwrap_or_default()
+        .iter()
+        .map(|t| t.quantity)
+        .sum();
+
+    let inner = html! {
+        div class="mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="text-base font-mono font-bold text-fg" { (wo.doc_number) }
+                span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-sm" {
+                }
+            }
+            div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
+                div {
+                    span class="text-muted" { "产品 " }
+                    span class="text-fg-2" { (product.pdt_name) }
+                }
+                div {
+                    span class="text-muted" { "完工 " }
+                    span class="font-mono text-fg-2" { (fmt_qty(wo.completed_qty)) }
+                }
+                div {
+                    span class="text-muted" { "已入库 " }
+                    span class="font-mono text-fg-2" { (fmt_qty(received)) }
+                }
+            }
+        }
+        div class="rounded-sm border border-border-soft px-3 py-2" {
+            div class="flex items-center justify-between" {
+                div class="min-w-0" {
+                    div class="text-sm text-fg-2 truncate" { (product.pdt_name) }
+                    div class="text-xs text-muted truncate" { (product.product_code) }
+                }
+                div class="text-sm font-mono text-fg" { (fmt_qty(wo.completed_qty)) " " (product.unit) }
+            }
+        }
+    };
+
+    Ok(req_detail_shell("生产入库详情", inner))
 }
 
 // ── 调拨全部视图 + 详情 drawer（阶段 3.2 收口，模式同领料单）──
@@ -1545,8 +1928,17 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                 } @else if domain == WorkCenterDomain::CycleCount {
                     (doc_detail_trigger("cc_detail",t.doc_id, "pending", html! { (t.doc_number) },
                         "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
-                } @else if let Some(url) = domain_detail_url(domain, t.doc_id) {
-                    a class="text-accent no-underline hover:underline cursor-pointer" href=(url) { (t.doc_number) }
+                } @else if domain == WorkCenterDomain::Outbound {
+                    (doc_detail_trigger("ship_detail",t.doc_id, "pending", html! { (t.doc_number) },
+                        "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
+                } @else if domain == WorkCenterDomain::Arrival {
+                    @if matches!(t.source_kind, TaskSourceKind::WorkOrder) {
+                        (doc_detail_trigger("arrival_wo_detail",t.doc_id, "pending", html! { (t.doc_number) },
+                            "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
+                    } @else {
+                        (doc_detail_trigger("arrival_po_detail",t.doc_id, "pending", html! { (t.doc_number) },
+                            "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
+                    }
                 } @else {
                     (t.doc_number)
                 }
@@ -1911,6 +2303,9 @@ async fn render_drawer_body(action: &str, id: i64, view: Option<&str>, ctx: Requ
         "transfer_detail" => transfer_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "cc_detail" => cc_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "transfer" => transfer_drawer_body(&state, &service_ctx, &mut conn, id).await?,
+        "ship_detail" => ship_detail_drawer_body(&state, &service_ctx, &mut conn, id).await?,
+        "arrival_po_detail" => arrival_po_detail_drawer_body(&state, &service_ctx, &mut conn, id).await?,
+        "arrival_wo_detail" => arrival_wo_detail_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         other => return Err(DomainError::validation(format!("未知 drawer 动作: {other}")).into()),
     };
     Ok(Html(body.into_string()))
@@ -2299,16 +2694,20 @@ async fn direct_ship_drawer_body(
     id: i64,
 ) -> Result<Markup> {
     let s = state.picking_service().find_by_id(ctx, db, id).await?;
-    // 仅 Confirmed（待发货）单可直发；其他状态引导走详情
+    // 仅 Confirmed（待发货）单可直发；其他状态展示只读详情 drawer（Issue #188 收口，不再跳发货详情页）
     if s.status != PickingStatus::Confirmed {
-        return Ok(drawer_message(
-            "发货",
-            "发货单",
-            &s.doc_number,
-            "该单不在待发货状态，无法直接发出。",
-            &ShippingDetailPath { id }.to_string(),
-            "去详情页",
-        ));
+        let (status_text, _) = picking_status_label(s.status);
+        let detail = ship_detail_drawer_body(state, ctx, db, id).await?;
+        // 在详情上方插入状态提示条
+        let result: Markup = html! {
+            div class="px-6 py-3 bg-warn-bg border-b border-warn-200" {
+                span class="text-sm text-warn font-medium" {
+                    "该单当前状态为「" (status_text) "」，无法直接发货。"
+                }
+            }
+            (detail)
+        };
+        return Ok(result);
     }
     let items = state.picking_service().list_items(ctx, db, id).await.unwrap_or_default();
     let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state

@@ -245,7 +245,12 @@ classDiagram
     +get_work_order_cost(ctx: &ServiceContext, db: PgExecutor, work_order_id: i64) Result~WorkOrderCostSummary~
     +get_profit_center_summary(ctx: &ServiceContext, db: PgExecutor, profit_center_id: i64, from: String, to: String, page: PageParams) PaginatedResult~ProfitCenterSummary~
     +get_margin_analysis(ctx: &ServiceContext, db: PgExecutor, order_id: i64) Result~MarginAnalysis~
+    +list_product_costs(db: PgExecutor, period: &str) Result~Vec~ProductCostRow~~
+    +list_work_order_costs(db: PgExecutor) Result~Vec~WorkOrderCostRow~~
+    +list_profit_center_pl(db: PgExecutor, period: &str) Result~Vec~ProfitCenterPLRow~~
+    +list_margin_analysis(db: PgExecutor) Result~Vec~MarginRow~~
   }
+  note for CostAccountingService "Write side (target.md #6, event-driven via CostEntryService::create_entries, double-entry):\n  PurchaseReceipt -> entity=Product(1), Material, debit=Σqty×unit_price\n  WorkReport -> entity=WorkOrder(2), Labor(debit=wage_amount) + Overhead(debit=work_hours×costs_hour)\n  ProductionReceipt -> transfer WIP to Product (debit Product / credit WorkOrder, by received/planned ratio)\n  ShipmentShipped -> entity=SalesOrder(3), Material, debit=COGS, profit_center from order\n  SalesReturn / Reconciliation -> reverse credit, profit_center from order\nCostType: Material=1 Labor=2 Overhead=3 Outsource=4 Rework=5 Scrap=6\nCostEntityType: Product=1 WorkOrder=2 SalesOrder=3 PurchaseOrder=4 Inspection=5 OutsourcingOrder=6\nProfitCenter master data in profit_centers table (migration 092), sales_orders.profit_center_id (093)"
 
   note for CashJournal "DB 层: counterparty_type + counterparty_id 两列\nRust Model: CounterpartyRef 枚举（Repository 层拆包/装包）\n多币种(issue #69): currency + exchange_rate 两列；折合人民币 amount×rate 动态算(CashJournal::amount_cny)，不落库"
   note for CashJournalService "TransactionMode: InCallerTx (create, confirm)\nconfirm flow (same COMMIT boundary):\n  1. IdempotencyService check\n  2. Lock journal FOR UPDATE\n  3. Aggregate lines debit/credit totals (if any lines)\n  4. Validate totals balanced (skip for simple payment journals w/o lines; amount>0 validated at create)\n  5. Update status = Confirmed + AuditLog\n  6. Publish CashJournalConfirmed event\n多币种(issue #69): confirm 写 AR/AP 台账的 currency/exchange_rate 取自 journal（不再查 customer/supplier 表、不再硬编码 1），外币核销正确产生汇兑损益\nCostEntry consumption for reporting"

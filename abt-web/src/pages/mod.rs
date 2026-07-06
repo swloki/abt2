@@ -157,7 +157,6 @@ pub mod fms_work_center;
 pub mod fms_journal_list;
 pub mod fms_journal_detail;
 pub mod fms_journal_create;
-pub mod fms_writeoff_list;
 pub mod fms_cost_analysis;
 pub mod fms_ar_aging;
 pub mod fms_ap_aging;

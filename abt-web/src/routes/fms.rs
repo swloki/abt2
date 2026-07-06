@@ -29,11 +29,6 @@ pub struct JournalConfirmPath {
     pub id: i64,
 }
 
-// Write-Off
-#[derive(TypedPath, Deserialize, Serialize, Clone)]
-#[typed_path("/admin/fms/writeoffs")]
-pub struct WriteoffListPath;
-
 // Cost Analysis
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/cost-analysis")]
@@ -83,9 +78,7 @@ pub fn router() -> Router<AppState> {
         .route(JournalConfirmPath::PATH, axum::routing::post(crate::pages::fms_journal_detail::confirm))
         .route(JournalSearchCpPath::PATH, get(crate::pages::fms_journal_create::search_counterparty))
         .route(JournalSearchAccountPath::PATH, get(crate::pages::fms_journal_create::search_account))
-        // Write-Off
-        .route(WriteoffListPath::PATH, get(crate::pages::fms_writeoff_list::get_list))
-// Cost Analysis
+        // Cost Analysis
         .route(CostAnalysisPath::PATH, get(crate::pages::fms_cost_analysis::get_page))
         // AR/AP Adjustment
         .route(ArAdjustmentCreatePath::PATH, get(crate::pages::fms_adjustment_create::get_ar_create).post(crate::pages::fms_adjustment_create::create_ar))

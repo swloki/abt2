@@ -235,7 +235,6 @@ fn modules() -> Vec<NavModule> {
             items: vec![
                 NavItem { name: "财务作业中心", path: "/admin/fms/work-center", icon: NavIcon::Grid, permission: Some(("FMS", "read")) },
                 NavItem { name: "出纳日记账", path: "/admin/fms/journals", icon: NavIcon::File, permission: Some(("FMS", "read")) },
-                NavItem { name: "核销管理", path: "/admin/fms/writeoffs", icon: NavIcon::Check, permission: Some(("FMS", "read")) },
                 NavItem { name: "应收账龄", path: "/admin/fms/ar-aging", icon: NavIcon::File, permission: Some(("FMS", "read")) },
                 NavItem { name: "应付账龄", path: "/admin/fms/ap-aging", icon: NavIcon::File, permission: Some(("FMS", "read")) },
                 NavItem { name: "成本核算", path: "/admin/fms/cost-analysis", icon: NavIcon::DollarSign, permission: Some(("COST", "read")) },

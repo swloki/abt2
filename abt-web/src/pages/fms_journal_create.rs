@@ -175,7 +175,7 @@ pub async fn create(
             .map_err(|_| abt_core::shared::types::DomainError::Validation("无效汇率".into()))?
     };
 
-    // 出纳日记账简化为简单收付款单：金额取自表单，不再强制借贷分录（write_off 按 header amount 核销）
+    // 出纳日记账简化为简单收付款单：金额取自表单，不再强制借贷分录（金额在基本信息区）
     let req = CreateCashJournalReq {
         journal_type,
         direction,
@@ -471,7 +471,7 @@ fn journal_create_page() -> Markup {
                             rows="2" {}
                     }
                 }
-                // 借贷分录已移除：简化为简单收付款单（金额在基本信息区），write_off 按 header amount 核销（issue #78）
+                // 借贷分录已移除：简化为简单收付款单（金额在基本信息区）
             }
         }
         // ── Entity Picker Modals ──

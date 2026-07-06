@@ -258,6 +258,70 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
+        // --- e3. 成本归集：报工 → 人工 + 制费（target.md #6 工序完工事件）---
+        // 仅新报工（was_inserted=true）归集，幂等重查不重复；同事务，失败整体回滚。
+        // 人工 = 报工冻结 wage_amount；制费 = work_hours × work_center.costs_hour（Odoo costs_hour 式）。
+        if was_inserted {
+            use crate::master_data::work_center::{
+                new_work_center_service, service::WorkCenterService,
+            };
+            use crate::shared::cost_entry::{
+                model::EntryRequest, new_cost_entry_service, service::CostEntryService,
+            };
+            use crate::shared::enums::{CostEntityType, CostType};
+
+            let period = chrono::Local::now().format("%Y-%m").to_string();
+            let mut report_entries: Vec<EntryRequest> = Vec::new();
+
+            // 人工成本：报工冻结工资
+            if wage_amount > Decimal::ZERO {
+                report_entries.push(EntryRequest {
+                    entity_type: CostEntityType::WorkOrder,
+                    entity_id: batch.work_order_id,
+                    cost_type: CostType::Labor,
+                    debit_amount: wage_amount,
+                    credit_amount: Decimal::ZERO,
+                    cost_center: None,
+                    profit_center: None,
+                    period: period.clone(),
+                    source_type: DocumentType::WorkReport,
+                    source_id: work_report_id,
+                });
+            }
+
+            // 制造费用：工时 × 工作中心每小时成本
+            if req.work_hours > Decimal::ZERO {
+                if let Some(wc_id) = routing.work_center_id {
+                    if let Ok(wc) = new_work_center_service(self.pool.clone())
+                        .get(ctx, db, wc_id)
+                        .await
+                    {
+                        let overhead = req.work_hours * wc.costs_hour;
+                        if overhead > Decimal::ZERO {
+                            report_entries.push(EntryRequest {
+                                entity_type: CostEntityType::WorkOrder,
+                                entity_id: batch.work_order_id,
+                                cost_type: CostType::Overhead,
+                                debit_amount: overhead,
+                                credit_amount: Decimal::ZERO,
+                                cost_center: Some(wc_id),
+                                profit_center: None,
+                                period: period.clone(),
+                                source_type: DocumentType::WorkReport,
+                                source_id: work_report_id,
+                            });
+                        }
+                    }
+                }
+            }
+
+            if !report_entries.is_empty() {
+                new_cost_entry_service(self.pool.clone())
+                    .create_entries(ctx, db, report_entries)
+                    .await?;
+            }
+        }
+
         // --- f1. UPSERT batch_routing_progress (batch_id, routing_id) ---
         let brp_id = BatchRoutingProgressRepo::upsert_and_get_id(
             &mut *db, batch_id, routing.id,

@@ -1531,17 +1531,41 @@ impl PickingService for PickingServiceImpl {
             }
         }
 
-        // 6. 成本分录
-        let total_received: Decimal = req.rows.iter().map(|r| r.received_qty).sum();
-        if total_received > Decimal::ZERO {
-            let period = chrono::Local::now().format("%Y-%m").to_string();
+        // 6. 成本分录：采购入库材料成本（按产品维度归集）
+        //    修复：原实现误把收货「数量」当金额写 debit/credit 且借贷同值。
+        //    正解：每个入库产品写 Σ(received_qty × po_item.unit_price)，entity=Product 喂产品成本 tab；
+        //          借记存货成本增加，贷方留待完工入库结转 / 销售发货 COGS 时释放（双层记账）。
+        let period = chrono::Local::now().format("%Y-%m").to_string();
+        let mut purchase_cost_entries: Vec<EntryRequest> = Vec::new();
+        for row in &req.rows {
+            if row.received_qty <= Decimal::ZERO {
+                continue;
+            }
+            let unit_price = po_items_after
+                .iter()
+                .find(|pi| pi.product_id == row.product_id)
+                .map(|pi| pi.unit_price)
+                .unwrap_or(Decimal::ZERO);
+            let amount = row.received_qty * unit_price;
+            if amount > Decimal::ZERO {
+                purchase_cost_entries.push(EntryRequest {
+                    entity_type: CostEntityType::Product,
+                    entity_id: row.product_id,
+                    cost_type: CostType::Material,
+                    debit_amount: amount,
+                    credit_amount: Decimal::ZERO,
+                    cost_center: None,
+                    profit_center: None,
+                    period: period.clone(),
+                    source_type: DocumentType::PurchaseOrder,
+                    source_id: req.po_id,
+                });
+            }
+        }
+        if !purchase_cost_entries.is_empty() {
             new_cost_entry_service(self.pool.clone())
-                .create_entries(ctx, db, vec![EntryRequest {
-                    entity_type: CostEntityType::PurchaseOrder, entity_id: req.po_id,
-                    cost_type: CostType::Material, debit_amount: total_received, credit_amount: total_received,
-                    cost_center: None, profit_center: None, period,
-                    source_type: DocumentType::PurchaseOrder, source_id: req.po_id,
-                }]).await?;
+                .create_entries(ctx, db, purchase_cost_entries)
+                .await?;
         }
 
         PickingRepo::set_done(&mut *db, picking.id).await?;
@@ -1559,7 +1583,9 @@ impl PickingService for PickingServiceImpl {
     ) -> Result<()> {
         use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
         use crate::mes::work_order::repo::WorkOrderRepo;
+        use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
         use crate::mes::enums::{BatchStatus, WorkOrderStatus};
+        use std::collections::HashMap;
         use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
         use crate::qms::inspection_result::{new_inspection_result_service, model::InspectionResultFilter, service::InspectionResultService};
         use crate::shared::cost_entry::{model::EntryRequest, new_cost_entry_service, service::CostEntryService};
@@ -1567,7 +1593,6 @@ impl PickingService for PickingServiceImpl {
         use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
         use crate::shared::types::pagination::PageParams;
         use crate::wms::backflush::{new_backflush_service, service::BackflushService};
-        use crate::wms::stock_ledger::repo::StockLedgerRepo;
 
         let picking = self.get(ctx, db, id).await?;
         if picking.status != PickingStatus::Draft && picking.status != PickingStatus::Confirmed {
@@ -1641,18 +1666,65 @@ impl PickingService for PickingServiceImpl {
                 source_type: "stock_picking".to_string(), source_id: id, remark: None,
             }).await?;
 
-        // 3. 成本分录（unit_cost from stock_ledger）
-        let unit_cost = StockLedgerRepo::last_known_unit_cost(&mut *db, product_id).await.unwrap_or(Decimal::ZERO);
-        let total_cost = received_qty * unit_cost;
-        if total_cost > Decimal::ZERO {
-            let period = chrono::Local::now().format("%Y-%m").to_string();
+        // 3. 成本结转：工单累积 WIP（料/工/费）→ 产成品（Product）
+        //    修复：原实现用产品自身 last_known_unit_cost 记到 WorkOrder，方向反了。
+        //    正解：查工单累积的 WIP 净成本（Σdebit − Σcredit，按 cost_type），按当次 received/planned
+        //    比例结转到 Product（借记产成品存货 +），同时贷记 WorkOrder 释放 WIP（双层记账）。
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, db, work_order_id)
+            .await?;
+        let wip_page = new_cost_entry_service(self.pool.clone())
+            .find_by_entity(ctx, db, CostEntityType::WorkOrder, work_order_id, 1, 10000)
+            .await?;
+        let mut wip_net: HashMap<CostType, Decimal> = HashMap::new();
+        for e in &wip_page.items {
+            let net = e.debit_amount - e.credit_amount;
+            if net != Decimal::ZERO {
+                *wip_net.entry(e.cost_type).or_insert(Decimal::ZERO) += net;
+            }
+        }
+        let transfer_ratio = if wo.planned_qty > Decimal::ZERO {
+            (received_qty / wo.planned_qty).min(Decimal::ONE)
+        } else {
+            Decimal::ZERO
+        };
+        let period = chrono::Local::now().format("%Y-%m").to_string();
+        let mut transfer_entries: Vec<EntryRequest> = Vec::new();
+        for (ct, net) in &wip_net {
+            let transfer = (*net * transfer_ratio).round_dp(4);
+            if transfer > Decimal::ZERO {
+                // 借：产成品存货成本增加
+                transfer_entries.push(EntryRequest {
+                    entity_type: CostEntityType::Product,
+                    entity_id: product_id,
+                    cost_type: *ct,
+                    debit_amount: transfer,
+                    credit_amount: Decimal::ZERO,
+                    cost_center: None,
+                    profit_center: None,
+                    period: period.clone(),
+                    source_type: DocumentType::ProductionReceipt,
+                    source_id: id,
+                });
+                // 贷：工单 WIP 释放
+                transfer_entries.push(EntryRequest {
+                    entity_type: CostEntityType::WorkOrder,
+                    entity_id: work_order_id,
+                    cost_type: *ct,
+                    debit_amount: Decimal::ZERO,
+                    credit_amount: transfer,
+                    cost_center: None,
+                    profit_center: None,
+                    period: period.clone(),
+                    source_type: DocumentType::ProductionReceipt,
+                    source_id: id,
+                });
+            }
+        }
+        if !transfer_entries.is_empty() {
             new_cost_entry_service(self.pool.clone())
-                .create_entries(ctx, db, vec![EntryRequest {
-                    entity_type: CostEntityType::WorkOrder, entity_id: work_order_id,
-                    cost_type: CostType::Material, debit_amount: total_cost, credit_amount: total_cost,
-                    cost_center: None, profit_center: None, period,
-                    source_type: DocumentType::ProductionReceipt, source_id: id,
-                }]).await?;
+                .create_entries(ctx, db, transfer_entries)
+                .await?;
         }
 
         // 4. Backflush（倒冲原料，同事务）

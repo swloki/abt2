@@ -8,6 +8,7 @@ use rust_decimal::Decimal;
 use abt_core::fms::cost_accounting::{
  CostAccountingService, MarginRow, ProductCostRow, ProfitCenterPLRow, WorkOrderCostRow,
 };
+use abt_core::master_data::profit_center::{ProfitCenter, ProfitCenterService};
 use abt_core::shared::types::PgExecutor;
 
 use crate::errors::Result;
@@ -50,11 +51,12 @@ pub async fn get_page(
  let wo_rows = svc.list_work_order_costs(db).await?;
  let pc_rows = svc.list_profit_center_pl(db, &period).await?;
  let margin_rows = svc.list_margin_analysis(db).await?;
+ let pc_master = state.profit_center_service().list(db).await?;
 
  // 聚合产品成本
  let products = aggregate_products(&product_rows);
  let work_orders = aggregate_work_orders(&wo_rows);
- let profit_centers = aggregate_profit_centers(&pc_rows);
+ let profit_centers = aggregate_profit_centers(&pc_rows, &pc_master);
  let margins = aggregate_margins(&margin_rows);
 
  // 统计卡片
@@ -204,20 +206,13 @@ fn aggregate_work_orders(rows: &[WorkOrderCostRow]) -> Vec<WorkOrderCostView> {
  list
 }
 
-fn aggregate_profit_centers(rows: &[ProfitCenterPLRow]) -> Vec<ProfitCenterView> {
+fn aggregate_profit_centers(rows: &[ProfitCenterPLRow], master: &[ProfitCenter]) -> Vec<ProfitCenterView> {
  let mut map: HashMap<i64, ProfitCenterView> = HashMap::new();
- let labels = HashMap::from([
- (1i64, "华南区"),
- (2i64, "华东区"),
- (3i64, "华北区"),
- (4i64, "西南区"),
- (5i64, "西北区"),
- (6i64, "东北区"),
- ]);
+ let labels: HashMap<i64, String> = master.iter().map(|p| (p.id, p.name.clone())).collect();
  for r in rows {
  let v = map.entry(r.profit_center).or_insert_with(|| ProfitCenterView {
  profit_center_id: r.profit_center,
- label: labels.get(&r.profit_center).map(|s| s.to_string()).unwrap_or_else(|| format!("利润中心-{}", r.profit_center)),
+ label: labels.get(&r.profit_center).cloned().unwrap_or_else(|| format!("利润中心-{}", r.profit_center)),
  income: Decimal::ZERO,
  material_cost: Decimal::ZERO,
  labor_cost: Decimal::ZERO,

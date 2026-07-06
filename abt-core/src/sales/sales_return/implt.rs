@@ -320,6 +320,12 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .await?;
 
         let period = chrono::Utc::now().format("%Y-%m").to_string();
+        use crate::sales::sales_order::{new_sales_order_service, service::SalesOrderService};
+        let profit_center = new_sales_order_service(self.pool.clone())
+            .find_by_id(ctx, db, existing.order_id)
+            .await
+            .ok()
+            .and_then(|o| o.profit_center_id);
         let mut cost_entries = Vec::with_capacity(return_items.len());
         for item in &return_items {
             let unit_cost = order_items
@@ -335,7 +341,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
                 debit_amount: Decimal::ZERO,
                 credit_amount: item.returned_qty * unit_cost,
                 cost_center: None,
-                profit_center: None,
+                profit_center,
                 period: period.clone(),
                 source_type: DocumentType::SalesReturn,
                 source_id: id,

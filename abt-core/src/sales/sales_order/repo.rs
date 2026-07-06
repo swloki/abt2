@@ -5,7 +5,7 @@ use crate::shared::types::{DomainError, Result};
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
 
-const ORDER_COLUMNS: &str = "id, doc_number, customer_id, contact_id, sales_rep_id, order_date, status, total_amount, total_cost, payment_terms, delivery_terms, delivery_address, remark, operator_id, created_at, updated_at, deleted_at";
+const ORDER_COLUMNS: &str = "id, doc_number, customer_id, contact_id, sales_rep_id, order_date, status, total_amount, total_cost, payment_terms, delivery_terms, delivery_address, remark, operator_id, profit_center_id, created_at, updated_at, deleted_at";
 
 const ITEM_COLUMNS: &str = "id, order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, shipped_qty, cancelled_qty, returned_qty, line_status, version, delivery_date";
 

@@ -252,6 +252,7 @@ pub struct SalesOrder {
     pub delivery_address: String,
     pub remark: String,
     pub operator_id: i64,
+    pub profit_center_id: Option<i64>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,

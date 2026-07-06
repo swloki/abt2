@@ -86,6 +86,11 @@ impl EventHandler for ShipmentShippedHandler {
         let period = chrono::Utc::now().format("%Y-%m").to_string();
         let today = chrono::Local::now().date_naive();
 
+        // 反查销售订单的利润中心（target.md #6：成本按 profit_center 归集到 P&L）
+        let sales_order = new_sales_order_service(self.pool.clone())
+            .find_by_id(&ctx, &mut conn, order_id)
+            .await?;
+
         // COGS = Σ 发货量 × 订单行 unit_cost（经 shared.cost_entry，Atomic 双层记账）
         let mut cost_entries = Vec::with_capacity(shipping_items.len());
         for ship_item in &shipping_items {
@@ -103,7 +108,7 @@ impl EventHandler for ShipmentShippedHandler {
                     debit_amount: cogs,
                     credit_amount: Decimal::ZERO,
                     cost_center: None,
-                    profit_center: None,
+                    profit_center: sales_order.profit_center_id,
                     period: period.clone(),
                     source_type: DocumentType::ShippingRequest,
                     source_id: id,

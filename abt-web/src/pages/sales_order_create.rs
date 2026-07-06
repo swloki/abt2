@@ -83,6 +83,8 @@ pub async fn get_order_create(
  let customers = customer_svc
  .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
  .await?;
+ use abt_core::master_data::profit_center::ProfitCenterService;
+ let profit_centers = state.profit_center_service().list(&mut conn).await?;
 
  // ── Pre-fill from quotation if specified ──
  let mut prefill = None;
@@ -114,7 +116,7 @@ pub async fn get_order_create(
  }
  }
 
- let content = order_create_page(&customers.items, &prefill);
+ let content = order_create_page(&customers.items, &prefill, &profit_centers);
  let page_html = admin_page(
  is_htmx, "新建订单", &claims, "sales", OrderCreatePath::PATH, "销售管理", Some("新建订单"), content, &nav_filter,
  );
@@ -242,7 +244,7 @@ pub async fn create_order(
 // ── Components: Page ──
 
 #[allow(clippy::type_complexity)]
-fn order_create_page(customers: &[abt_core::master_data::customer::model::Customer], prefill: &Option<OrderPrefill>) -> Markup {
+fn order_create_page(customers: &[abt_core::master_data::customer::model::Customer], prefill: &Option<OrderPrefill>, profit_centers: &[abt_core::master_data::profit_center::ProfitCenter]) -> Markup {
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
  // Pre-fill values
@@ -299,6 +301,18 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                             name="sales_rep"
                         {
                             option value="" { "当前用户" }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "利润中心" }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            name="profit_center_id"
+                        {
+                            option value="" { "不指定" }
+                            @for pc in profit_centers {
+                                option value=(pc.id) { (pc.name) }
+                            }
                         }
                     }
                     div class="form-field" {

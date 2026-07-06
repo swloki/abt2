@@ -24,6 +24,7 @@ use abt_core::wms::enums::TransactionType;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::supplier::SupplierService;
+use abt_core::master_data::work_center::WorkCenterService as MdWorkCenterService;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 
@@ -757,6 +758,7 @@ async fn arrival_wo_detail_drawer_body(
 ) -> Result<Markup> {
     let wo = state.work_order_service().find_by_id(ctx, db, id).await?;
     let product = state.product_service().get(ctx, db, wo.product_id).await?;
+    // 已入库量：汇总 inventory_transactions 中 source_type=work_order / source_id=wo.id
     let received: Decimal = state
         .inventory_transaction_service()
         .find_by_source(ctx, db, "work_order", id)
@@ -765,36 +767,153 @@ async fn arrival_wo_detail_drawer_body(
         .iter()
         .map(|t| t.quantity)
         .sum();
+    let pending = wo.completed_qty - received;
+    // 来源 SO
+    let so_doc = wo.source_so_doc.clone().unwrap_or_else(|| "—".into());
+    // 工作中心
+    let wc_name = match wo.work_center_id {
+        Some(wcid) => state
+            .work_center_service()
+            .get(ctx, db, wcid)
+            .await
+            .map(|w| w.name)
+            .unwrap_or_else(|_| "—".into()),
+        None => "—".into(),
+    };
+    // 操作员
+    let operator_name = state
+        .user_service()
+        .get_user(ctx, db, wo.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+
+    let (status_text, status_cls) = match wo.status {
+        abt_core::mes::enums::WorkOrderStatus::Draft => ("草稿", "bg-surface text-muted"),
+        abt_core::mes::enums::WorkOrderStatus::Planned => ("已计划", "bg-accent-bg text-accent"),
+        abt_core::mes::enums::WorkOrderStatus::Released => ("已下达", "bg-purple-bg text-purple"),
+        abt_core::mes::enums::WorkOrderStatus::InProduction => ("生产中", "bg-warn-bg text-warn"),
+        abt_core::mes::enums::WorkOrderStatus::Closed => ("已关闭", "bg-success-bg text-success"),
+        abt_core::mes::enums::WorkOrderStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
+    };
 
     let inner = html! {
+        // ── 来源链 (Odoo Source Document) ──
+        @if so_doc != "—" {
+            div class="flex items-center gap-2 text-xs text-muted mb-3 px-1" {
+                span class="font-medium" { "来源订单 " }
+                span class="font-mono text-accent" { (so_doc) }
+                span { "→" }
+                span class="font-mono text-fg font-semibold" { (wo.doc_number) }
+            }
+        }
+        // ── 统计带 (完工 / 已入库 / 待入库 / 报废) ──
+        div class="flex rounded-md border border-border-soft mb-4 overflow-hidden" {
+            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5 border-r border-border-soft" {
+                span class="font-mono text-base font-bold text-fg tabular-nums" { (fmt_qty(wo.completed_qty)) }
+                span class="text-[11px] text-muted font-medium" { "完工" }
+            }
+            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5 border-r border-border-soft" {
+                span class="font-mono text-base font-bold text-fg tabular-nums" { (fmt_qty(received)) }
+                span class="text-[11px] text-muted font-medium" { "已入库" }
+            }
+            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5 border-r border-border-soft" {
+                @if pending > Decimal::ZERO {
+                    span class="font-mono text-base font-bold text-warn tabular-nums" { (fmt_qty(pending)) }
+                } @else {
+                    span class="font-mono text-base font-bold text-success tabular-nums" { "—" }
+                }
+                span class="text-[11px] text-muted font-medium" { "待入库" }
+            }
+            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5" {
+                span class="font-mono text-base font-bold text-fg tabular-nums" { (fmt_qty(wo.scrap_qty)) }
+                span class="text-[11px] text-muted font-medium" { "报废" }
+            }
+        }
+        // ── 单据头 + 生产信息 (Odoo Operations + Additional Info) ──
         div class="mb-4 pb-4 border-b border-border-soft" {
             div class="flex items-center gap-2 mb-3" {
                 span class="text-base font-mono font-bold text-fg" { (wo.doc_number) }
-                span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-sm" {
+                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
+                    (status_text)
                 }
             }
-            div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
+            div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs" {
+                // Production Info
+                div class="col-span-full mb-1" {
+                    span class="text-[11px] uppercase tracking-wide text-muted font-semibold" { "生产信息" }
+                }
                 div {
                     span class="text-muted" { "产品 " }
-                    span class="text-fg-2" { (product.pdt_name) }
+                    span class="text-fg-2 font-medium" { (product.pdt_name) }
                 }
                 div {
-                    span class="text-muted" { "完工 " }
-                    span class="font-mono text-fg-2" { (fmt_qty(wo.completed_qty)) }
+                    span class="text-muted" { "工作中心 " }
+                    span class="text-fg-2" { (wc_name) }
                 }
                 div {
-                    span class="text-muted" { "已入库 " }
-                    span class="font-mono text-fg-2" { (fmt_qty(received)) }
+                    span class="text-muted" { "计划数 " }
+                    span class="font-mono text-fg-2" { (fmt_qty(wo.planned_qty)) " " (product.unit) }
+                }
+                div {
+                    span class="text-muted" { "完工数 " }
+                    span class="font-mono text-fg-2" { (fmt_qty(wo.completed_qty)) " " (product.unit) }
+                }
+                // Scheduling
+                div class="col-span-full mt-2 mb-1" {
+                    span class="text-[11px] uppercase tracking-wide text-muted font-semibold" { "计划" }
+                }
+                div {
+                    span class="text-muted" { "开始 " }
+                    span class="font-mono text-fg-2" { (wo.scheduled_start.format("%Y-%m-%d").to_string()) }
+                }
+                div {
+                    span class="text-muted" { "结束 " }
+                    span class="font-mono text-fg-2" { (wo.scheduled_end.format("%Y-%m-%d").to_string()) }
+                }
+                div {
+                    span class="text-muted" { "操作员 " }
+                    span class="text-fg-2" { (operator_name) }
                 }
             }
         }
-        div class="rounded-sm border border-border-soft px-3 py-2" {
-            div class="flex items-center justify-between" {
-                div class="min-w-0" {
-                    div class="text-sm text-fg-2 truncate" { (product.pdt_name) }
-                    div class="text-xs text-muted truncate" { (product.product_code) }
+        // ── 产品明细 (Odoo Operations tab 单项展开) ──
+        div class="mb-1" {
+            div class="text-xs font-semibold text-muted mb-2" { "产品明细" }
+            div class="rounded-sm border border-border-soft overflow-hidden" {
+                table class="w-full text-xs" {
+                    thead {
+                        tr class="bg-surface border-b border-border-soft" {
+                            th class="py-2 px-2 text-left text-muted font-semibold w-8" { "#" }
+                            th class="py-2 px-2 text-left text-muted font-semibold" { "产品编码" }
+                            th class="py-2 px-2 text-left text-muted font-semibold" { "产品名称" }
+                            th class="py-2 px-2 text-left text-muted font-semibold" { "规格" }
+                            th class="py-2 px-2 text-left text-muted font-semibold" { "单位" }
+                            th class="py-2 px-2 text-right text-muted font-semibold" { "计划数" }
+                            th class="py-2 px-2 text-right text-muted font-semibold" { "完工数" }
+                            th class="py-2 px-2 text-right text-muted font-semibold" { "已入库" }
+                        }
+                    }
+                    tbody {
+                        tr class="border-b border-border-soft last:border-b-0" {
+                            td class="py-2 px-2 text-xs text-muted font-mono w-8 text-center" { "1" }
+                            td class="py-2 px-2 text-xs font-mono text-fg" { (product.product_code) }
+                            td class="py-2 px-2 text-xs text-fg-2" { (product.pdt_name) }
+                            td class="py-2 px-2 text-xs text-muted max-w-[120px] truncate" { (product.meta.specification) }
+                            td class="py-2 px-2 text-xs text-muted" { (product.unit) }
+                            td class="py-2 px-2 text-xs font-mono text-fg text-right" { (fmt_qty(wo.planned_qty)) }
+                            td class="py-2 px-2 text-xs font-mono text-fg text-right" { (fmt_qty(wo.completed_qty)) }
+                            td class="py-2 px-2 text-xs font-mono text-muted text-right" { (fmt_qty(received)) }
+                        }
+                    }
                 }
-                div class="text-sm font-mono text-fg" { (fmt_qty(wo.completed_qty)) " " (product.unit) }
+            }
+        }
+        // ── 备注 (Odoo Note tab) ──
+        @if !wo.remark.is_empty() {
+            div class="mt-4 p-3 rounded-sm bg-surface border border-border-soft" {
+                span class="text-xs text-muted font-medium" { "备注：" }
+                span class="text-xs text-fg-2" { (wo.remark) }
             }
         }
     };

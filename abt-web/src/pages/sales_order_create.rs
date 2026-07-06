@@ -36,7 +36,7 @@ pub struct OrderCreateForm {
  pub delivery_address: Option<String>,
  pub remark: Option<String>,
  pub items_json: String,
- pub profit_center_id: Option<i64>,
+ pub profit_center_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -226,7 +226,7 @@ pub async fn create_order(
  delivery_terms: form.delivery_terms,
  delivery_address: form.delivery_address,
  remark: form.remark,
- profit_center_id: form.profit_center_id,
+ profit_center_id: form.profit_center_id.as_deref().and_then(|s| if s.is_empty() { None } else { s.parse().ok() }),
  };
 
  let mut tx = state.pool.begin().await

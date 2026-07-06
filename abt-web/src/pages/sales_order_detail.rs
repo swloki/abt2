@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
+use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use rust_decimal::Decimal;
 
 use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::print_template::{PrintTemplate, PrintTemplateService};
 use abt_core::master_data::product::model::AcquireChannel;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
@@ -17,9 +19,11 @@ use abt_core::wms::stock_ledger::StockLedgerService;
 const DECIMAL_100: Decimal = Decimal::from_parts(100, 0, 0, false, 0);
 
 use crate::components::icon;
+use crate::components::print_dropdown::{print_dropdown, PrintParam};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
+use crate::routes::print_template::PrintTemplateListPath;
 use abt_core::wms::picking::PickingService;
 use crate::utils::RequestContext;
 use crate::utils::fmt_qty;
@@ -173,11 +177,16 @@ pub async fn get_order_detail(
  }
  };
 
+ let print_templates = state
+     .print_template_service()
+     .list_by_document_type(&mut conn, "sales_order")
+     .await
+     .unwrap_or_default();
  let content = order_detail_page(
  &order, &items, &plan_lines,
  &customer_name, &contact, &sales_rep,
  &product_names, &product_codes, &atp_map, &demand_map, &reserved_map,
- producing_count, purchasing_count, path.id,
+ producing_count, purchasing_count, path.id, &print_templates,
  );
  let page_html = admin_page(
  is_htmx, "订单详情", &claims, "sales",
@@ -186,6 +195,109 @@ pub async fn get_order_detail(
  );
 
  Ok(Html(page_html.into_string()))
+}
+
+/// 打印销售订单：用 sales_order 模板 + 真实业务数据渲染，返回完整 HTML 供浏览器打印。
+/// template_id 可选：None 用 sales_order 类型默认模板，Some(id) 用指定模板。
+#[require_permission("SALES_ORDER", "read")]
+pub async fn print_order(
+    path: OrderPrintPath,
+    ctx: RequestContext,
+    Query(param): Query<PrintParam>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+
+    let svc = state.sales_order_service();
+    let customer_svc = state.customer_service();
+    let product_svc = state.product_service();
+    let user_svc = state.user_service();
+    let print_svc = state.print_template_service();
+
+    let o = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
+    let items = svc.list_items(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
+
+    let customer_name = customer_svc
+        .get(&service_ctx, &mut conn, o.customer_id)
+        .await
+        .map(|c| c.name)
+        .unwrap_or_default();
+
+    let sales_rep = user_svc
+        .get_user(&service_ctx, &mut conn, o.sales_rep_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_default();
+
+    let status_text = match o.status {
+        SalesOrderStatus::Draft => "草稿",
+        SalesOrderStatus::Confirmed => "已确认",
+        SalesOrderStatus::ReadyToShip => "待发货",
+        SalesOrderStatus::PartiallyShipped => "部分发货",
+        SalesOrderStatus::Shipped => "已发货",
+        SalesOrderStatus::Completed => "已完成",
+        SalesOrderStatus::Cancelled => "已取消",
+        SalesOrderStatus::ShippingRequested => "已申请发货",
+    };
+
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let product_map: HashMap<i64, String> = if product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        product_svc
+            .get_by_ids(&service_ctx, &mut conn, product_ids)
+            .await
+            .map(|ps| ps.into_iter().map(|p| (p.product_id, p.pdt_name)).collect())
+            .unwrap_or_default()
+    };
+
+    let detail_items: Vec<serde_json::Value> = items
+        .iter()
+        .map(|it| {
+            let line_status_text = match it.line_status {
+                SalesOrderLineStatus::Pending => "待处理",
+                SalesOrderLineStatus::Allocated => "已分配",
+                SalesOrderLineStatus::Producing => "生产中",
+                SalesOrderLineStatus::Purchasing => "采购中",
+                SalesOrderLineStatus::Shipped => "已发货",
+                SalesOrderLineStatus::Cancelled => "已取消",
+            };
+            serde_json::json!({
+                "行号": it.line_no.to_string(),
+                "产品名称": product_map.get(&it.product_id).cloned().unwrap_or_default(),
+                "数量": fmt_qty(it.quantity),
+                "单位": it.unit.as_str(),
+                "单价": it.unit_price.to_string(),
+                "金额": it.amount.to_string(),
+                "已发数量": fmt_qty(it.shipped_qty),
+                "未交数量": fmt_qty(it.open_qty()),
+                "行状态": line_status_text,
+            })
+        })
+        .collect();
+
+    let vars = serde_json::json!({
+        "订单号": o.doc_number,
+        "订单日期": o.order_date.format("%Y-%m-%d").to_string(),
+        "客户全称": customer_name,
+        "订单总金额": o.total_amount.to_string(),
+        "交货地址": o.delivery_address,
+        "付款条款": o.payment_terms,
+        "交货条款": o.delivery_terms,
+        "订单状态": status_text,
+        "销售员": sales_rep,
+        "公司名称": "江门市艾伯特照明科技有限公司",
+        "打印时间": chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        "明细": detail_items,
+    });
+
+    let html = match param.template_id {
+        Some(tid) => print_svc.render(&mut conn, tid, vars).await?,
+        None => print_svc.render_default(&mut conn, "sales_order", vars).await?,
+    };
+
+    Ok(Html(format!(
+        "{html}<script>window.onload=function(){{window.print()}}</script>"
+    )))
 }
 
 #[require_permission("SALES_ORDER", "update")]
@@ -846,12 +958,15 @@ fn order_detail_page(
  producing_count: usize,
  purchasing_count: usize,
  order_id: i64,
+ print_templates: &[PrintTemplate],
 ) -> Markup {
  let (status_text, status_class) = status_label(o.status);
  let contact_name = contact.as_ref().map(|c| c.name.as_str()).unwrap_or("—");
  let contact_phone = contact.as_ref().and_then(|c| c.phone.as_deref()).unwrap_or("—");
  html! {
     div {
+        // 隐藏 iframe：打印按钮 set src 后，print 响应自带 window.print()
+        iframe id="print-frame" class="hidden" {}
         // ── Back Link ──
         a   class="inline-flex items-center gap-1 text-sm text-muted hover:text-accent transition-colors mb-4 icon:w-4 icon:h-4"
             href=(format!("{}?restore=true", OrderListPath::PATH))
@@ -865,9 +980,13 @@ fn order_detail_page(
                 }
             }
             div class="flex gap-2" {
-                button
-                    class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                { (icon::printer_icon("w-4 h-4")) "打印" }
+                (print_dropdown(
+                    "print-frame",
+                    &OrderPrintPath { id: o.id }.to_string(),
+                    print_templates,
+                    &format!("{}?document_type=sales_order", PrintTemplateListPath::PATH),
+                    false,
+                ))
                 @if {
                     matches!(
                         o.status,

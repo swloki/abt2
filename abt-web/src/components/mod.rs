@@ -27,3 +27,4 @@ pub mod supplier_search;
 pub mod reservation_detail;
 pub mod customer_search;
 pub mod bin_search;
+pub mod print_dropdown;

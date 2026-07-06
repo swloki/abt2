@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
+use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 
 use abt_core::master_data::customer::CustomerService;
-use abt_core::master_data::print_template::PrintTemplateService;
+use abt_core::master_data::print_template::{PrintTemplate, PrintTemplateService};
 use abt_core::master_data::product::model::Product;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::SalesOrderService;
@@ -17,8 +18,10 @@ use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::identity::UserService;
 
 use crate::components::icon;
+use crate::components::print_dropdown::{print_dropdown, PrintParam};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
+use crate::routes::print_template::PrintTemplateListPath;
 use crate::routes::shipping::*;
 use crate::utils::fmt_qty;
 use crate::utils::RequestContext;
@@ -105,7 +108,12 @@ pub async fn get_shipping_detail(
          shipped_qty: rust_decimal::Decimal::ZERO,
          shortage: None,
      });
- let content = shipping_detail_page(&shipping, &items, &customer_name, &order_number, &operator_name, &product_details, &warehouse_names, &hub_summary);
+ let print_templates = state
+     .print_template_service()
+     .list_by_document_type(&mut conn, "delivery_note")
+     .await
+     .unwrap_or_default();
+ let content = shipping_detail_page(&shipping, &items, &customer_name, &order_number, &operator_name, &product_details, &warehouse_names, &hub_summary, &print_templates);
  let page_html = admin_page(
  is_htmx, "发货详情", &claims, "sales",
  &format!("{}/{}", ShippingListPath::PATH, path.id),
@@ -158,6 +166,7 @@ pub async fn cancel_shipping(
 pub async fn print_shipping(
     path: ShippingPrintPath,
     ctx: RequestContext,
+    Query(param): Query<PrintParam>,
 ) -> Result<Html<String>> {
     let RequestContext {
         mut conn,
@@ -308,9 +317,12 @@ pub async fn print_shipping(
         "打印时间": chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
     });
 
-    let html = print_svc
-        .render_default(&mut conn, "delivery_note", vars)
-        .await?;
+    let html = match param.template_id {
+        Some(tid) => print_svc.render(&mut conn, tid, vars).await?,
+        None => print_svc
+            .render_default(&mut conn, "delivery_note", vars)
+            .await?,
+    };
 
     // 自动弹出打印对话框
     Ok(Html(format!(
@@ -384,6 +396,7 @@ fn shipping_detail_page(
  product_details: &HashMap<i64, ProductDetail>,
  warehouse_names: &HashMap<i64, String>,
  hub_summary: &ShippingHubSummary,
+ print_templates: &[PrintTemplate],
 ) -> Markup {
  let (status_text, status_class) = status_label(s.status);
 
@@ -446,10 +459,13 @@ fn shipping_detail_page(
                 a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                     href=(format!("{}?restore=true", ShippingListPath::PATH))
                 { "返回列表" }
-                button
-                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    _=(format!("on click set #print-frame's src to '{}'", ShippingPrintPath { id: s.id }.to_string()))
-                { (icon::printer_icon("w-4 h-4")) "打印" }
+                (print_dropdown(
+                    "print-frame",
+                    &ShippingPrintPath { id: s.id }.to_string(),
+                    print_templates,
+                    &format!("{}?document_type=delivery_note", PrintTemplateListPath::PATH),
+                    false,
+                ))
                 @if s.status == PickingStatus::Draft {
                     button
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"

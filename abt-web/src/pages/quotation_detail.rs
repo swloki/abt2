@@ -1,18 +1,22 @@
 use std::collections::HashMap;
 
+use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 
 use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::print_template::{PrintTemplate, PrintTemplateService};
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::quotation::model::*;
 use abt_core::sales::quotation::QuotationService;
 use abt_core::shared::identity::UserService;
 
 use crate::components::icon;
+use crate::components::print_dropdown::{print_dropdown, PrintParam};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
+use crate::routes::print_template::PrintTemplateListPath;
 use crate::routes::quotation::*;
 use crate::utils::RequestContext;
 use crate::utils::fmt_qty;
@@ -69,9 +73,14 @@ pub async fn get_quotation_detail(
  let product_names: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect();
  let product_codes: HashMap<i64, String> = products.into_iter().map(|p| (p.product_id, p.product_code)).collect();
 
+ let print_templates = state
+     .print_template_service()
+     .list_by_document_type(&mut conn, "quotation")
+     .await
+     .unwrap_or_default();
  let content = quotation_detail_page(
  &quotation, &items, &customer_name, contact_name, contact_phone,
- &sales_rep_name, &product_names, &product_codes,
+ &sales_rep_name, &product_names, &product_codes, &print_templates,
  );
  let page_html = admin_page(
  is_htmx, "报价单详情", &claims, "sales",
@@ -80,6 +89,96 @@ pub async fn get_quotation_detail(
  );
 
  Ok(Html(page_html.into_string()))
+}
+
+/// 打印报价单：用 quotation 模板 + 真实业务数据渲染，返回完整 HTML 供浏览器打印。
+/// template_id 可选：None 用 quotation 类型默认模板，Some(id) 用指定模板。
+#[require_permission("SALES_ORDER", "read")]
+pub async fn print_quotation(
+    path: QuotationPrintPath,
+    ctx: RequestContext,
+    Query(param): Query<PrintParam>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+
+    let svc = state.quotation_service();
+    let customer_svc = state.customer_service();
+    let product_svc = state.product_service();
+    let user_svc = state.user_service();
+    let print_svc = state.print_template_service();
+
+    let q = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
+    let items = svc.list_items(&service_ctx, &mut conn, path.id).await?;
+
+    let customer_name = customer_svc
+        .get(&service_ctx, &mut conn, q.customer_id)
+        .await
+        .map(|c| c.name)
+        .unwrap_or_default();
+
+    let sales_rep = user_svc
+        .get_user(&service_ctx, &mut conn, q.sales_rep_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_default();
+
+    let status_text = match q.status {
+        QuotationStatus::Draft => "草稿",
+        QuotationStatus::Sent => "已发送",
+        QuotationStatus::Accepted => "已接受",
+        QuotationStatus::Rejected => "已拒绝",
+        QuotationStatus::Expired => "已过期",
+    };
+
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let product_map: HashMap<i64, String> = if product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        product_svc
+            .get_by_ids(&service_ctx, &mut conn, product_ids)
+            .await
+            .map(|ps| ps.into_iter().map(|p| (p.product_id, p.pdt_name)).collect())
+            .unwrap_or_default()
+    };
+
+    let detail_items: Vec<serde_json::Value> = items
+        .iter()
+        .map(|it| {
+            serde_json::json!({
+                "行号": it.line_no.to_string(),
+                "产品名称": product_map.get(&it.product_id).cloned().unwrap_or_default(),
+                "数量": fmt_qty(it.quantity),
+                "单位": it.unit.as_str(),
+                "单价": it.unit_price.to_string(),
+                "折扣率": format!("{}%", it.discount_rate),
+                "金额": it.amount.to_string(),
+            })
+        })
+        .collect();
+
+    let vars = serde_json::json!({
+        "报价单号": q.doc_number,
+        "报价日期": q.quotation_date.format("%Y-%m-%d").to_string(),
+        "有效期至": q.valid_until.format("%Y-%m-%d").to_string(),
+        "客户全称": customer_name,
+        "报价总金额": q.total_amount.to_string(),
+        "付款条款": q.payment_terms,
+        "交货条款": q.delivery_terms,
+        "报价状态": status_text,
+        "销售员": sales_rep,
+        "公司名称": "江门市艾伯特照明科技有限公司",
+        "打印时间": chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        "明细": detail_items,
+    });
+
+    let html = match param.template_id {
+        Some(tid) => print_svc.render(&mut conn, tid, vars).await?,
+        None => print_svc.render_default(&mut conn, "quotation", vars).await?,
+    };
+
+    Ok(Html(format!(
+        "{html}<script>window.onload=function(){{window.print()}}</script>"
+    )))
 }
 
 #[require_permission("SALES_ORDER", "update")]
@@ -147,6 +246,7 @@ fn quotation_detail_page(
  sales_rep_name: &str,
  product_names: &HashMap<i64, String>,
  product_codes: &HashMap<i64, String>,
+ print_templates: &[PrintTemplate],
 ) -> Markup {
  let (status_text, status_class) = status_label(q.status);
  let is_draft = q.status == QuotationStatus::Draft;
@@ -155,6 +255,8 @@ fn quotation_detail_page(
 
  html! {
     div {
+        // 隐藏 iframe：打印按钮 set src 后，print 响应自带 window.print()
+        iframe id="print-frame" class="hidden" {}
         // ── Back Link ──
         a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
             href=(format!("{}?restore=true", QuotationListPath::PATH))
@@ -168,6 +270,13 @@ fn quotation_detail_page(
                 }
             }
             div class="flex gap-3" {
+                (print_dropdown(
+                    "print-frame",
+                    &QuotationPrintPath { id: q.id }.to_string(),
+                    print_templates,
+                    &format!("{}?document_type=quotation", PrintTemplateListPath::PATH),
+                    false,
+                ))
                 @if is_draft {
                     button
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
@@ -188,10 +297,6 @@ fn quotation_detail_page(
                     { "拒绝" }
                 }
                 @if is_accepted {
-                    button
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        onclick="window.print()"
-                    { (icon::printer_icon("w-4 h-4")) "打印" }
                     a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
                         href=(format!("/admin/orders/create?from_quotation={}", q.id))
                     { (icon::arrow_right_icon("w-4 h-4")) "转销售订单" }

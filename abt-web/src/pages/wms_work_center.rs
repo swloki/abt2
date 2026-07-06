@@ -40,6 +40,9 @@ use abt_core::shared::identity::UserService;
 use crate::errors::Result;
 use abt_core::shared::types::error::DomainError;
 use crate::layout::page::admin_page;
+use abt_core::master_data::print_template::PrintTemplateService;
+use crate::components::print_dropdown::print_dropdown;
+use crate::routes::print_template::PrintTemplateListPath;
 use crate::routes::shipping::ShippingPrintPath;
 use crate::routes::wms_work_center::WmsWorkCenterPath;
 use crate::utils::fmt_qty;
@@ -509,6 +512,12 @@ async fn ship_detail_drawer_body(
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| "—".into());
 
+    let print_templates = state
+        .print_template_service()
+        .list_by_document_type(db, "delivery_note")
+        .await
+        .unwrap_or_default();
+
     let (status_text, status_cls) = picking_status_label(s.status);
 
     // ── Items table (Odoo stock.move Operations tab) ──
@@ -573,11 +582,13 @@ async fn ship_detail_drawer_body(
                     (status_text)
                 }
             }
-            button type="button"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
-                _=(format!("on click set #wc-print-frame's src to '{}'",
-                    ShippingPrintPath { id: s.id }.to_string()))
-                { (icon::printer_icon("w-3.5 h-3.5")) "打印" }
+            (print_dropdown(
+                "wc-print-frame",
+                &ShippingPrintPath { id: s.id }.to_string(),
+                &print_templates,
+                &format!("{}?document_type=delivery_note", PrintTemplateListPath::PATH),
+                true,
+            ))
         }
         // ── 发货信息 ──
         div class="mb-5" {

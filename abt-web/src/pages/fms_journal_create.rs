@@ -198,7 +198,7 @@ pub async fn create(
         .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
     Ok(axum::response::Response::builder()
-        .header("HX-Redirect", JournalListPath::PATH)
+        .header("HX-Trigger", "journalChanged")
         .body(axum::body::Body::empty())
         .unwrap())
 }

@@ -62,6 +62,7 @@ pub mod mes_exception;
 pub mod om;
 pub mod qms;
 pub mod fms;
+pub mod fms_work_center;
 pub mod excel;
 pub mod print_template;
 use axum::{Router, routing::get, middleware};
@@ -141,6 +142,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(qms::router())
                 // ── FMS (Financial Management) ──
                 .merge(fms::router())
+                .merge(fms_work_center::router())
                 // ── System Management ──
                 .merge(user::router())
                 .merge(role::router())

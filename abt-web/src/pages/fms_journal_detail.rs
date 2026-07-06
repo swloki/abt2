@@ -77,7 +77,10 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
  let (s_text, s_class) = status_text(&journal.status);
 
  let content = html! {
-    div {
+    div id="journal-detail-card"
+        hx-get=(JournalDetailPath { id: path.id }.to_string())
+        hx-trigger="journalChanged from:body"
+        hx-target="this" hx-select="#journal-detail-card" hx-swap="outerHTML" {
         div class="flex items-center justify-between mb-6" {
             div class="flex items-center justify-between mb-6" {
                 a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
@@ -157,6 +160,7 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
             div class="flex gap-3 mt-5" {
                 a   class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
                     hx-post=(JournalConfirmPath { id: path.id }.to_string())
+                    hx-swap="none"
                 { "确认" }
             }
         }
@@ -185,6 +189,5 @@ pub async fn confirm(path: JournalConfirmPath, ctx: RequestContext) -> Result<im
  svc.confirm(&service_ctx, &mut tx, path.id, None).await?;
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let redirect = JournalDetailPath { id: path.id }.to_string();
- Ok(([("HX-Redirect", redirect)], Html(String::new())))
+ Ok(([("HX-Trigger", "journalChanged")], Html(String::new())))
 }

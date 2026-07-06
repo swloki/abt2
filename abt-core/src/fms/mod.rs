@@ -5,4 +5,5 @@ pub mod ar_ap;
 pub mod cash_journal;
 pub mod cost_accounting;
 pub mod enums;
+pub mod work_center;
 pub mod write_off;

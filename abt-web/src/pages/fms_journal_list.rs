@@ -296,7 +296,10 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
 
 fn journal_data_card(result: &PaginatedResult<CashJournal>, _params: &JournalQueryParams, counterparty_names: &HashMap<(CounterpartyType, i64), String>) -> Markup {
  html! {
-    div class="data-card" id="journal-data-card" {
+    div class="data-card" id="journal-data-card"
+        hx-get=(JournalListPath::PATH)
+        hx-trigger="journalChanged from:body"
+        hx-target="this" hx-select="#journal-data-card" hx-swap="outerHTML" {
         div class="overflow-x-auto" {
             table class="data-table" {
                 thead {

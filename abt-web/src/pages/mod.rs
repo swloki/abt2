@@ -153,19 +153,15 @@ pub mod qms_rma_list;
 pub mod qms_rma_create;
 pub mod qms_rma_detail;
 // ── FMS (Financial Management) ──
-pub mod fms_dashboard;
+pub mod fms_work_center;
 pub mod fms_journal_list;
 pub mod fms_journal_detail;
 pub mod fms_journal_create;
 pub mod fms_writeoff_list;
 pub mod fms_cost_analysis;
-pub mod fms_ar_ledger;
-pub mod fms_ap_ledger;
 pub mod fms_ar_aging;
 pub mod fms_ap_aging;
-pub mod fms_settlement;
 pub mod fms_adjustment_create;
-pub mod fms_adjustment_list;
 // ── Print Templates ──
 pub mod print_template_list;
 pub mod print_template_edit;

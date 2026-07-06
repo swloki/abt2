@@ -15,9 +15,9 @@ use crate::components::entity_picker::EntityPickerConfig;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::fms::{
-    AdjustmentBalancePath, ApAdjustmentCreatePath, ApAdjustmentListPath, ArAdjustmentCreatePath,
-    ArAdjustmentListPath, JournalSearchCpPath,
+    AdjustmentBalancePath, ApAdjustmentCreatePath, ArAdjustmentCreatePath, JournalSearchCpPath,
 };
+use crate::routes::fms_work_center::FmsWorkCenterPath;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -115,7 +115,7 @@ async fn render_create_page(
         match party_type {
             CounterpartyType::Customer => (
                 "新建应收调整",
-                ArAdjustmentListPath::PATH,
+                FmsWorkCenterPath::PATH,
                 ArAdjustmentCreatePath::PATH,
                 "客户",
                 "选择客户",
@@ -124,7 +124,7 @@ async fn render_create_page(
             ),
             _ => (
                 "新建应付调整",
-                ApAdjustmentListPath::PATH,
+                FmsWorkCenterPath::PATH,
                 ApAdjustmentCreatePath::PATH,
                 "供应商",
                 "选择供应商",
@@ -156,9 +156,10 @@ fn adjustment_create_page(
     placeholder: &str,
     balance_label: &str,
 ) -> Markup {
-    let (back_list, create_path) = match party_type {
-        CounterpartyType::Customer => (ArAdjustmentListPath::PATH, ArAdjustmentCreatePath::PATH),
-        _ => (ApAdjustmentListPath::PATH, ApAdjustmentCreatePath::PATH),
+    let back_list = FmsWorkCenterPath::PATH;
+    let create_path = match party_type {
+        CounterpartyType::Customer => ArAdjustmentCreatePath::PATH,
+        _ => ApAdjustmentCreatePath::PATH,
     };
     let cp_type_val: i16 = match party_type {
         CounterpartyType::Customer => 1,
@@ -180,7 +181,7 @@ fn adjustment_create_page(
 
     html! {
         div {
-            a href=(format!("{}?restore=true", back_list))
+            a href=(back_list)
                 class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg mb-4"
             { (icon::chevron_left_icon("w-4 h-4")) "返回列表" }
             h1 class="text-xl font-bold text-fg tracking-tight mb-6" {
@@ -311,7 +312,7 @@ fn adjustment_create_page(
         div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
         {
             a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface text-sm font-medium cursor-pointer"
-                href=(format!("{}?restore=true", back_list))
+                href=(back_list)
             { "取消" }
             button type="button"
                 class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on text-sm font-medium cursor-pointer"
@@ -359,7 +360,7 @@ pub async fn create_ar(
     ctx: RequestContext,
     axum::Form(form): axum::Form<AdjustmentCreateForm>,
 ) -> Result<axum::response::Response> {
-    do_create(ctx, form, CounterpartyType::Customer, ArAdjustmentListPath::PATH).await
+    do_create(ctx, form, CounterpartyType::Customer, true).await
 }
 
 #[require_permission("FMS", "create")]
@@ -368,16 +369,20 @@ pub async fn create_ap(
     ctx: RequestContext,
     axum::Form(form): axum::Form<AdjustmentCreateForm>,
 ) -> Result<axum::response::Response> {
-    do_create(ctx, form, CounterpartyType::Supplier, ApAdjustmentListPath::PATH).await
+    do_create(ctx, form, CounterpartyType::Supplier, false).await
 }
 
 async fn do_create(
     ctx: RequestContext,
     form: AdjustmentCreateForm,
     party_type: CounterpartyType,
-    redirect_path: &'static str,
+    is_receivable: bool,
 ) -> Result<axum::response::Response> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext {
+        state,
+        service_ctx,
+        ..
+    } = ctx;
 
     if form.party_id <= 0 {
         return Err(abt_core::shared::types::DomainError::Validation("请选择往来方".into()).into());
@@ -417,11 +422,24 @@ async fn do_create(
         exchange_rate,
     };
 
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
     let svc = state.adjustment_service();
-    svc.create_adjustment(&service_ctx, &mut conn, req).await?;
+    svc.create_adjustment(&service_ctx, &mut tx, req).await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
 
+    let event = if is_receivable {
+        "arAdjustmentChanged"
+    } else {
+        "apAdjustmentChanged"
+    };
     Ok(axum::response::Response::builder()
-        .header("HX-Redirect", redirect_path)
+        .header("HX-Trigger", event)
         .body(axum::body::Body::empty())
         .unwrap())
 }

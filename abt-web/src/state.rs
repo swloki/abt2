@@ -2,6 +2,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
 use crate::config::Config;
+use abt_core::fms::work_center::FmsWorkCenterSummary;
 use abt_core::purchase::work_center::PurchaseWorkCenterSummary;
 use abt_core::shared::identity::RolePermissionCache;
 use abt_core::shared::types::{PgPool, PgPoolOptions};
@@ -57,6 +58,9 @@ pub struct AppState {
     /// 采购作业中心 summary 缓存：首次/失效时算一次（并行 ~30ms），后续读缓存（0 查询）；
     /// 写操作（审批/驳回/对账/付款/转单）commit 后 invalidate。TTL 30s 兜底（防遗漏 invalidate）。
     pub purchase_summary_cache: Arc<RwLock<Option<(Instant, PurchaseWorkCenterSummary)>>>,
+    /// 财务作业中心 summary 缓存：首次/失效时算一次（并行 ~30ms），后续读缓存（0 查询）；
+    /// 写操作（登记收付款 / 确认 / 核销 / 调整）commit 后 invalidate。TTL 30s 兜底。
+    pub fms_summary_cache: Arc<RwLock<Option<(Instant, FmsWorkCenterSummary)>>>,
 }
 
 impl AppState {
@@ -177,6 +181,7 @@ impl AppState {
             next_task_id: Arc::new(AtomicI64::new(1)),
             import_semaphore: Arc::new(Semaphore::new(5)),
             purchase_summary_cache: Arc::new(RwLock::new(None)),
+            fms_summary_cache: Arc::new(RwLock::new(None)),
         })
     }
 
@@ -221,6 +226,12 @@ impl AppState {
         &self,
     ) -> impl abt_core::purchase::work_center::PurchaseWorkCenterService {
         abt_core::purchase::work_center::new_purchase_work_center_service(self.pool.clone())
+    }
+
+    pub fn fms_work_center_service(
+        &self,
+    ) -> impl abt_core::fms::work_center::FmsWorkCenterService {
+        abt_core::fms::work_center::new_fms_work_center_service(self.pool.clone())
     }
 
     // ── WMS (Inventory Management) Services ──
@@ -615,5 +626,6 @@ impl AppState {
         next_task_id: Arc::new(AtomicI64::new(1)),
         import_semaphore: Arc::new(Semaphore::new(5)),
         purchase_summary_cache: Arc::new(RwLock::new(None)),
+        fms_summary_cache: Arc::new(RwLock::new(None)),
     }
 }}

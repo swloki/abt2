@@ -160,7 +160,6 @@ pub mod fms_journal_create;
 pub mod fms_cost_analysis;
 pub mod fms_ar_aging;
 pub mod fms_ap_aging;
-pub mod fms_adjustment_create;
 // ── Print Templates ──
 pub mod print_template_list;
 pub mod print_template_edit;

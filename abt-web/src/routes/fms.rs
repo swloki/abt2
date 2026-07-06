@@ -34,19 +34,6 @@ pub struct JournalConfirmPath {
 #[typed_path("/admin/fms/cost-analysis")]
 pub struct CostAnalysisPath;
 
-// AR/AP Adjustment
-#[derive(TypedPath, Deserialize, Serialize, Clone)]
-#[typed_path("/admin/fms/ar-adjustments/create")]
-pub struct ArAdjustmentCreatePath;
-
-#[derive(TypedPath, Deserialize, Serialize, Clone)]
-#[typed_path("/admin/fms/ap-adjustments/create")]
-pub struct ApAdjustmentCreatePath;
-
-#[derive(TypedPath, Deserialize, Serialize, Clone)]
-#[typed_path("/admin/fms/adjustments/balance")]
-pub struct AdjustmentBalancePath;
-
 // AR/AP Aging
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/ar-aging")]
@@ -80,10 +67,6 @@ pub fn router() -> Router<AppState> {
         .route(JournalSearchAccountPath::PATH, get(crate::pages::fms_journal_create::search_account))
         // Cost Analysis
         .route(CostAnalysisPath::PATH, get(crate::pages::fms_cost_analysis::get_page))
-        // AR/AP Adjustment
-        .route(ArAdjustmentCreatePath::PATH, get(crate::pages::fms_adjustment_create::get_ar_create).post(crate::pages::fms_adjustment_create::create_ar))
-        .route(ApAdjustmentCreatePath::PATH, get(crate::pages::fms_adjustment_create::get_ap_create).post(crate::pages::fms_adjustment_create::create_ap))
-        .route(AdjustmentBalancePath::PATH, get(crate::pages::fms_adjustment_create::get_balance))
         // AR/AP Aging
         .route(ArAgingPath::PATH, get(crate::pages::fms_ar_aging::get_page))
         .route(ApAgingPath::PATH, get(crate::pages::fms_ap_aging::get_page))

@@ -78,12 +78,26 @@ pub struct FcJournalPaymentPath {
 pub struct FcSettlePath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-// 路径用 /unsettle/{id} 而非 /settlements/{id}/unsettle —— 后者与 /settlements/settle
-// 同层静动态混用，触发 axum matchit 路由冲突（静默 404）。见 reference-axum-matchit-route-conflict
 #[typed_path("/admin/fms/work-center/unsettle/{id}")]
 pub struct FcSettlementUnsettlePath {
     pub id: i64,
 }
+
+// ── 调整创建 drawer（#190：a href 改 drawer 就地操作）──
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/fms/work-center/adjustment/{party_type}/drawer")]
+pub struct FcAdjustmentDrawerPath {
+    pub party_type: i16,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/fms/work-center/adjustment/create")]
+pub struct FcAdjustmentCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/fms/work-center/adjustment/balance")]
+pub struct FcAdjustmentBalancePath;
 
 // ── Router ──
 
@@ -127,6 +141,14 @@ pub fn router() -> Router<AppState> {
             FcSettleDrawerPath::PATH,
             get(fms_work_center::get_settle_drawer),
         )
+        .route(
+            FcAdjustmentDrawerPath::PATH,
+            get(fms_work_center::get_adjustment_drawer),
+        )
+        .route(
+            FcAdjustmentBalancePath::PATH,
+            get(fms_work_center::get_adjustment_balance),
+        )
         // 写操作（POST）
         .route(
             FcJournalReceiptPath::PATH,
@@ -140,5 +162,9 @@ pub fn router() -> Router<AppState> {
         .route(
             FcSettlementUnsettlePath::PATH,
             post(fms_work_center::unsettle),
+        )
+        .route(
+            FcAdjustmentCreatePath::PATH,
+            post(fms_work_center::create_adjustment),
         )
 }

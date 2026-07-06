@@ -12,12 +12,13 @@ use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use chrono::NaiveDate;
-use maud::{html, Markup};
+use maud::{html, Markup, PreEscaped};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
 use abt_core::fms::adjustment::{
-    AdjustmentDirection, AdjustmentFilter, AdjustmentRow, AdjustmentService,
+    model::CreateAdjustmentReq, AdjustmentDirection, AdjustmentFilter, AdjustmentRow,
+    AdjustmentService,
 };
 use abt_core::fms::ar_ap::{
     ArApLedgerFilter, ArApLedgerRow, ArApService, ArApSettlement, LedgerDetailItem, LedgerSummary,
@@ -33,9 +34,11 @@ use abt_core::shared::types::{PageParams, PgExecutor};
 
 use std::time::Instant;
 
-use crate::components::icon;
+use crate::components::{entity_picker, icon};
+use crate::components::entity_picker::EntityPickerConfig;
 use crate::components::overlay::drawer_shell;
 use crate::components::pagination::pagination;
+use crate::routes::fms::JournalSearchCpPath;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::fms_work_center::*;
@@ -88,6 +91,7 @@ pub async fn get_work_center(_path: FmsWorkCenterPath, ctx: RequestContext) -> R
         (render_drawer_overlay("fc-payment-overlay", "fc-payment-drawer", "fc-payment-drawer-body", "登记付款", "w-[520px] max-w-[92vw]"))
         (render_drawer_overlay("fc-settle-overlay", "fc-settle-drawer", "fc-settle-drawer-body", "手动核销", "w-[680px] max-w-[94vw]"))
         (render_drawer_overlay("fc-ledger-detail-overlay", "fc-ledger-detail-drawer", "fc-ledger-detail-drawer-body", "台账明细", "w-[760px] max-w-[94vw]"))
+        (render_drawer_overlay("fc-adjustment-overlay", "fc-adjustment-drawer", "fc-adjustment-drawer-body", "新建调整", "w-[560px] max-w-[92vw]"))
     };
 
     let page_html = admin_page(
@@ -274,11 +278,6 @@ async fn adjustments_card(
     } = ctx;
     let summary = cached_summary(&state, &service_ctx, &mut conn).await;
     let page = p.page.unwrap_or(1);
-    let create_path = if party_type == CounterpartyType::Customer {
-        crate::routes::fms::ArAdjustmentCreatePath::PATH
-    } else {
-        crate::routes::fms::ApAdjustmentCreatePath::PATH
-    };
     let result = state
         .adjustment_service()
         .list_adjustments(
@@ -301,7 +300,7 @@ async fn adjustments_card(
                 hx-include="#fc-filter-form"
                 hx-target="this" hx-select="#fc-card" hx-swap="outerHTML" {
                 (fc_tab_bar(active, &summary))
-                (adjustments_filter_bar(path, p.keyword.as_deref(), create_path))
+                (adjustments_filter_bar(path, p.keyword.as_deref(), party_type))
                 (adjustments_table(&result.items))
                 (pagination(path, "#fc-card", "#fc-filter-form", result.total, result.page, result.total_pages))
             }
@@ -552,9 +551,14 @@ fn ledger_filter_bar(
     }
 }
 
-/// 应收/应付调整筛选栏：往来方搜索 + 新建调整入口（按钮在 form 外，避免触发筛选 submit）。
-fn adjustments_filter_bar(path: &str, keyword: Option<&str>, create_path: &str) -> Markup {
+/// 应收/应付调整筛选栏：往来方搜索 + 新建调整 drawer 入口。
+fn adjustments_filter_bar(path: &str, keyword: Option<&str>, party_type: CounterpartyType) -> Markup {
     let kw = keyword.unwrap_or("");
+    let cp_val: i16 = match party_type {
+        CounterpartyType::Customer => 1,
+        _ => 2,
+    };
+    let drawer_url = FcAdjustmentDrawerPath { party_type: cp_val }.to_string();
     html! {
         div class="flex items-center gap-2 px-5 py-2.5 border-b border-border-soft flex-wrap" {
             form id="fc-filter-form" class="flex items-center gap-2 flex-1"
@@ -565,8 +569,11 @@ fn adjustments_filter_bar(path: &str, keyword: Option<&str>, create_path: &str) 
                 input type="text" name="keyword" value=(kw) placeholder="搜往来方名称"
                     class="fc-search-input flex-1 max-w-[260px] px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent";
             }
-            a href=(create_path)
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-accent text-accent-on text-xs font-medium border-none cursor-pointer hover:bg-accent-hover shrink-0 no-underline" {
+            button type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-accent text-accent-on text-xs font-medium border-none cursor-pointer hover:bg-accent-hover shrink-0"
+                hx-get=(drawer_url)
+                hx-target="#fc-adjustment-drawer-body" hx-swap="innerHTML"
+                _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #fc-adjustment-overlay" {
                 (icon::plus_icon("w-3.5 h-3.5")) "新建调整"
             }
         }
@@ -1273,6 +1280,306 @@ pub async fn unsettle(
         .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
     invalidate_fms_summary(&state);
     Ok(([("HX-Trigger", "settlementChanged")], Html(String::new())))
+}
+
+// =============================================================================
+// 调整创建 drawer（#190：a href 改 drawer 就地操作）
+// =============================================================================
+
+/// GET：加载调整创建表单到 drawer body。
+#[require_permission("FMS", "read")]
+pub async fn get_adjustment_drawer(
+    path: FcAdjustmentDrawerPath,
+    _ctx: RequestContext,
+) -> Result<Html<String>> {
+    let party_type = CounterpartyType::from_i16(path.party_type)
+        .unwrap_or(CounterpartyType::Customer);
+    Ok(Html(render_adjustment_drawer_body(party_type).into_string()))
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct AdjCreateForm {
+    pub counterparty_type: i16,
+    pub party_id: i64,
+    pub direction: i16,
+    pub amount: String,
+    pub currency: String,
+    pub exchange_rate: String,
+    pub adjustment_date: String,
+    #[serde(default)]
+    pub int_order_no: Option<String>,
+    #[serde(default)]
+    pub ext_order_no: Option<String>,
+    #[serde(default)]
+    pub description: String,
+}
+
+/// POST：创建调整（事务 + 广播事件 + 空 body 关 drawer）。
+#[require_permission("FMS", "create")]
+pub async fn create_adjustment(
+    _path: FcAdjustmentCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<AdjCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+
+    let party_type = CounterpartyType::from_i16(form.counterparty_type)
+        .ok_or_else(|| abt_core::shared::types::DomainError::Validation("无效往来方类型".into()))?;
+    if form.party_id <= 0 {
+        return Err(abt_core::shared::types::DomainError::Validation("请选择往来方".into()).into());
+    }
+    let direction = AdjustmentDirection::from_i16(form.direction)
+        .ok_or_else(|| abt_core::shared::types::DomainError::Validation("无效调整方向".into()))?;
+    let amount = rust_decimal::Decimal::from_str_exact(&form.amount)
+        .map_err(|_| abt_core::shared::types::DomainError::Validation("无效金额".into()))?;
+    let adjustment_date = chrono::NaiveDate::parse_from_str(&form.adjustment_date, "%Y-%m-%d")
+        .map_err(|_| abt_core::shared::types::DomainError::Validation("无效调整日期".into()))?;
+    let period = form
+        .adjustment_date
+        .get(..7)
+        .unwrap_or(&form.adjustment_date)
+        .to_string();
+
+    let currency = form.currency.trim().to_uppercase();
+    let exchange_rate = if currency == "CNY" {
+        rust_decimal::Decimal::ONE
+    } else {
+        rust_decimal::Decimal::from_str_exact(form.exchange_rate.trim())
+            .map_err(|_| abt_core::shared::types::DomainError::Validation("无效汇率".into()))?
+    };
+
+    let req = CreateAdjustmentReq {
+        party_type,
+        party_id: form.party_id,
+        direction,
+        amount,
+        adjustment_date,
+        period,
+        int_order_no: form.int_order_no.filter(|s| !s.is_empty()),
+        ext_order_no: form.ext_order_no.filter(|s| !s.is_empty()),
+        description: form.description,
+        currency,
+        exchange_rate,
+    };
+
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+    state
+        .adjustment_service()
+        .create_adjustment(&service_ctx, &mut tx, req)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+
+    let event = if party_type == CounterpartyType::Customer {
+        "arAdjustmentChanged"
+    } else {
+        "apAdjustmentChanged"
+    };
+    invalidate_fms_summary(&state);
+    Ok(([("HX-Trigger", event)], Html(String::new())))
+}
+
+/// 调整创建表单 body（照搬 fms_adjustment_create.rs 表单，去掉 admin_page 壳）。
+fn render_adjustment_drawer_body(party_type: CounterpartyType) -> Markup {
+    let (cp_label, picker_title, placeholder, balance_label) = match party_type {
+        CounterpartyType::Customer => ("客户", "选择客户", "搜索选择客户…", "应收金额"),
+        _ => ("供应商", "选择供应商", "搜索选择供应商…", "应付金额"),
+    };
+    let cp_type_val: i16 = match party_type {
+        CounterpartyType::Customer => 1,
+        _ => 2,
+    };
+
+    let cp_picker = EntityPickerConfig {
+        modal_id: "fc-adj-cp-picker",
+        title: picker_title,
+        search_label: "关键词",
+        search_placeholder: "搜索名称或编码…",
+        search_path: JournalSearchCpPath::PATH,
+        search_param: "q",
+        target_id: "fc-adj-party-id",
+        display_id: "fc-adj-party-display",
+        event_name: "fcAdjCpSelected",
+        extra_include: Some("#fc-adj-cp-type"),
+    };
+
+    html! {
+        div class="space-y-3" {
+            form id="fc-adjustment-create-form"
+                hx-post=(FcAdjustmentCreatePath::PATH)
+                hx-target="this" hx-swap="none"
+                _=(format!("on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #fc-adjustment-overlay then call showToast('已创建{adj_label}调整')", adj_label = if party_type == CounterpartyType::Customer { "应收" } else { "应付" })) {
+                input type="hidden" id="fc-adj-cp-type" name="counterparty_type" value=(cp_type_val);
+
+                // 往来方 + 余额
+                div class="grid grid-cols-2 gap-4" {
+                    div {
+                        label class="block text-xs font-medium text-fg-2 mb-1" {
+                            (cp_label) " " span class="text-danger" { "*" }
+                        }
+                        (entity_picker::entity_picker_field(
+                            "party_id", "fc-adj-party-id", "fc-adj-party-display", "fc-adj-cp-picker",
+                            &format!("{cp_label} "), true, placeholder,
+                        ))
+                    }
+                    div class="mb-4" {
+                        label class="block text-xs text-muted font-medium mb-1.5" { (balance_label) }
+                        div id="fc-adj-balance"
+                            class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg font-mono tabular-nums"
+                            hx-get=(FcAdjustmentBalancePath::PATH)
+                            hx-trigger="fcAdjCpSelected from:body"
+                            hx-target="this"
+                            hx-swap="innerHTML"
+                            hx-include="#fc-adj-party-id"
+                            hx-vals=(format!("{{\"party_type\":\"{cp_type_val}\"}}")) {
+                            div class="text-sm text-muted" { "请先选择" (cp_label) }
+                        }
+                    }
+                }
+                // 方向 + 金额 + 币种
+                div class="grid grid-cols-2 gap-4" {
+                    div class="mb-4" {
+                        label class="block text-xs text-muted font-medium mb-1.5" {
+                            "调整方向 " span class="text-danger" { "*" }
+                        }
+                        select name="direction" required
+                            class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {
+                            option value="" disabled selected { "请选择" }
+                            option value="1" { "增加" }
+                            option value="2" { "减少" }
+                        }
+                    }
+                    div class="mb-4" {
+                        label class="block text-xs text-muted font-medium mb-1.5" {
+                            "调整金额(含税) " span class="text-danger" { "*" }
+                        }
+                        div class="flex gap-2" {
+                            input type="number" step="any" name="amount" id="fc-adj-amount" required
+                                class="flex-1 min-w-0 px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono text-right"
+                                placeholder="0.00" _="on input call fcAdjCalcCny()";
+                            select name="currency" id="fc-adj-currency"
+                                class="!w-24 shrink-0 px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                                _="on change call fcAdjUpdateRate() then call fcAdjCalcCny()" {
+                                option value="CNY" selected { "CNY ¥" }
+                                option value="USD" { "USD $" }
+                                option value="EUR" { "EUR €" }
+                                option value="HKD" { "HKD HK$" }
+                            }
+                        }
+                    }
+                }
+                // 汇率 + 折合人民币 + 调整日期 + 调整单号
+                div class="grid grid-cols-2 gap-4" {
+                    div class="mb-4" {
+                        label class="block text-xs text-muted font-medium mb-1.5" { "汇率" }
+                        input type="number" step="any" min="0" name="exchange_rate" id="fc-adj-exg-rate"
+                            value="1" readonly
+                            class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-surface text-fg-2 font-mono text-right outline-none"
+                            _="on input call fcAdjCalcCny()";
+                    }
+                    div id="fc-adj-amount-cny"
+                        class="flex-1 min-w-0 px-2.5 py-1.5 border border-border-soft rounded-sm text-sm bg-surface text-fg font-mono text-right flex items-center" {
+                        "¥0.00"
+                    }
+                    div class="mb-4" {
+                        label class="block text-xs text-muted font-medium mb-1.5" {
+                            "调整日期 " span class="text-danger" { "*" }
+                        }
+                        input type="date" name="adjustment_date" required
+                            class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent";
+                    }
+                    div class="mb-4" {
+                        label class="block text-xs text-muted font-medium mb-1.5" { "调整单号" }
+                        input type="text" disabled value="系统自动生成"
+                            class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-surface text-muted cursor-not-allowed";
+                    }
+                }
+                // 内部订单号 + 外部订单号
+                div class="grid grid-cols-2 gap-4" {
+                    div class="mb-4" {
+                        label class="block text-xs text-muted font-medium mb-1.5" { "内部订单号" }
+                        input type="text" name="int_order_no"
+                            class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                            placeholder="可选";
+                    }
+                    div class="mb-4" {
+                        label class="block text-xs text-muted font-medium mb-1.5" {
+                            (cp_label) "订单号"
+                        }
+                        input type="text" name="ext_order_no"
+                            class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                            placeholder="可选";
+                    }
+                }
+                // 简要说明
+                div class="mb-4" {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "简要说明" }
+                    textarea name="description" rows="2"
+                        class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent resize-y"
+                        placeholder="如：坏账核销 / 折扣 / 抹零 / 错误更正…" {}
+                }
+            }
+            (entity_picker::entity_picker_modal(&cp_picker))
+            // 底部操作栏
+            div class="flex justify-end gap-2 pt-3 border-t border-border-soft" {
+                button type="button"
+                    class="inline-flex items-center px-4 py-2 rounded-sm bg-white text-muted border border-border text-sm font-medium cursor-pointer hover:bg-surface"
+                    _="on click remove .open from #fc-adjustment-overlay" {
+                    "取消"
+                }
+                button type="button"
+                    class="inline-flex items-center px-4 py-2 rounded-sm bg-accent text-white text-sm font-semibold border-none cursor-pointer hover:opacity-90"
+                    _="on click trigger submit on #fc-adjustment-create-form" {
+                    "提交"
+                }
+            }
+            // ── 多币种折算 JS ──
+            (PreEscaped(r#"<script>
+function fcAdjUpdateRate(){var c=document.getElementById('fc-adj-currency').value;var r=document.getElementById('fc-adj-exg-rate');if(!r)return;if(c==='CNY'){r.value='1';r.readOnly=true;r.classList.add('bg-surface','text-fg-2');r.classList.remove('bg-white','text-fg');}else{r.readOnly=false;r.classList.remove('bg-surface','text-fg-2');r.classList.add('bg-white','text-fg');}}
+function fcAdjCalcCny(){var a=parseFloat(document.getElementById('fc-adj-amount').value)||0;var r=parseFloat(document.getElementById('fc-adj-exg-rate').value)||0;var b=document.getElementById('fc-adj-amount-cny');if(b)b.textContent='¥'+(a*r).toFixed(2);}
+fcAdjUpdateRate();fcAdjCalcCny();
+</script>"#))
+        }
+    }
+}
+
+// =============================================================================
+// 调整 drawer — 余额查询
+// =============================================================================
+
+/// 选往来方后 htmx 加载该方余额（从 fms_adjustment_create 迁入）。
+#[derive(Debug, Deserialize)]
+pub(crate) struct AdjBalanceQuery {
+    pub party_type: i16,
+    pub party_id: i64,
+}
+
+#[require_permission("FMS", "read")]
+pub async fn get_adjustment_balance(
+    _path: FcAdjustmentBalancePath,
+    ctx: RequestContext,
+    Query(q): Query<AdjBalanceQuery>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let party_type = CounterpartyType::from_i16(q.party_type)
+        .ok_or_else(|| abt_core::shared::types::DomainError::Validation("无效往来方类型".into()))?;
+    let balance = state.ar_ap_service()
+        .get_party_balance(&service_ctx, &mut conn, party_type, q.party_id).await.ok();
+    let (amount, label) = match (&balance, party_type) {
+        (Some(b), CounterpartyType::Customer) => (b.total_ar, "当前应收余额"),
+        (Some(b), _) => (b.total_ap, "当前应付余额"),
+        _ => return Ok(Html("<div class='text-sm text-muted'>无法获取余额</div>".to_string())),
+    };
+    Ok(Html(format!("<div class='text-2xl font-bold font-mono tabular-nums text-fg'>¥{amount:.2}</div><div class='text-xs text-muted mt-1'>{label}</div>")))
 }
 
 // =============================================================================

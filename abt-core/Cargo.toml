@@ -40,3 +40,6 @@ uuid = { version = "1", features = ["v4", "serde"] }
 # Excel
 calamine = { workspace = true }
 rust_xlsxwriter = { workspace = true }
+
+# Templating — 打印模板用 minijinja (Jinja2 语法)；unicode feature 支持中文变量名
+minijinja = { version = "2.18.0", features = ["unicode"] }

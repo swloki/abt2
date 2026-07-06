@@ -166,3 +166,6 @@ pub mod fms_ap_aging;
 pub mod fms_settlement;
 pub mod fms_adjustment_create;
 pub mod fms_adjustment_list;
+// ── Print Templates ──
+pub mod print_template_list;
+pub mod print_template_edit;

@@ -126,6 +126,8 @@
 --container-xl: 36rem;
 --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 --container-md: 28rem;
+--colors-red-500: oklch(63.7% 0.237 25.331);
+--colors-red-600: oklch(57.7% 0.245 27.325);
 --colors-purple-600: oklch(55.8% 0.288 302.321);
 --colors-indigo-500: oklch(58.5% 0.233 277.117);
 --colors-cyan-500: oklch(71.5% 0.143 215.221);
@@ -876,6 +878,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .text-fg{color:color-mix(in srgb, var(--fg) var(--un-text-opacity), transparent) /* var(--fg) */;}
 .icon\:text-muted [class*=i-lucide],
 .text-muted{color:color-mix(in srgb, var(--muted) var(--un-text-opacity), transparent) /* var(--muted) */;}
+.text-\[\#cdd6f4\]{color:color-mix(in oklab, #cdd6f4 var(--un-text-opacity), transparent) /* #cdd6f4 */;}
 .text-\[rgba\(255\,255\,255\,0\.4\)\]{color:color-mix(in oklab, rgba(255,255,255,0.4) var(--un-text-opacity), transparent) /* rgba(255,255,255,0.4) */;}
 .text-\[rgba\(255\,255\,255\,0\.7\)\]{color:color-mix(in oklab, rgba(255,255,255,0.7) var(--un-text-opacity), transparent) /* rgba(255,255,255,0.7) */;}
 .text-\[rgba\(255\,255\,255\,0\.9\)\]{color:color-mix(in oklab, rgba(255,255,255,0.9) var(--un-text-opacity), transparent) /* rgba(255,255,255,0.9) */;}
@@ -893,6 +896,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .text-purple{color:color-mix(in srgb, var(--purple) var(--un-text-opacity), transparent) /* var(--purple) */;}
 .text-purple-600{color:color-mix(in srgb, var(--colors-purple-600) var(--un-text-opacity), transparent) /* oklch(55.8% 0.288 302.321) */;}
 .text-purple-700{color:color-mix(in srgb, var(--purple-700) var(--un-text-opacity), transparent) /* var(--purple-700) */;}
+.text-red-500{color:color-mix(in srgb, var(--colors-red-500) var(--un-text-opacity), transparent) /* oklch(63.7% 0.237 25.331) */;}
 .text-slate-400{color:color-mix(in srgb, var(--slate-400) var(--un-text-opacity), transparent) /* var(--slate-400) */;}
 .text-slate-500{color:color-mix(in srgb, var(--slate-500) var(--un-text-opacity), transparent) /* var(--slate-500) */;}
 .text-slate-700{color:color-mix(in srgb, var(--slate-700) var(--un-text-opacity), transparent) /* var(--slate-700) */;}
@@ -914,6 +918,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:text-accent:hover{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
 .hover\:text-danger:hover{color:color-mix(in srgb, var(--danger) var(--un-text-opacity), transparent) /* var(--danger) */;}
 .hover\:text-fg:hover{color:color-mix(in srgb, var(--fg) var(--un-text-opacity), transparent) /* var(--fg) */;}
+.hover\:text-red-600:hover{color:color-mix(in srgb, var(--colors-red-600) var(--un-text-opacity), transparent) /* oklch(57.7% 0.245 27.325) */;}
 .hover\:text-warn:hover{color:color-mix(in srgb, var(--warn) var(--un-text-opacity), transparent) /* var(--warn) */;}
 .hover\:text-white:hover{color:color-mix(in srgb, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .hover\:text-white\/60:hover{color:color-mix(in srgb, var(--colors-white) 60%, transparent) /* #fff */;}
@@ -965,6 +970,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .mb-10{margin-bottom:calc(var(--spacing) * 10);}
 .mb-12{margin-bottom:calc(var(--spacing) * 12);}
 .mb-2{margin-bottom:calc(var(--spacing) * 2);}
+.mb-2\.5{margin-bottom:calc(var(--spacing) * 2.5);}
 .mb-3{margin-bottom:calc(var(--spacing) * 3);}
 .mb-4{margin-bottom:calc(var(--spacing) * 4);}
 .mb-5{margin-bottom:calc(var(--spacing) * 5);}
@@ -1003,6 +1009,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .mt-px{margin-top:1px;}
 .first\:ml-0:first-child{margin-left:calc(var(--spacing) * 0);}
 .last\:mb-0:last-child{margin-bottom:calc(var(--spacing) * 0);}
+.\!p-0{padding:calc(var(--spacing) * 0) !important;}
 .p-\[3px\]{padding:3px;}
 .p-0{padding:calc(var(--spacing) * 0);}
 .p-1{padding:calc(var(--spacing) * 1);}
@@ -1016,6 +1023,9 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .p-6{padding:calc(var(--spacing) * 6);}
 .p-7{padding:calc(var(--spacing) * 7);}
 .p-8{padding:calc(var(--spacing) * 8);}
+.\[\&_input\,\&_select\,\&_textarea\]\:py-1\.5 input,.\[\&_input\,\&_select\,\&_textarea\]\:py-1\.5 select,.\[\&_input\,\&_select\,\&_textarea\]\:py-1\.5 textarea,
+.\[\&_input\,\&_select\]\:py-1\.5 input,.\[\&_input\,\&_select\]\:py-1\.5 select,
+.py-1\.5{padding-block:calc(var(--spacing) * 1.5);}
 .\[\&_td\]\:py-2\.5 td,
 .py-2\.5{padding-block:calc(var(--spacing) * 2.5);}
 .px,
@@ -1050,7 +1060,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .py-\[9px\]{padding-block:9px;}
 .py-0\.5{padding-block:calc(var(--spacing) * 0.5);}
 .py-1{padding-block:calc(var(--spacing) * 1);}
-.py-1\.5{padding-block:calc(var(--spacing) * 1.5);}
 .py-10{padding-block:calc(var(--spacing) * 10);}
 .py-12{padding-block:calc(var(--spacing) * 12);}
 .py-16{padding-block:calc(var(--spacing) * 16);}
@@ -1064,6 +1073,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .pb-\[6px\]{padding-bottom:6px;}
 .pb-0{padding-bottom:calc(var(--spacing) * 0);}
 .pb-1{padding-bottom:calc(var(--spacing) * 1);}
+.pb-1\.5{padding-bottom:calc(var(--spacing) * 1.5);}
 .pb-2{padding-bottom:calc(var(--spacing) * 2);}
 .pb-3{padding-bottom:calc(var(--spacing) * 3);}
 .pb-4{padding-bottom:calc(var(--spacing) * 4);}
@@ -1203,6 +1213,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .act\:bg-success.active,
 .bg-success{background-color:color-mix(in srgb, var(--success) var(--un-bg-opacity), transparent) /* var(--success) */;}
 .bg-\[\{\}\]{background-color:color-mix(in oklab, {} var(--un-bg-opacity), transparent) /* {} */;}
+.bg-\[\#1e1e2e\]{background-color:color-mix(in oklab, #1e1e2e var(--un-bg-opacity), transparent) /* #1e1e2e */;}
 .bg-\[\#ff0\]{background-color:color-mix(in oklab, #ff0 var(--un-bg-opacity), transparent) /* #ff0 */;}
 .bg-\[length\:200\%_100\%\]{background-size:200% 100%;}
 .bg-\[linear-gradient\(135deg\,\#1677ff\,\#4096ff\)\]{background-image:linear-gradient(135deg,#1677ff,#4096ff);}
@@ -1616,6 +1627,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .w-\[70px\]{width:70px;}
 .w-\[720px\]{width:720px;}
 .w-\[72px\]{width:72px;}
+.w-\[750px\]{width:750px;}
 .w-\[780px\]{width:780px;}
 .w-\[7px\]{width:7px;}
 .w-\[800px\]{width:800px;}
@@ -1697,6 +1709,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .ring-\[rgba\(37\,99\,235\,0\.1\)\]{--un-ring-color:color-mix(in oklab, rgba(37,99,235,0.1) var(--un-ring-opacity), transparent) /* rgba(37,99,235,0.1) */;}
 .ring-accent-bg{--un-ring-color:color-mix(in srgb, var(--accent-bg) var(--un-ring-opacity), transparent) /* var(--accent-bg) */;}
 .ring-bg{--un-ring-color:color-mix(in srgb, var(--bg) var(--un-ring-opacity), transparent) /* var(--bg) */;}
+.focus\:ring-accent:focus{--un-ring-color:color-mix(in srgb, var(--accent) var(--un-ring-opacity), transparent) /* var(--accent) */;}
 .act\:shadow-\[0_1px_3px_rgba\(15\,23\,42\,0\.08\)\].active{--un-shadow:0 1px 3px var(--un-shadow-color, rgba(15, 23, 42, 0.08));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .shadow-\[0_0_0_3px_rgba\(37\,99\,235\,0\.1\)\]{--un-shadow:0 0 0 3px var(--un-shadow-color, rgba(37, 99, 235, 0.1));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .shadow-\[0_12px_40px_rgba\(15\,23\,42\,0\.25\)\]{--un-shadow:0 12px 40px var(--un-shadow-color, rgba(15, 23, 42, 0.25));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
@@ -1883,6 +1896,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .\[\&_svg\]\:text-white svg{color:color-mix(in oklab, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .icon\:text-white [class*=i-lucide]{color:color-mix(in oklab, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .text-purple-600{color:color-mix(in oklab, var(--colors-purple-600) var(--un-text-opacity), transparent) /* oklch(55.8% 0.288 302.321) */;}
+.text-red-500{color:color-mix(in oklab, var(--colors-red-500) var(--un-text-opacity), transparent) /* oklch(63.7% 0.237 25.331) */;}
 .text-white{color:color-mix(in oklab, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .text-white\/25{color:color-mix(in oklab, var(--colors-white) 25%, transparent) /* #fff */;}
 .text-white\/40{color:color-mix(in oklab, var(--colors-white) 40%, transparent) /* #fff */;}
@@ -1891,6 +1905,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .text-white\/70{color:color-mix(in oklab, var(--colors-white) 70%, transparent) /* #fff */;}
 .text-white\/85{color:color-mix(in oklab, var(--colors-white) 85%, transparent) /* #fff */;}
 .text-white\/90{color:color-mix(in oklab, var(--colors-white) 90%, transparent) /* #fff */;}
+.hover\:text-red-600:hover{color:color-mix(in oklab, var(--colors-red-600) var(--un-text-opacity), transparent) /* oklch(57.7% 0.245 27.325) */;}
 .hover\:text-white:hover{color:color-mix(in oklab, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .hover\:text-white\/60:hover{color:color-mix(in oklab, var(--colors-white) 60%, transparent) /* #fff */;}
 .hover\:text-white\/85:hover{color:color-mix(in oklab, var(--colors-white) 85%, transparent) /* #fff */;}

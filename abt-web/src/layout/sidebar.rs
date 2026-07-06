@@ -38,6 +38,7 @@ enum NavIcon {
     Eye,
     DollarSign,
     AlertTriangle,
+    Printer,
 }
 
 struct NavItem {
@@ -317,6 +318,12 @@ fn modules() -> Vec<NavModule> {
                     icon: NavIcon::Sliders,
                     permission: Some(("ROLE", "read")),
                 },
+                NavItem {
+                    name: "打印模板",
+                    path: "/admin/system/print-templates",
+                    icon: NavIcon::Printer,
+                    permission: Some(("USER", "read")),
+                },
             ],
         },
     ]
@@ -354,6 +361,7 @@ fn render_item_icon(ni: NavIcon) -> Markup {
         NavIcon::Hammer => icon::sliders_icon(""),
         NavIcon::Eye => icon::search_icon(""),
         NavIcon::DollarSign => icon::payment_icon(""),
+        NavIcon::Printer => icon::printer_icon(""),
         NavIcon::AlertTriangle => icon::circle_alert_icon(""),
     }
 }

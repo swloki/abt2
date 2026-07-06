@@ -74,6 +74,13 @@ pub struct ShippingOrderSearchPath;
 #[typed_path("/admin/wms/shipping/order-items")]
 pub struct ShippingOrderItemsPath;
 
+/// 打印发货单：用默认 delivery_note 模板渲染真实数据
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/shipping/{id}/print")]
+pub struct ShippingPrintPath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -90,6 +97,7 @@ pub fn router() -> Router<AppState> {
         .route(ConfirmShippingPath::PATH, post(shipping_detail::confirm_shipping))
         .route(CancelShippingPath::PATH, post(shipping_detail::cancel_shipping))
         .route(ShippingFragmentPath::PATH, get(shipping_detail::get_shipping_fragment))
+        .route(ShippingPrintPath::PATH, get(shipping_detail::print_shipping))
         // 旧路径 /admin/shipping/* → /admin/wms/shipping/* 重定向（服务旧书签）
         .route(
             "/admin/shipping",

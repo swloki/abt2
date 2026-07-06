@@ -30,7 +30,6 @@ use std::collections::HashMap;
 use crate::components::icon;
 use crate::components::overlay::drawer_shell;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs_with_oob, TabItem};
 use abt_core::wms::picking::model::{PoReceiveRow, ReceivePurchaseReq, ShipRowReq};
 use abt_core::wms::inventory_transaction::{model::RecordTransactionReq, InventoryTransactionService};
 use abt_core::wms::inventory::InventoryService;
@@ -1201,21 +1200,79 @@ fn total_badge(total: u64, oob: bool) -> Markup {
     }
 }
 
-/// 6 个环节 tab 定义（label + count badge），供 status_tabs 渲染。
-fn domain_tabs(summary: &WorkCenterSummary) -> [TabItem; 6] {
-    [
-        (WorkCenterDomain::Arrival, "arrival", "待收货"),
-        (WorkCenterDomain::Outbound, "outbound", "待出库"),
-        (WorkCenterDomain::Requisition, "requisition", "待领料"),
-        (WorkCenterDomain::Transfer, "transfer", "待调拨"),
-        (WorkCenterDomain::CycleCount, "cycle-count", "待盘点"),
-        (WorkCenterDomain::LowStock, "low-stock", "低库存"),
-    ]
-    .map(|(d, value, label)| TabItem {
-        value: value.into(),
-        label,
-        count: Some(domain_count(summary, d)),
-    })
+/// domain tab 图标（药丸按钮内，w-4 h-4；与 domain_card_head 同图标，仅尺寸不同）。
+fn domain_tab_icon(d: WorkCenterDomain) -> Markup {
+    match d {
+        WorkCenterDomain::Arrival => icon::truck_icon("w-4 h-4"),
+        WorkCenterDomain::Outbound => icon::upload_icon("w-4 h-4"),
+        WorkCenterDomain::Requisition => icon::clipboard_list_icon("w-4 h-4"),
+        WorkCenterDomain::Transfer => icon::arrow_left_right_icon("w-4 h-4"),
+        WorkCenterDomain::CycleCount => icon::clipboard_document_icon("w-4 h-4"),
+        WorkCenterDomain::LowStock => icon::info_icon("w-4 h-4"),
+    }
+}
+
+/// domain 显示名（tab 标签；与 card 头标题同语义）。
+fn domain_label(d: WorkCenterDomain) -> &'static str {
+    match d {
+        WorkCenterDomain::Arrival => "待收货",
+        WorkCenterDomain::Outbound => "待出库",
+        WorkCenterDomain::Requisition => "待领料",
+        WorkCenterDomain::Transfer => "待调拨",
+        WorkCenterDomain::CycleCount => "待盘点",
+        WorkCenterDomain::LowStock => "低库存",
+    }
+}
+
+/// domain 药丸 tab 活跃/非活跃样式（对齐 MES toggle_cls，mes_work_center.rs:540）。
+fn domain_toggle_cls(active: bool) -> &'static str {
+    if active {
+        "inline-flex items-center gap-1 px-3.5 py-1.5 text-sm text-accent font-semibold cursor-pointer bg-accent-bg rounded-sm border-none transition-colors"
+    } else {
+        "inline-flex items-center gap-1 px-3.5 py-1.5 text-sm text-muted font-medium cursor-pointer bg-transparent border-none rounded-sm hover:text-fg hover:bg-surface transition-colors"
+    }
+}
+
+/// domain tab 计数徽章（对齐 MES tab_badge，mes_work_center.rs:379）。
+fn domain_tab_badge(n: u64) -> Markup {
+    if n > 0 {
+        html! {
+            span class="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-accent text-accent-on text-[11px] font-bold font-mono tabular-nums leading-none" {
+                (n)
+            }
+        }
+    } else {
+        html! {}
+    }
+}
+
+/// 6 个环节药丸 tab 栏（对齐 MES demand_filter_bar 第一行范式，mes_work_center.rs:416）。
+/// 切 tab 强制 page=1、携带 #wc-domain-filter；整体在 #wc-domain-card 内，
+/// outerHTML 替换时 tab 栏随之刷新，无需 #status-tabs oob。
+fn render_domain_tabs(active: WorkCenterDomain, summary: &WorkCenterSummary) -> Markup {
+    const DOMAINS: [WorkCenterDomain; 6] = [
+        WorkCenterDomain::Arrival,
+        WorkCenterDomain::Outbound,
+        WorkCenterDomain::Requisition,
+        WorkCenterDomain::Transfer,
+        WorkCenterDomain::CycleCount,
+        WorkCenterDomain::LowStock,
+    ];
+    html! {
+        div class="flex items-center gap-1 flex-wrap px-5 pt-3 border-b border-border-soft" {
+            @for d in DOMAINS {
+                button class=(domain_toggle_cls(d == active)) type="button"
+                    hx-get=(WmsWorkCenterPath::PATH)
+                    hx-vals=(serde_json::json!({ "domain": domain_slug(d), "page": "1" }).to_string())
+                    hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML"
+                    hx-include="#wc-domain-filter" {
+                    (domain_tab_icon(d))
+                    (domain_label(d))
+                    (domain_tab_badge(domain_count(summary, d)))
+                }
+            }
+        }
+    }
 }
 
 /// card 头：图标（带紧急度角标）+ domain 标题 + meta（待办数 + 描述 + 紧急度），对齐
@@ -1279,19 +1336,10 @@ fn render_domain_card(
             class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
             // card 头（图标 + 紧急度角标 + domain 标题 + meta），对齐 MES render_card_shell 范式
             (domain_card_head(active, summary))
-            // tab 栏（6 环节 + 计数 badge；切 tab 强制 page=1、携带 filter）。
-            // #status-tabs 在 #wc-domain-card 内，整体 outerHTML 替换已更新 tab 栏，
-            // 故传空 hx-select-oob——若用默认 oob=#status-tabs，htmx 会把 tab 栏从主内容
-            // 抽出做 oob，target 替换后页面找不到 #status-tabs 反而消失。
-            (status_tabs_with_oob(
-                WmsWorkCenterPath::PATH,
-                "#wc-domain-card",
-                "#wc-domain-filter",
-                "",
-                &domain_tabs(summary),
-                domain_slug(active),
-                "domain",
-            ))
+            // tab 栏（6 环节药丸 button + 图标 + 实数 badge；切 tab 强制 page=1、携带 filter）。
+            // 对齐 MES 作业中心 demand_filter_bar 第一行范式（mes_work_center.rs:416）。
+            // #wc-domain-card 整体 outerHTML 替换时 tab 栏随之刷新，无需 #status-tabs oob。
+            (render_domain_tabs(active, summary))
             // 过滤表单（紧急度快捷 pill 随表单一并渲染，不再单列）
             (render_domain_filter(active, q, overdue, soon))
             // 队列表格 + 分页

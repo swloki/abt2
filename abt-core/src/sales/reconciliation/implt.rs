@@ -200,7 +200,13 @@ impl ReconciliationService for ReconciliationServiceImpl {
         let items = self.item_repo.find_by_reconciliation_id(db, id).await?;
         let period = existing.period.clone();
         let mut cost_entries = Vec::with_capacity(items.len());
+        use crate::sales::sales_order::{new_sales_order_service, service::SalesOrderService};
         for item in &items {
+            let profit_center = new_sales_order_service(self.pool.clone())
+                .find_by_id(ctx, db, item.sales_order_id)
+                .await
+                .ok()
+                .and_then(|o| o.profit_center_id);
             cost_entries.push(EntryRequest {
                 entity_type: CostEntityType::SalesOrder,
                 entity_id: item.sales_order_id,
@@ -208,7 +214,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
                 debit_amount: Decimal::ZERO,
                 credit_amount: item.amount,
                 cost_center: None,
-                profit_center: None,
+                profit_center,
                 period: period.clone(),
                 source_type: DocumentType::Reconciliation,
                 source_id: id,
@@ -324,8 +330,14 @@ impl ReconciliationService for ReconciliationServiceImpl {
         let items = self.item_repo.find_by_reconciliation_id(db, id).await?;
         let period = existing.period.clone();
         let mut cost_entries = Vec::with_capacity(items.len());
+        use crate::sales::sales_order::{new_sales_order_service, service::SalesOrderService};
         for item in &items {
             if item.confirmed {
+                let profit_center = new_sales_order_service(self.pool.clone())
+                    .find_by_id(ctx, db, item.sales_order_id)
+                    .await
+                    .ok()
+                    .and_then(|o| o.profit_center_id);
                 cost_entries.push(EntryRequest {
                     entity_type: CostEntityType::SalesOrder,
                     entity_id: item.sales_order_id,
@@ -333,7 +345,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
                     debit_amount: Decimal::ZERO,
                     credit_amount: item.amount,
                     cost_center: None,
-                    profit_center: None,
+                    profit_center,
                     period: period.clone(),
                     source_type: DocumentType::Reconciliation,
                     source_id: id,

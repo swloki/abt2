@@ -8,6 +8,7 @@ use rust_decimal::Decimal;
 use abt_core::fms::cost_accounting::{
  CostAccountingService, MarginRow, ProductCostRow, ProfitCenterPLRow, WorkOrderCostRow,
 };
+use abt_core::master_data::profit_center::{ProfitCenter, ProfitCenterService};
 use abt_core::shared::types::PgExecutor;
 
 use crate::errors::Result;
@@ -18,9 +19,15 @@ use abt_macros::require_permission;
 
 // ── Handler ──
 
+#[derive(serde::Deserialize)]
+pub struct PeriodQuery {
+ pub period: Option<String>,
+}
+
 #[require_permission("FMS", "read")]
 pub async fn get_page(
  _path: CostAnalysisPath,
+ axum::extract::Query(params): axum::extract::Query<PeriodQuery>,
  ctx: RequestContext,
 ) -> Result<Html<String>> {
  let is_htmx = ctx.is_htmx();
@@ -36,17 +43,20 @@ pub async fn get_page(
  let svc = state.cost_accounting_service();
  let db: PgExecutor<'_> = &mut *conn;
 
- // 查询当期数据
- let period = "2026-06";
- let product_rows = svc.list_product_costs(db, period).await?;
+ // 期间：query 参数优先，默认当月
+ let period = params
+  .period
+  .unwrap_or_else(|| chrono::Local::now().format("%Y-%m").to_string());
+ let product_rows = svc.list_product_costs(db, &period).await?;
  let wo_rows = svc.list_work_order_costs(db).await?;
- let pc_rows = svc.list_profit_center_pl(db, period).await?;
+ let pc_rows = svc.list_profit_center_pl(db, &period).await?;
  let margin_rows = svc.list_margin_analysis(db).await?;
+ let pc_master = state.profit_center_service().list(db).await?;
 
  // 聚合产品成本
  let products = aggregate_products(&product_rows);
  let work_orders = aggregate_work_orders(&wo_rows);
- let profit_centers = aggregate_profit_centers(&pc_rows);
+ let profit_centers = aggregate_profit_centers(&pc_rows, &pc_master);
  let margins = aggregate_margins(&margin_rows);
 
  // 统计卡片
@@ -68,6 +78,7 @@ pub async fn get_page(
  &profit_centers,
  &margins,
  &stats,
+ &period,
  );
  let page_html = admin_page(
  is_htmx,
@@ -109,6 +120,7 @@ struct WorkOrderCostView {
  wo_status: i16,
  material_cost: Decimal,
  labor_cost: Decimal,
+ overhead_cost: Decimal,
  outsource_cost: Decimal,
  total_cost: Decimal,
 }
@@ -176,36 +188,31 @@ fn aggregate_work_orders(rows: &[WorkOrderCostRow]) -> Vec<WorkOrderCostView> {
  wo_status: r.wo_status,
  material_cost: Decimal::ZERO,
  labor_cost: Decimal::ZERO,
+ overhead_cost: Decimal::ZERO,
  outsource_cost: Decimal::ZERO,
  total_cost: Decimal::ZERO,
  });
  match r.cost_type {
  1 => v.material_cost = r.total,
  2 => v.labor_cost = r.total,
- 3 => v.outsource_cost = r.total,
+ 3 => v.overhead_cost = r.total,
+ 4 => v.outsource_cost = r.total,
  _ => {}
  }
- v.total_cost = v.material_cost + v.labor_cost + v.outsource_cost;
+ v.total_cost = v.material_cost + v.labor_cost + v.overhead_cost + v.outsource_cost;
  }
  let mut list: Vec<_> = map.into_values().collect();
  list.sort_by_key(|w| w.work_order_id);
  list
 }
 
-fn aggregate_profit_centers(rows: &[ProfitCenterPLRow]) -> Vec<ProfitCenterView> {
+fn aggregate_profit_centers(rows: &[ProfitCenterPLRow], master: &[ProfitCenter]) -> Vec<ProfitCenterView> {
  let mut map: HashMap<i64, ProfitCenterView> = HashMap::new();
- let labels = HashMap::from([
- (1i64, "华南区"),
- (2i64, "华东区"),
- (3i64, "华北区"),
- (4i64, "西南区"),
- (5i64, "西北区"),
- (6i64, "东北区"),
- ]);
+ let labels: HashMap<i64, String> = master.iter().map(|p| (p.id, p.name.clone())).collect();
  for r in rows {
  let v = map.entry(r.profit_center).or_insert_with(|| ProfitCenterView {
  profit_center_id: r.profit_center,
- label: labels.get(&r.profit_center).map(|s| s.to_string()).unwrap_or_else(|| format!("利润中心-{}", r.profit_center)),
+ label: labels.get(&r.profit_center).cloned().unwrap_or_else(|| format!("利润中心-{}", r.profit_center)),
  income: Decimal::ZERO,
  material_cost: Decimal::ZERO,
  labor_cost: Decimal::ZERO,
@@ -323,13 +330,17 @@ fn cost_analysis_page(
  profit_centers: &[ProfitCenterView],
  margins: &[MarginView],
  stats: &PageStats,
+ period: &str,
 ) -> Markup {
  html! {
-    div class="relative" {
+    div id="cost-content" class="relative" {
         // ── 页面标题栏 ──
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "成本核算分析" }
-            div class="flex gap-3" {
+            div class="flex gap-3 items-center" {
+                form hx-get=(CostAnalysisPath::PATH) hx-trigger="change" hx-target="#cost-content" hx-select="#cost-content" hx-swap="outerHTML" class="contents" {
+                    input type="month" name="period" value=(period) class="px-3 py-[9px] rounded-sm border border-border bg-white text-fg text-sm font-medium cursor-pointer";
+                }
                 button
                     class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                 {
@@ -408,7 +419,7 @@ fn cost_analysis_page(
             div class="data-card mb-0" {
                 div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
                 {
-                    span { "产品成本汇总 · 2026-06" }
+                    span { "产品成本汇总 · " (period) }
                 }
                 @if products.is_empty() {
                     div class="text-center py-8 text-sm text-muted" { "暂无产品成本数据" }
@@ -495,6 +506,7 @@ fn cost_analysis_page(
                                     th class="text-right" { "完工数量" }
                                     th class="text-right" { "材料成本" }
                                     th class="text-right" { "人工成本" }
+                                    th class="text-right" { "制造费用" }
                                     th class="text-right" { "外协成本" }
                                     th class="text-right" { "总成本" }
                                     th { "状态" }
@@ -518,6 +530,9 @@ fn cost_analysis_page(
                                         }
                                         td class="text-right text-[13px]" {
                                             (fmt_money_full(w.labor_cost))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money_full(w.overhead_cost))
                                         }
                                         td class="text-right text-[13px]" {
                                             (fmt_money_full(w.outsource_cost))
@@ -544,7 +559,7 @@ fn cost_analysis_page(
             div class="data-card mb-0" {
                 div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
                 {
-                    span { "利润中心 P&L · 2026-06" }
+                    span { "利润中心 P&L · " (period) }
                 }
                 @if profit_centers.is_empty() {
                     div class="text-center py-8 text-sm text-muted" { "暂无利润中心数据" }

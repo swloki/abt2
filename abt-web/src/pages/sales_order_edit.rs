@@ -138,6 +138,7 @@ pub async fn update_order(
  delivery_terms: form.delivery_terms,
  delivery_address: form.delivery_address,
  remark: form.remark,
+ profit_center_id: None,
  };
 
  let mut tx = state.pool.begin().await

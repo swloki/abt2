@@ -252,6 +252,7 @@ pub struct SalesOrder {
     pub delivery_address: String,
     pub remark: String,
     pub operator_id: i64,
+    pub profit_center_id: Option<i64>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
@@ -301,6 +302,7 @@ pub struct CreateSalesOrderReq {
     pub delivery_terms: Option<String>,
     pub delivery_address: Option<String>,
     pub remark: Option<String>,
+    pub profit_center_id: Option<i64>,
 }
 
 /// 创建订单明细请求
@@ -325,6 +327,7 @@ pub struct UpdateSalesOrderReq {
     pub delivery_terms: Option<String>,
     pub delivery_address: Option<String>,
     pub remark: Option<String>,
+    pub profit_center_id: Option<i64>,
 }
 
 /// 订单查询过滤
@@ -350,6 +353,7 @@ pub struct CreateSalesOrderParams<'a> {
     pub delivery_address: &'a str,
     pub remark: &'a str,
     pub operator_id: i64,
+    pub profit_center_id: Option<i64>,
 }
 
 /// 明细行批量插入输入

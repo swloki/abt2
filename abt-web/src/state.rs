@@ -577,6 +577,12 @@ impl AppState {
         abt_core::fms::cost_accounting::new_cost_accounting_service()
     }
 
+    pub fn profit_center_service(
+        &self,
+    ) -> impl abt_core::master_data::profit_center::ProfitCenterService {
+        abt_core::master_data::profit_center::new_profit_center_service(self.pool.clone())
+    }
+
     pub fn print_template_service(&self) -> impl abt_core::master_data::print_template::PrintTemplateService {
         abt_core::master_data::print_template::new_print_template_service(self.pool.clone())
     }

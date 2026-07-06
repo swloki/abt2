@@ -521,116 +521,128 @@ async fn ship_detail_drawer_body(
         let unit = p.map(|p| p.unit.as_str()).unwrap_or("—");
         rows = html! {
             (rows)
-            tr class="border-b border-border-soft last:border-b-0" {
-                td class="py-2 px-2 text-xs text-muted font-mono w-8 text-center" { (idx + 1) }
-                td class="py-2 px-2 text-xs font-mono text-fg" { (pcode) }
-                td class="py-2 px-2 text-xs text-fg-2" { (pname) }
-                td class="py-2 px-2 text-xs text-muted max-w-[120px] truncate" { (spec) }
-                td class="py-2 px-2 text-xs text-muted" { (unit) }
-                td class="py-2 px-2 text-xs font-mono text-fg text-right" { (fmt_qty(it.qty_requested)) }
-                td class="py-2 px-2 text-xs font-mono text-muted text-right" { (fmt_qty(it.qty_done)) }
+            tr class="border-b border-border-soft last:border-b-0 hover:bg-surface/50 transition-colors" {
+                td class="py-2.5 px-3 text-muted font-mono" { (idx + 1) }
+                td class="py-2.5 px-3 font-mono text-fg font-medium" { (pcode) }
+                td class="py-2.5 px-3 text-fg-2" { (pname) }
+                td class="py-2.5 px-3 text-muted max-w-[120px] truncate" { (spec) }
+                td class="py-2.5 px-3 text-muted" { (unit) }
+                td class="py-2.5 px-3 font-mono text-fg text-right tabular-nums" { (fmt_qty(it.qty_requested)) }
+                td class="py-2.5 px-3 font-mono text-fg-2 text-right tabular-nums" { (fmt_qty(it.qty_done)) }
             }
         };
     }
 
     let inner = html! {
-        // ── 来源链 (Odoo Source Document) ──
-        @if s.source_id.is_some() {
-            div class="flex items-center gap-2 text-xs text-muted mb-3 px-1" {
-                span class="font-medium" { "来源订单 " }
-                span class="font-mono text-accent" { (order_number) }
-                span { "→" }
-                span class="font-mono text-fg font-semibold" { (s.doc_number) }
-            }
-        }
-        // ── 统计带 (pending / shipped / stock) ──
-        div class="flex rounded-md border border-border-soft mb-4 overflow-hidden" {
-            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5 border-r border-border-soft" {
-                span class="font-mono text-base font-bold text-fg tabular-nums" { (fmt_qty(hub.pending_ship_qty)) }
+        // ── 统计带 ──
+        div class="flex rounded-lg bg-surface border border-border-soft mb-5 overflow-hidden" {
+            // 待发
+            div class="flex-1 px-4 py-3 flex flex-col items-center gap-0.5 border-r border-border-soft" {
+                span class="text-lg font-bold text-fg tabular-nums leading-none" { (fmt_qty(hub.pending_ship_qty)) }
                 span class="text-[11px] text-muted font-medium" { "待发" }
             }
-            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5 border-r border-border-soft" {
-                span class="font-mono text-base font-bold text-fg tabular-nums" { (fmt_qty(hub.shipped_qty)) }
+            // 已发
+            div class="flex-1 px-4 py-3 flex flex-col items-center gap-0.5 border-r border-border-soft" {
+                span class="text-lg font-bold text-success tabular-nums leading-none" { (fmt_qty(hub.shipped_qty)) }
                 span class="text-[11px] text-muted font-medium" { "已发" }
             }
-            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5" {
+            // 库存
+            div class="flex-1 px-4 py-3 flex flex-col items-center gap-0.5" {
                 @if hub.shortage.is_some() {
-                    span class="font-mono text-base font-bold text-danger tabular-nums" { "缺货" }
+                    span class="text-lg font-bold text-danger tabular-nums leading-none" { "缺货" }
                 } @else {
-                    span class="font-mono text-base font-bold text-success tabular-nums" { "充足" }
+                    span class="text-lg font-bold text-success tabular-nums leading-none" { "充足" }
                 }
                 span class="text-[11px] text-muted font-medium" { "库存" }
             }
         }
-        // ── 单据头 + 发货信息 grid (Odoo Delivery + Scheduling + Locations) ──
-        div class="mb-4 pb-4 border-b border-border-soft" {
-            div class="flex items-center justify-between mb-3" {
-                div class="flex items-center gap-2" {
-                    span class="text-base font-mono font-bold text-fg" { (s.doc_number) }
-                    span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
-                        (status_text)
-                    }
-                }
-                button type="button"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors"
-                    _=(format!("on click set #wc-print-frame's src to '{}'",
-                        ShippingPrintPath { id: s.id }.to_string()))
-                    { (icon::printer_icon("w-3.5 h-3.5")) "打印" }
+        // ── 来源链 ──
+        @if s.source_id.is_some() {
+            div class="flex items-center gap-2 text-xs mb-4 px-1" {
+                span class="text-muted" { "来源" }
+                span class="font-mono text-accent-600 font-medium" { (order_number) }
+                span class="text-muted/40" { "→" }
+                span class="font-mono text-fg font-semibold" { (s.doc_number) }
             }
-            div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs" {
-                // Delivery Info
-                div class="col-span-full mb-1" {
-                    span class="text-[11px] uppercase tracking-wide text-muted font-semibold" { "发货信息" }
+        }
+        // ── 单据头 ──
+        div class="flex items-center justify-between mb-5" {
+            div class="flex items-center gap-2.5" {
+                span class="text-lg font-bold font-mono text-fg tracking-tight" { (s.doc_number) }
+                span class=(format!("inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold {status_cls}")) {
+                    (status_text)
+                }
+            }
+            button type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
+                _=(format!("on click set #wc-print-frame's src to '{}'",
+                    ShippingPrintPath { id: s.id }.to_string()))
+                { (icon::printer_icon("w-3.5 h-3.5")) "打印" }
+        }
+        // ── 发货信息 ──
+        div class="mb-5" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="w-1 h-3.5 rounded-full bg-accent shrink-0" {}
+                span class="text-xs font-semibold text-fg" { "发货信息" }
+            }
+            div class="grid grid-cols-2 gap-x-6 gap-y-3 pl-3" {
+                div {
+                    div class="text-[11px] text-muted mb-0.5" { "客户" }
+                    div class="text-sm text-fg font-medium" { (customer_name) }
                 }
                 div {
-                    span class="text-muted" { "客户 " }
-                    span class="text-fg-2 font-medium" { (customer_name) }
+                    div class="text-[11px] text-muted mb-0.5" { "发货仓库" }
+                    div class="text-sm text-fg-2" { (warehouse_name) }
                 }
                 div {
-                    span class="text-muted" { "发货仓库 " }
-                    span class="text-fg-2" { (warehouse_name) }
+                    div class="text-[11px] text-muted mb-0.5" { "收货地址" }
+                    div class="text-sm text-fg-2" { (address_text) }
                 }
                 div {
-                    span class="text-muted" { "收货地址 " }
-                    span class="text-fg-2" { (address_text) }
+                    div class="text-[11px] text-muted mb-0.5" { "联系人" }
+                    div class="text-sm text-fg-2" { (contact_info) }
                 }
+            }
+        }
+        // ── 计划 ──
+        div class="mb-5" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="w-1 h-3.5 rounded-full bg-purple shrink-0" {}
+                span class="text-xs font-semibold text-fg" { "计划" }
+            }
+            div class="grid grid-cols-2 gap-x-6 gap-y-3 pl-3" {
                 div {
-                    span class="text-muted" { "联系人 " }
-                    span class="text-fg-2" { (contact_info) }
-                }
-                // Scheduling
-                div class="col-span-full mt-2 mb-1" {
-                    span class="text-[11px] uppercase tracking-wide text-muted font-semibold" { "计划" }
-                }
-                div {
-                    span class="text-muted" { "预计发货 " }
-                    span class="font-mono text-fg-2" {
+                    div class="text-[11px] text-muted mb-0.5" { "预计发货" }
+                    div class="text-sm font-mono text-fg-2" {
                         (s.scheduled_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into()))
                     }
                 }
                 div {
-                    span class="text-muted" { "操作员 " }
-                    span class="text-fg-2" { (operator_name) }
+                    div class="text-[11px] text-muted mb-0.5" { "操作员" }
+                    div class="text-sm text-fg-2" { (operator_name) }
                 }
             }
         }
-        // ── 明细表格 (Odoo Operations tab) ──
-        div class="mb-1" {
-            div class="text-xs font-semibold text-muted mb-2" { "产品明细（" (items.len()) " 项）" }
+        // ── 产品明细 ──
+        div {
+            div class="flex items-center gap-2 mb-3" {
+                span class="w-1 h-3.5 rounded-full bg-success shrink-0" {}
+                span class="text-xs font-semibold text-fg" { "产品明细（" (items.len()) " 项）" }
+            }
             @if items.is_empty() {
-                div class="rounded-sm border border-border-soft px-3 py-4 text-center text-sm text-muted" { "暂无明细" }
+                div class="rounded-lg border border-border-soft px-4 py-5 text-center text-sm text-muted" { "暂无明细" }
             } @else {
-                div class="rounded-sm border border-border-soft overflow-hidden" {
+                div class="rounded-lg border border-border-soft overflow-hidden" {
                     table class="w-full text-xs" {
                         thead {
-                            tr class="bg-surface border-b border-border-soft" {
-                                th class="py-2 px-2 text-left text-muted font-semibold w-8" { "#" }
-                                th class="py-2 px-2 text-left text-muted font-semibold" { "产品编码" }
-                                th class="py-2 px-2 text-left text-muted font-semibold" { "产品名称" }
-                                th class="py-2 px-2 text-left text-muted font-semibold" { "规格" }
-                                th class="py-2 px-2 text-left text-muted font-semibold" { "单位" }
-                                th class="py-2 px-2 text-right text-muted font-semibold" { "需求数量" }
-                                th class="py-2 px-2 text-right text-muted font-semibold" { "已发货" }
+                            tr class="bg-surface/60 border-b border-border-soft" {
+                                th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold w-7" { "#" }
+                                th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold" { "产品编码" }
+                                th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold" { "产品名称" }
+                                th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold" { "规格" }
+                                th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold w-12" { "单位" }
+                                th class="py-2.5 px-3 text-right text-[11px] text-muted font-semibold" { "需求数量" }
+                                th class="py-2.5 px-3 text-right text-[11px] text-muted font-semibold" { "已发货" }
                             }
                         }
                         tbody { (rows) }
@@ -638,11 +650,13 @@ async fn ship_detail_drawer_body(
                 }
             }
         }
-        // ── 备注 (Odoo Note tab) ──
+        // ── 备注 ──
         @if !s.remark.is_empty() {
-            div class="mt-4 p-3 rounded-sm bg-surface border border-border-soft" {
-                span class="text-xs text-muted font-medium" { "备注：" }
-                span class="text-xs text-fg-2" { (s.remark) }
+            div class="mt-4 p-3.5 rounded-lg bg-surface border border-border-soft" {
+                div class="flex items-start gap-2" {
+                    span class="text-[11px] text-muted font-medium shrink-0 mt-px" { "备注" }
+                    span class="text-xs text-fg-2 leading-relaxed" { (s.remark) }
+                }
             }
         }
         // 隐藏 iframe：打印按钮 set src 后，print_shipping 响应自带 window.print()
@@ -688,59 +702,77 @@ async fn arrival_po_detail_drawer_body(
         abt_core::purchase::enums::PurchaseOrderStatus::PendingApproval => ("待审批", "text-warn bg-warn-bg"),
     };
 
+    // Items table rows (PO)
     let mut rows = html! {};
-    for it in &items {
-        let pname = product_map
-            .get(&it.product_id)
-            .map(|p| p.pdt_name.clone())
-            .unwrap_or_else(|| format!("产品 #{}", it.product_id));
-        let pcode = product_map
-            .get(&it.product_id)
-            .map(|p| p.product_code.clone())
-            .unwrap_or_default();
+    for (idx, it) in items.iter().enumerate() {
+        let p = product_map.get(&it.product_id);
+        let pcode = p.map(|p| p.product_code.as_str()).unwrap_or("—");
+        let pname = p.map(|p| p.pdt_name.as_str()).unwrap_or("—");
+        let spec = p.map(|p| p.meta.specification.as_str()).unwrap_or("—");
+        let unit = p.map(|p| p.unit.as_str()).unwrap_or("—");
         rows = html! {
             (rows)
-            div class="flex items-center justify-between px-3 py-2 gap-2" {
-                div class="min-w-0" {
-                    div class="text-sm text-fg-2 truncate" { (pname) }
-                    div class="text-xs text-muted truncate" { (pcode) }
-                }
-                div class="text-right shrink-0" {
-                    div class="text-sm font-mono text-fg" { "订购 " (fmt_qty(it.quantity)) }
-                    div class="text-xs font-mono text-muted" { "已收 " (fmt_qty(it.received_qty)) }
-                }
+            tr class="border-b border-border-soft last:border-b-0 hover:bg-surface/50 transition-colors" {
+                td class="py-2.5 px-3 text-muted font-mono" { (idx + 1) }
+                td class="py-2.5 px-3 font-mono text-fg font-medium" { (pcode) }
+                td class="py-2.5 px-3 text-fg-2" { (pname) }
+                td class="py-2.5 px-3 text-muted max-w-[120px] truncate" { (spec) }
+                td class="py-2.5 px-3 text-muted" { (unit) }
+                td class="py-2.5 px-3 font-mono text-fg text-right tabular-nums" { (fmt_qty(it.quantity)) }
+                td class="py-2.5 px-3 font-mono text-fg-2 text-right tabular-nums" { (fmt_qty(it.received_qty)) }
             }
         };
     }
 
     let inner = html! {
-        div class="mb-4 pb-4 border-b border-border-soft" {
-            div class="flex items-center gap-2 mb-3" {
-                span class="text-base font-mono font-bold text-fg" { (po.doc_number) }
-                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
-                    (status_label)
-                }
+        // ── 单据头 ──
+        div class="flex items-center gap-2.5 mb-5" {
+            span class="text-lg font-bold font-mono text-fg tracking-tight" { (po.doc_number) }
+            span class=(format!("inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold {status_cls}")) {
+                (status_label)
             }
-            div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
+        }
+        // ── 采购信息 ──
+        div class="mb-5" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="w-1 h-3.5 rounded-full bg-accent shrink-0" {}
+                span class="text-xs font-semibold text-fg" { "采购信息" }
+            }
+            div class="grid grid-cols-2 gap-x-6 gap-y-3 pl-3" {
                 div {
-                    span class="text-muted" { "供应商 " }
-                    span class="text-fg-2" { (supplier_name) }
+                    div class="text-[11px] text-muted mb-0.5" { "供应商" }
+                    div class="text-sm text-fg font-medium" { (supplier_name) }
                 }
                 div {
-                    span class="text-muted" { "下单日期 " }
-                    span class="font-mono text-fg-2" {
-                        (po.created_at.format("%Y-%m-%d").to_string())
-                    }
+                    div class="text-[11px] text-muted mb-0.5" { "下单日期" }
+                    div class="text-sm font-mono text-fg-2" { (po.created_at.format("%Y-%m-%d").to_string()) }
                 }
             }
         }
+        // ── 产品明细 ──
         div {
-            div class="text-xs font-semibold text-muted mb-2" { "明细（" (items.len()) " 项）" }
-            div class="rounded-sm border border-border-soft divide-y divide-border-soft" {
-                @if items.is_empty() {
-                    div class="px-3 py-4 text-center text-sm text-muted" { "暂无明细" }
-                } @else {
-                    (rows)
+            div class="flex items-center gap-2 mb-3" {
+                span class="w-1 h-3.5 rounded-full bg-success shrink-0" {}
+                span class="text-xs font-semibold text-fg" { "产品明细（" (items.len()) " 项）" }
+            }
+            @if items.is_empty() {
+                div class="rounded-lg border border-border-soft px-4 py-5 text-center text-sm text-muted" { "暂无明细" }
+            } @else {
+                div class="rounded-lg border border-border-soft overflow-hidden" {
+                    table class="w-full text-xs" {
+                        thead {
+                            tr class="bg-surface/60 border-b border-border-soft" {
+                                th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold w-7" { "#" }
+                                th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold" { "产品编码" }
+                                th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold" { "产品名称" }
+                                th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold" { "规格" }
+                                th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold w-12" { "单位" }
+                                th class="py-2.5 px-3 text-right text-[11px] text-muted font-semibold" { "订购数量" }
+                                th class="py-2.5 px-3 text-right text-[11px] text-muted font-semibold" { "已收货" }
+                            }
+                        }
+                        tbody { (rows) }
+                    }
                 }
             }
         }
@@ -798,122 +830,137 @@ async fn arrival_wo_detail_drawer_body(
     };
 
     let inner = html! {
-        // ── 来源链 (Odoo Source Document) ──
-        @if so_doc != "—" {
-            div class="flex items-center gap-2 text-xs text-muted mb-3 px-1" {
-                span class="font-medium" { "来源订单 " }
-                span class="font-mono text-accent" { (so_doc) }
-                span { "→" }
-                span class="font-mono text-fg font-semibold" { (wo.doc_number) }
-            }
-        }
-        // ── 统计带 (完工 / 已入库 / 待入库 / 报废) ──
-        div class="flex rounded-md border border-border-soft mb-4 overflow-hidden" {
-            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5 border-r border-border-soft" {
-                span class="font-mono text-base font-bold text-fg tabular-nums" { (fmt_qty(wo.completed_qty)) }
+        // ── 统计带 ──
+        div class="flex rounded-lg bg-surface border border-border-soft mb-5 overflow-hidden" {
+            // 完工
+            div class="flex-1 px-4 py-3 flex flex-col items-center gap-0.5 border-r border-border-soft" {
+                span class="text-lg font-bold text-fg tabular-nums leading-none" { (fmt_qty(wo.completed_qty)) }
                 span class="text-[11px] text-muted font-medium" { "完工" }
             }
-            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5 border-r border-border-soft" {
-                span class="font-mono text-base font-bold text-fg tabular-nums" { (fmt_qty(received)) }
+            // 已入库
+            div class="flex-1 px-4 py-3 flex flex-col items-center gap-0.5 border-r border-border-soft" {
+                span class="text-lg font-bold text-success tabular-nums leading-none" { (fmt_qty(received)) }
                 span class="text-[11px] text-muted font-medium" { "已入库" }
             }
-            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5 border-r border-border-soft" {
+            // 待入库
+            div class="flex-1 px-4 py-3 flex flex-col items-center gap-0.5 border-r border-border-soft" {
                 @if pending > Decimal::ZERO {
-                    span class="font-mono text-base font-bold text-warn tabular-nums" { (fmt_qty(pending)) }
+                    span class="text-lg font-bold text-warn tabular-nums leading-none" { (fmt_qty(pending)) }
                 } @else {
-                    span class="font-mono text-base font-bold text-success tabular-nums" { "—" }
+                    span class="text-lg font-bold text-muted tabular-nums leading-none" { "—" }
                 }
                 span class="text-[11px] text-muted font-medium" { "待入库" }
             }
-            div class="flex-1 px-3 py-2.5 flex flex-col gap-0.5" {
-                span class="font-mono text-base font-bold text-fg tabular-nums" { (fmt_qty(wo.scrap_qty)) }
+            // 报废
+            div class="flex-1 px-4 py-3 flex flex-col items-center gap-0.5" {
+                span class="text-lg font-bold text-fg tabular-nums leading-none" { (fmt_qty(wo.scrap_qty)) }
                 span class="text-[11px] text-muted font-medium" { "报废" }
             }
         }
-        // ── 单据头 + 生产信息 (Odoo Operations + Additional Info) ──
-        div class="mb-4 pb-4 border-b border-border-soft" {
-            div class="flex items-center gap-2 mb-3" {
-                span class="text-base font-mono font-bold text-fg" { (wo.doc_number) }
-                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
-                    (status_text)
-                }
+        // ── 来源链 ──
+        @if so_doc != "—" {
+            div class="flex items-center gap-2 text-xs mb-4 px-1" {
+                span class="text-muted" { "来源" }
+                span class="font-mono text-accent-600 font-medium" { (so_doc) }
+                span class="text-muted/40" { "→" }
+                span class="font-mono text-fg font-semibold" { (wo.doc_number) }
             }
-            div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs" {
-                // Production Info
-                div class="col-span-full mb-1" {
-                    span class="text-[11px] uppercase tracking-wide text-muted font-semibold" { "生产信息" }
+        }
+        // ── 单据头 ──
+        div class="flex items-center gap-2.5 mb-5" {
+            span class="text-lg font-bold font-mono text-fg tracking-tight" { (wo.doc_number) }
+            span class=(format!("inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold {status_cls}")) {
+                (status_text)
+            }
+        }
+        // ── 生产信息 ──
+        div class="mb-5" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="w-1 h-3.5 rounded-full bg-accent shrink-0" {}
+                span class="text-xs font-semibold text-fg" { "生产信息" }
+            }
+            div class="grid grid-cols-2 gap-x-6 gap-y-3 pl-3" {
+                div {
+                    div class="text-[11px] text-muted mb-0.5" { "产品" }
+                    div class="text-sm text-fg font-medium" { (product.pdt_name) }
                 }
                 div {
-                    span class="text-muted" { "产品 " }
-                    span class="text-fg-2 font-medium" { (product.pdt_name) }
+                    div class="text-[11px] text-muted mb-0.5" { "工作中心" }
+                    div class="text-sm text-fg-2" { (wc_name) }
                 }
                 div {
-                    span class="text-muted" { "工作中心 " }
-                    span class="text-fg-2" { (wc_name) }
+                    div class="text-[11px] text-muted mb-0.5" { "计划数" }
+                    div class="text-sm font-mono text-fg" { (fmt_qty(wo.planned_qty)) " " (product.unit) }
                 }
                 div {
-                    span class="text-muted" { "计划数 " }
-                    span class="font-mono text-fg-2" { (fmt_qty(wo.planned_qty)) " " (product.unit) }
-                }
-                div {
-                    span class="text-muted" { "完工数 " }
-                    span class="font-mono text-fg-2" { (fmt_qty(wo.completed_qty)) " " (product.unit) }
-                }
-                // Scheduling
-                div class="col-span-full mt-2 mb-1" {
-                    span class="text-[11px] uppercase tracking-wide text-muted font-semibold" { "计划" }
-                }
-                div {
-                    span class="text-muted" { "开始 " }
-                    span class="font-mono text-fg-2" { (wo.scheduled_start.format("%Y-%m-%d").to_string()) }
-                }
-                div {
-                    span class="text-muted" { "结束 " }
-                    span class="font-mono text-fg-2" { (wo.scheduled_end.format("%Y-%m-%d").to_string()) }
-                }
-                div {
-                    span class="text-muted" { "操作员 " }
-                    span class="text-fg-2" { (operator_name) }
+                    div class="text-[11px] text-muted mb-0.5" { "完工数" }
+                    div class="text-sm font-mono text-fg" { (fmt_qty(wo.completed_qty)) " " (product.unit) }
                 }
             }
         }
-        // ── 产品明细 (Odoo Operations tab 单项展开) ──
-        div class="mb-1" {
-            div class="text-xs font-semibold text-muted mb-2" { "产品明细" }
-            div class="rounded-sm border border-border-soft overflow-hidden" {
+        // ── 计划 ──
+        div class="mb-5" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="w-1 h-3.5 rounded-full bg-purple shrink-0" {}
+                span class="text-xs font-semibold text-fg" { "计划" }
+            }
+            div class="grid grid-cols-2 gap-x-6 gap-y-3 pl-3" {
+                div {
+                    div class="text-[11px] text-muted mb-0.5" { "开始日期" }
+                    div class="text-sm font-mono text-fg-2" { (wo.scheduled_start.format("%Y-%m-%d").to_string()) }
+                }
+                div {
+                    div class="text-[11px] text-muted mb-0.5" { "结束日期" }
+                    div class="text-sm font-mono text-fg-2" { (wo.scheduled_end.format("%Y-%m-%d").to_string()) }
+                }
+                div {
+                    div class="text-[11px] text-muted mb-0.5" { "操作员" }
+                    div class="text-sm text-fg-2" { (operator_name) }
+                }
+            }
+        }
+        // ── 产品明细 ──
+        div {
+            div class="flex items-center gap-2 mb-3" {
+                span class="w-1 h-3.5 rounded-full bg-success shrink-0" {}
+                span class="text-xs font-semibold text-fg" { "产品明细" }
+            }
+            div class="rounded-lg border border-border-soft overflow-hidden" {
                 table class="w-full text-xs" {
                     thead {
-                        tr class="bg-surface border-b border-border-soft" {
-                            th class="py-2 px-2 text-left text-muted font-semibold w-8" { "#" }
-                            th class="py-2 px-2 text-left text-muted font-semibold" { "产品编码" }
-                            th class="py-2 px-2 text-left text-muted font-semibold" { "产品名称" }
-                            th class="py-2 px-2 text-left text-muted font-semibold" { "规格" }
-                            th class="py-2 px-2 text-left text-muted font-semibold" { "单位" }
-                            th class="py-2 px-2 text-right text-muted font-semibold" { "计划数" }
-                            th class="py-2 px-2 text-right text-muted font-semibold" { "完工数" }
-                            th class="py-2 px-2 text-right text-muted font-semibold" { "已入库" }
+                        tr class="bg-surface/60 border-b border-border-soft" {
+                            th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold w-7" { "#" }
+                            th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold" { "产品编码" }
+                            th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold" { "产品名称" }
+                            th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold" { "规格" }
+                            th class="py-2.5 px-3 text-left text-[11px] text-muted font-semibold w-12" { "单位" }
+                            th class="py-2.5 px-3 text-right text-[11px] text-muted font-semibold" { "计划数" }
+                            th class="py-2.5 px-3 text-right text-[11px] text-muted font-semibold" { "完工数" }
+                            th class="py-2.5 px-3 text-right text-[11px] text-muted font-semibold" { "已入库" }
                         }
                     }
                     tbody {
-                        tr class="border-b border-border-soft last:border-b-0" {
-                            td class="py-2 px-2 text-xs text-muted font-mono w-8 text-center" { "1" }
-                            td class="py-2 px-2 text-xs font-mono text-fg" { (product.product_code) }
-                            td class="py-2 px-2 text-xs text-fg-2" { (product.pdt_name) }
-                            td class="py-2 px-2 text-xs text-muted max-w-[120px] truncate" { (product.meta.specification) }
-                            td class="py-2 px-2 text-xs text-muted" { (product.unit) }
-                            td class="py-2 px-2 text-xs font-mono text-fg text-right" { (fmt_qty(wo.planned_qty)) }
-                            td class="py-2 px-2 text-xs font-mono text-fg text-right" { (fmt_qty(wo.completed_qty)) }
-                            td class="py-2 px-2 text-xs font-mono text-muted text-right" { (fmt_qty(received)) }
+                        tr class="border-b border-border-soft last:border-b-0 hover:bg-surface/50 transition-colors" {
+                            td class="py-2.5 px-3 text-muted font-mono" { "1" }
+                            td class="py-2.5 px-3 font-mono text-fg font-medium" { (product.product_code) }
+                            td class="py-2.5 px-3 text-fg-2" { (product.pdt_name) }
+                            td class="py-2.5 px-3 text-muted max-w-[120px] truncate" { (product.meta.specification) }
+                            td class="py-2.5 px-3 text-muted" { (product.unit) }
+                            td class="py-2.5 px-3 font-mono text-fg text-right tabular-nums" { (fmt_qty(wo.planned_qty)) }
+                            td class="py-2.5 px-3 font-mono text-fg text-right tabular-nums" { (fmt_qty(wo.completed_qty)) }
+                            td class="py-2.5 px-3 font-mono text-fg-2 text-right tabular-nums" { (fmt_qty(received)) }
                         }
                     }
                 }
             }
         }
-        // ── 备注 (Odoo Note tab) ──
+        // ── 备注 ──
         @if !wo.remark.is_empty() {
-            div class="mt-4 p-3 rounded-sm bg-surface border border-border-soft" {
-                span class="text-xs text-muted font-medium" { "备注：" }
-                span class="text-xs text-fg-2" { (wo.remark) }
+            div class="mt-4 p-3.5 rounded-lg bg-surface border border-border-soft" {
+                div class="flex items-start gap-2" {
+                    span class="text-[11px] text-muted font-medium shrink-0 mt-px" { "备注" }
+                    span class="text-xs text-fg-2 leading-relaxed" { (wo.remark) }
+                }
             }
         }
     };

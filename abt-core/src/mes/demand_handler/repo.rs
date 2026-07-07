@@ -46,9 +46,12 @@ impl MesDemandRepo {
             status_param = s;
             where_clauses.push(format!("demand_status = ${param_idx}"));
             param_idx += 1;
-        } else {
+        } else if query.order_id.is_none() {
             status_param = -1;
-            where_clauses.push("demand_status = 1".to_string()); // 默认 Pending
+            where_clauses.push("demand_status = 1".to_string()); // 默认 Pending（全局视图）
+        } else {
+            // order_id 有值 + status=None（从订单详情页跳入）：显示该订单全部状态 demand
+            status_param = -1;
         }
 
         let product_param;

@@ -16,6 +16,7 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_demand_pool::*;
+use crate::routes::mes_work_center::WcPath;
 use crate::routes::order::OrderDetailPath;
 use crate::utils::{fmt_qty, RequestContext};
 use abt_macros::require_permission;
@@ -210,8 +211,8 @@ pub async fn create_plan_from_demands(
  tx.commit().await
  .map_err(|e| DomainError::Internal(e.into()))?;
 
- // 扁平化：重定向回需求池（PP 详情已废弃）
- let redirect = MesDemandPoolListPath.to_string();
+ // 扁平化：重定向回作业中心（需求池独立页已下线）
+ let redirect = WcPath::PATH.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
@@ -262,7 +263,7 @@ fn create_page_content(
         div class="flex items-center justify-between mb-6" {
             div {
                 a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-                    href=(format!("{}?restore=true", MesDemandPoolListPath::PATH))
+                    href=(WcPath::PATH)
                 { (icon::arrow_left_icon("w-4 h-4")) "返回需求池" }
                 h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建工单" }
                 div class="text-[13px] text-muted mt-1" {
@@ -463,7 +464,7 @@ fn create_page_content(
             div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
             {
                 a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    href=(format!("{}?restore=true", MesDemandPoolListPath::PATH))
+                    href=(WcPath::PATH)
                 { "取消" }
                 div class="flex gap-3" {
                     button

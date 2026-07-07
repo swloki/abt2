@@ -15,7 +15,6 @@ pub mod order;
 pub mod payment_request;
 pub mod purchase_dashboard;
 pub mod purchase_work_center;
-pub mod purchase_demand_pool;
 pub mod purchase_order;
 pub mod purchase_quotation;
 pub mod purchase_reconciliation;
@@ -97,7 +96,6 @@ pub fn router(state: AppState) -> Router {
                 // ── Purchase (SRM) ──
                 .merge(purchase_dashboard::router())
                 .merge(purchase_work_center::router())
-                .merge(purchase_demand_pool::router())
                 .merge(purchase_quotation::router())
                 .merge(purchase_order::router())
                 .merge(purchase_return::router())

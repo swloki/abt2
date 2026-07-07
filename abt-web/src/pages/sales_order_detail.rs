@@ -717,11 +717,11 @@ fn fulfillment_workbench(
                     class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-white text-fg-2 border border-border hover:border-accent hover:text-accent font-medium cursor-pointer transition-all duration-150"
                 { (icon::refresh_icon("w-3.5 h-3.5")) "刷新状态" }
                 a   class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-white text-fg-2 border border-border hover:border-accent hover:text-accent font-medium cursor-pointer transition-all duration-150"
-                    href="/admin/mes/demand-pool"
+                    href="/admin/mes/work-center"
                     title="生产需求池"
                 { (icon::grid_icon("w-3.5 h-3.5")) "生产需求池" }
                 a   class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-white text-fg-2 border border-border hover:border-accent hover:text-accent font-medium cursor-pointer transition-all duration-150"
-                    href=(format!("/admin/purchase/demand-pool?order_id={}", order_id))
+                    href=(format!("/admin/purchase/work-center?order_id={}", order_id))
                     title="查看本订单的采购需求"
                 { (icon::clipboard_document_icon("w-3.5 h-3.5")) "采购需求池" }
             }
@@ -1032,7 +1032,7 @@ fn order_detail_page(
             div class="flex gap-3 mb-6" {
                 @if producing_count > 0 {
                     a   class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border-soft bg-bg shadow-xs hover:shadow-md transition-shadow text-sm"
-                        href=(format!("/admin/mes/demand-pool?order_id={}", order_id))
+                        href=(format!("/admin/mes/work-center?order_id={}", order_id))
                     {
                         span class="text-lg font-bold text-accent font-mono tabular-nums" {
                             (producing_count)
@@ -1042,7 +1042,7 @@ fn order_detail_page(
                 }
                 @if purchasing_count > 0 {
                     a   class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border-soft bg-bg shadow-xs hover:shadow-md transition-shadow text-sm"
-                        href=(format!("/admin/purchase/demand-pool?order_id={}", order_id))
+                        href=(format!("/admin/purchase/work-center?order_id={}", order_id))
                     {
                         span class="text-lg font-bold text-warn font-mono tabular-nums" {
                             (purchasing_count)

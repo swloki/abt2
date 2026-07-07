@@ -474,7 +474,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
             div class="grid grid-cols-2 gap-3" {
                 ({
                     quick_link_card(
-                        "/admin/purchase/demand-pool",
+                        "/admin/purchase/work-center",
                         "采购需求池",
                         "外购需求聚合",
                     )
@@ -580,7 +580,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
         }
         // Branch links
         div class="flex flex-wrap mt-4 justify-center gap-6" {
-            a   href="/admin/purchase/demand-pool"
+            a   href="/admin/purchase/work-center"
                 class="flex items-center gap-2 text-xs font-medium text-purple no-underline hover:underline"
             {
                 svg width="14"

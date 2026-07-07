@@ -185,14 +185,24 @@ pub(crate) async fn render_po_print_fragment(
                 "产品编码": pcode,
                 "产品名称": pname,
                 "数量": it.quantity.to_string(),
+                "采购数量": it.quantity.to_string(),
                 "单位": punit,
                 "单价": it.unit_price.to_string(),
+                "采购净价": it.unit_price.to_string(),
                 "金额": it.amount.to_string(),
+                "净价合计": it.price_subtotal.to_string(),
                 "已收数量": it.received_qty.to_string(),
                 "备注": it.description.clone(),
             })
         })
         .collect();
+
+    // 顶层明细字段取第一个明细（兼容硬编码单行明细的模板，如 {{ 产品编码 }}）；
+    // 多明细模板应改用 `{% for item in 明细 %}` + `item.产品编码`。
+    let first = items.first();
+    let (fname, funit, fcode) = first
+        .and_then(|it| product_map.get(&it.product_id).cloned())
+        .unwrap_or_default();
 
     let vars = serde_json::json!({
         "采购单号": order.doc_number,
@@ -207,6 +217,19 @@ pub(crate) async fn render_po_print_fragment(
         "要求交期": order.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default(),
         "交货地址": order.delivery_address.clone().unwrap_or_default(),
         "订单说明": order.remark.clone(),
+        // 以下为兼容采购订单打印模板（硬编码单行明细 + 顶层变量）补充的字段：
+        // 明细类取第一个明细；PO/Supplier 当前无的字段留空（供应商地址/部门/委外工单号/采购经理）
+        "供应商地址": String::new(),
+        "部门": String::new(),
+        "委外工单号": String::new(),
+        "采购经理": String::new(),
+        "产品编码": fcode,
+        "产品名称": fname,
+        "单位": funit,
+        "采购净价": first.map(|it| it.unit_price.to_string()).unwrap_or_default(),
+        "采购数量": first.map(|it| it.quantity.to_string()).unwrap_or_default(),
+        "净价合计": order.amount_untaxed.to_string(),
+        "备注": first.map(|it| it.description.clone()).unwrap_or_default(),
         "明细": detail_items,
     });
 

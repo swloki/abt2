@@ -41,7 +41,7 @@ use std::collections::HashMap;
 use crate::components::alert;
 use crate::components::icon;
 use crate::components::material_badge::material_badge_mini;
-use crate::components::overlay::{drawer_shell, modal_shell};
+use crate::components::overlay::drawer_shell;
 use crate::components::worker_picker;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
@@ -122,22 +122,22 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
         (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建工单", "w-[680px]"))
         (render_drawer_overlay("batch-overlay", "batch-drawer", "batch-drawer-body", "批次处理", "w-[640px]"))
         (render_drawer_overlay("order-overlay", "order-drawer", "order-drawer-body", "工单详情", "w-[720px]"))
-        // 完工入库 modal 容器（slot）：GET 返回 modal_shell，innerHTML 进 slot；afterSettle 打开
+        // 完工入库 drawer 容器（slot）：GET 返回 drawer_shell，innerHTML 进 slot；afterSettle 打开子 drawer
         div id="batch-receipt-modal-slot"
-            _="on 'htmx:afterSettle'[#batch-receipt-modal] add .is-open to #batch-receipt-modal\non keydown[event.key is 'Escape' and #batch-receipt-modal] from body remove .is-open from #batch-receipt-modal" {}
+            _="on 'htmx:afterSettle'[#batch-receipt-drawer] add .open to #batch-receipt-drawer\non keydown[event.key is 'Escape' and #batch-receipt-drawer] from body remove .open from #batch-receipt-drawer" {}
         // 创建计划完成事件桥接：planCreated → 切到订单排期 tab 重新加载需求池 card + 展开 card（看新建 Draft 工单）
         div hx-get=(format!("{}?view=schedule", WcDemandPath::PATH))
             hx-trigger="planCreated from:body"
             hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML" {}
-        // 订单详情 modal 容器（slot）：GET 返回完整 modal_shell，innerHTML 进此 slot；afterSettle 打开子 modal
+        // 订单详情 drawer 容器（slot）：GET 返回完整 drawer_shell，innerHTML 进此 slot；afterSettle 打开子 drawer
         div id="wc-order-detail-slot"
-            _="on 'htmx:afterSettle'[#wc-order-detail-modal] add .is-open to #wc-order-detail-modal\non keydown[event.key is 'Escape' and #wc-order-detail-modal] from body remove .is-open from #wc-order-detail-modal" {}
-        // 报废 modal 容器（slot）
+            _="on 'htmx:afterSettle'[#wc-order-detail-drawer] add .open to #wc-order-detail-drawer\non keydown[event.key is 'Escape' and #wc-order-detail-drawer] from body remove .open from #wc-order-detail-drawer" {}
+        // 报废 drawer 容器（slot）
         div id="batch-scrap-modal-slot"
-            _="on 'htmx:afterSettle'[#batch-scrap-modal] add .is-open to #batch-scrap-modal\non keydown[event.key is 'Escape' and #batch-scrap-modal] from body remove .is-open from #batch-scrap-modal" {}
-        // 报工 modal 容器（slot）
+            _="on 'htmx:afterSettle'[#batch-scrap-drawer] add .open to #batch-scrap-drawer\non keydown[event.key is 'Escape' and #batch-scrap-drawer] from body remove .open from #batch-scrap-drawer" {}
+        // 报工 drawer 容器（slot）
         div id="batch-report-modal-slot"
-            _="on 'htmx:afterSettle'[#batch-report-modal] add .is-open to #batch-report-modal\non keydown[event.key is 'Escape' and #batch-report-modal] from body remove .is-open from #batch-report-modal" {}
+            _="on 'htmx:afterSettle'[#batch-report-drawer] add .open to #batch-report-drawer\non keydown[event.key is 'Escape' and #batch-report-drawer] from body remove .open from #batch-report-drawer" {}
         // 报工人选择 picker（常驻 add-row；报工 modal「+ 添加工人」打开，选中加行到 #report-workers-tbody）
         (worker_picker::worker_picker_modal_with_search(
             "worker-picker-modal",
@@ -740,7 +740,11 @@ fn wc_demand_detail_row(item: &DemandSummary) -> Markup {
                 }
             }
             td class="py-2.5 px-3" {
-                div class="font-medium text-fg" { (item.product_name) }
+                div class="font-medium text-fg" {
+                    a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                        href=(crate::routes::product::ProductDetailPath { id: item.product_id }.to_string())
+                        target="_blank" { (item.product_name) }
+                }
                 div class="text-xs text-muted font-mono" { (item.product_code) }
             }
             td class="py-2.5 px-3" {
@@ -1002,7 +1006,11 @@ fn orders_row(
                     _="on click halt the event" { (w.doc_number.as_str()) }
             }
             td class="py-2.5 px-3" {
-                div class="font-medium text-fg" { (pn) }
+                div class="font-medium text-fg" {
+                    a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                        href=(crate::routes::product::ProductDetailPath { id: w.product_id }.to_string())
+                        target="_blank" { (pn) }
+                }
                 div class="text-xs text-muted" { (fmt_qty(w.planned_qty)) " 件" }
             }
             td class="py-2.5 px-3" { (wo_progress(w)) }
@@ -1186,7 +1194,7 @@ fn wo_progress(w: &WorkOrder) -> Markup {
 // Drawer body 端点（占位 — 后续 Edit 填充完整表单）
 // =============================================================================
 
-/// 销售订单详情 modal（drawer 内订单号点击查看）：订单头 + 行项目，不跳转。
+/// 销售订单详情 drawer（drawer 内订单号点击查看）：订单头 + 行项目，不跳转。
 #[require_permission("WORK_ORDER", "read")]
 pub async fn get_order_detail_modal(
     path: WcOrderDetailModalPath,
@@ -1231,16 +1239,16 @@ pub async fn get_order_detail_modal(
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| format!("#{}", order.sales_rep_id));
     Ok(Html(
-        modal_shell(
-            "wc-order-detail-modal",
-            "z-[1100]",
+        drawer_shell(
+            "wc-order-detail-drawer",
+            "w-[920px]",
             render_order_detail_panel(&order, &items, &prod_map, &customer_name, &sales_rep_name),
         )
         .into_string(),
     ))
 }
 
-/// 订单详情 modal 面板：宽 920，统计带（总额/已发货额/行数）+ 客户信息（客户/销售员/收货地址）
+/// 订单详情 drawer 面板：统计带（总额/已发货额/行数）+ 客户信息（客户/销售员/收货地址）
 /// + 订单信息（日期/状态/付款条件）+ 行项目表 + 备注。区块对齐 Odoo sale.order / WMS drawer 共识。
 fn render_order_detail_panel(
     order: &SalesOrder,
@@ -1258,21 +1266,20 @@ fn render_order_detail_panel(
         order.delivery_address.clone()
     };
     html! {
-        div class="bg-bg rounded-xl w-[920px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
-            // 头部
-            div class="flex items-center justify-between px-7 py-5 border-b border-border-soft shrink-0" {
-                div {
-                    h2 class="text-lg font-bold text-fg m-0" { "销售订单详情" }
-                    div class="text-sm text-muted mt-1 flex items-center gap-2" {
-                        span class="font-mono text-accent font-semibold" { (order.doc_number) }
-                        span class="text-muted/40" { "·" }
-                        span { (customer_name) }
-                    }
+        // 头部
+        div class="flex items-center justify-between px-7 py-5 border-b border-border-soft shrink-0" {
+            div {
+                h2 class="text-lg font-bold text-fg m-0" { "销售订单详情" }
+                div class="text-sm text-muted mt-1 flex items-center gap-2" {
+                    span class="font-mono text-accent font-semibold" { (order.doc_number) }
+                    span class="text-muted/40" { "·" }
+                    span { (customer_name) }
                 }
-                button type="button"
-                    class="text-2xl text-muted hover:text-fg cursor-pointer bg-transparent border-none p-1 leading-none"
-                    _="on click remove .is-open from #wc-order-detail-modal" { "×" }
             }
+            button type="button"
+                class="text-2xl text-muted hover:text-fg cursor-pointer bg-transparent border-none p-1 leading-none"
+                _="on click remove .open from #wc-order-detail-drawer" { "×" }
+        }
             div class="overflow-y-auto flex-1 min-h-0 p-7" {
                 // ① 统计带
                 div class="flex rounded-lg bg-surface border border-border-soft mb-5 overflow-hidden" {
@@ -1387,7 +1394,6 @@ fn render_order_detail_panel(
                     }
                 }
             }
-        }
     }
 }
 
@@ -3034,9 +3040,9 @@ pub async fn get_batch_scrap_modal(
         .await?;
     let remaining = batch.batch_qty - batch.completed_qty - batch.scrap_qty;
     Ok(Html(
-        modal_shell(
-            "batch-scrap-modal",
-            "z-[1100]",
+        drawer_shell(
+            "batch-scrap-drawer",
+            "w-[480px]",
             render_scrap_form(path.batch_id, &batch, remaining),
         )
         .into_string(),
@@ -3060,13 +3066,12 @@ fn render_scrap_form(
     remaining: rust_decimal::Decimal,
 ) -> Markup {
     html! {
-        div class="bg-bg rounded-xl w-[480px] flex flex-col overflow-hidden shadow-xl" {
-            // Header
-            div class="px-6 py-4 border-b border-border-soft flex items-center justify-between shrink-0" {
+        // Header
+        div class="px-6 py-4 border-b border-border-soft flex items-center justify-between shrink-0" {
                 h2 class="text-base font-bold text-fg m-0" { "批次报废" }
                 button type="button"
                     class="w-7 h-7 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
-                    _="on click remove .is-open from closest .modal-overlay" {
+                    _="on click remove .open from closest .drawer-overlay" {
                     (icon::x_icon("w-4 h-4"))
                 }
             }
@@ -3078,7 +3083,7 @@ fn render_scrap_form(
                 }
                 form hx-post=(WcBatchScrapSubmitPath { batch_id }.to_string())
                     hx-swap="none"
-                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .is-open from closest .modal-overlay then trigger batchChanged from:body" {
+                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from closest .drawer-overlay then trigger batchChanged from:body" {
                     // Scrap quantity
                     div {
                         label class="block text-xs text-fg-2 mb-1" { "报废数量" }
@@ -3107,7 +3112,7 @@ fn render_scrap_form(
                     div class="flex justify-end gap-3 pt-4 border-t border-border-soft mt-4" {
                         button type="button"
                             class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm cursor-pointer hover:bg-surface"
-                            _="on click remove .is-open from closest .modal-overlay" { "取消" }
+                            _="on click remove .open from closest .drawer-overlay" { "取消" }
                         button type="submit"
                             class="px-4 py-2 rounded-sm bg-danger text-white text-sm font-medium cursor-pointer border-none hover:opacity-90" {
                             "确认报废"
@@ -3115,7 +3120,6 @@ fn render_scrap_form(
                     }
                 }
             }
-        }
     }
 }
 
@@ -3139,9 +3143,9 @@ pub async fn get_batch_report_modal(
         .find(|r| r.step_no == path.step_no);
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     Ok(Html(
-        modal_shell(
-            "batch-report-modal",
-            "z-[1100]",
+        drawer_shell(
+            "batch-report-drawer",
+            "w-[720px]",
             render_batch_report_modal_body(path.batch_id, &batch, routing.as_ref(), &today),
         )
         .into_string(),
@@ -3156,12 +3160,11 @@ fn render_batch_report_modal_body(
 ) -> Markup {
     let step_no = routing.map(|r| r.step_no).unwrap_or(1);
     html! {
-        div class="bg-bg rounded-xl w-[720px] flex flex-col overflow-hidden shadow-xl" {
-            div class="px-6 py-4 border-b border-border-soft flex items-center justify-between shrink-0" {
+        div class="px-6 py-4 border-b border-border-soft flex items-center justify-between shrink-0" {
                 h2 class="text-base font-bold text-fg m-0" { "工序报工" }
                 button type="button"
                     class="w-7 h-7 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
-                    _="on click remove .is-open from closest .modal-overlay" {
+                    _="on click remove .open from closest .drawer-overlay" {
                     (icon::x_icon("w-4 h-4"))
                 }
             }
@@ -3172,7 +3175,7 @@ fn render_batch_report_modal_body(
                 form hx-post=(WcBatchReportPath { batch_id }.to_string())
                     hx-target="#batch-drawer-body" hx-swap="innerHTML"
                     hx-on:htmx:config-request="event.detail.parameters['workers_json'] = window.wcCollectWorkers(event.detail.elt)"
-                    hx-on:htmx:after-request="if(event.detail.successful) document.getElementById('batch-report-modal').classList.remove('is-open')" {
+                    hx-on:htmx:after-request="if(event.detail.successful) document.getElementById('batch-report-drawer').classList.remove('open')" {
                     input type="hidden" name="step_no" value=(step_no);
                     // 工人表格（picker add-row：每行 工人 + 完成量 + 不良量；「添加工人」按钮在表格下方）
                     div class="mb-3" {
@@ -3214,7 +3217,7 @@ fn render_batch_report_modal_body(
                     div class="flex justify-end gap-3 pt-4 border-t border-border-soft" {
                         button type="button"
                             class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm cursor-pointer hover:bg-surface"
-                            _="on click remove .is-open from closest .modal-overlay" { "取消" }
+                            _="on click remove .open from closest .drawer-overlay" { "取消" }
                         button type="submit"
                             class="px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium cursor-pointer border-none hover:opacity-90" {
                             "确认报工"
@@ -3222,7 +3225,6 @@ fn render_batch_report_modal_body(
                     }
                 }
             }
-        }
     }
 }
 
@@ -3344,9 +3346,9 @@ pub async fn get_batch_receipt_modal(
         .await?
         .unwrap_or_else(|| format!("#{}", order.product_id));
     Ok(Html(
-        modal_shell(
-            "batch-receipt-modal",
-            "z-[1100]",
+        drawer_shell(
+            "batch-receipt-drawer",
+            "w-[480px]",
             render_batch_receipt_modal_body(&batch, &product_name),
         )
         .into_string(),
@@ -3359,12 +3361,11 @@ fn render_batch_receipt_modal_body(
 ) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     html! {
-        div class="bg-bg rounded-xl w-[480px] flex flex-col overflow-hidden shadow-xl" {
-            div class="px-6 py-4 border-b border-border-soft flex items-center justify-between shrink-0" {
+        div class="px-6 py-4 border-b border-border-soft flex items-center justify-between shrink-0" {
                 h2 class="text-base font-bold text-fg m-0" { "完工入库" }
                 button type="button"
                     class="w-7 h-7 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
-                    _="on click remove .is-open from closest .modal-overlay" {
+                    _="on click remove .open from closest .drawer-overlay" {
                     (icon::x_icon("w-4 h-4"))
                 }
             }
@@ -3374,7 +3375,7 @@ fn render_batch_receipt_modal_body(
                 }
                 form hx-post=(WcBatchReceiptPath { batch_id: batch.id }.to_string())
                     hx-swap="none"
-                    hx-on:htmx:after-request="if(event.detail.successful) document.getElementById('batch-receipt-modal').classList.remove('is-open')" {
+                    hx-on:htmx:after-request="if(event.detail.successful) document.getElementById('batch-receipt-drawer').classList.remove('open')" {
                     div class="grid grid-cols-2 gap-3 mb-3" {
                         div {
                             label class="block text-xs text-fg-2 mb-1" { "入库数量" }
@@ -3399,7 +3400,7 @@ fn render_batch_receipt_modal_body(
                     div class="flex justify-end gap-3 pt-4 border-t border-border-soft" {
                         button type="button"
                             class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm cursor-pointer hover:bg-surface"
-                            _="on click remove .is-open from closest .modal-overlay" { "取消" }
+                            _="on click remove .open from closest .drawer-overlay" { "取消" }
                         button type="submit"
                             class="px-4 py-2 rounded-sm bg-success text-white text-sm font-medium cursor-pointer border-none hover:opacity-90" {
                             "提交入库申请"
@@ -3407,7 +3408,6 @@ fn render_batch_receipt_modal_body(
                     }
                 }
             }
-        }
     }
 }
 

@@ -17,9 +17,11 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 
 use abt_core::fms::adjustment::{
-    model::CreateAdjustmentReq, AdjustmentDirection, AdjustmentFilter, AdjustmentRow,
+    model::{ArApAdjustment, CreateAdjustmentReq}, AdjustmentDirection, AdjustmentFilter, AdjustmentRow,
     AdjustmentService,
 };
+use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::supplier::SupplierService;
 use abt_core::fms::ar_ap::{
     ArApLedgerFilter, ArApLedgerRow, ArApService, ArApSettlement, LedgerDetailItem, LedgerSummary,
     OpenInvoice, SettlementFilter, SettleReq, UnappliedPayment,
@@ -92,6 +94,7 @@ pub async fn get_work_center(_path: FmsWorkCenterPath, ctx: RequestContext) -> R
         (render_drawer_overlay("fc-settle-overlay", "fc-settle-drawer", "fc-settle-drawer-body", "手动核销", "w-[680px] max-w-[94vw]"))
         (render_drawer_overlay("fc-ledger-detail-overlay", "fc-ledger-detail-drawer", "fc-ledger-detail-drawer-body", "台账明细", "w-[760px] max-w-[94vw]"))
         (render_drawer_overlay("fc-adjustment-overlay", "fc-adjustment-drawer", "fc-adjustment-drawer-body", "新建调整", "w-[560px] max-w-[92vw]"))
+        (render_drawer_overlay("fc-adjustment-detail-overlay", "fc-adjustment-detail-drawer", "fc-adjustment-detail-drawer-body", "调整单详情", "w-[560px] max-w-[92vw]"))
     };
 
     let page_html = admin_page(
@@ -607,8 +610,21 @@ fn ledger_table(rows: &[ArApLedgerRow], today: NaiveDate, is_receivable: bool) -
                         @for r in rows {
                             tr class="hover:bg-surface" {
                                 td class="py-2.5 px-4 text-sm text-fg-2 font-mono" { (fmt_date_opt(&r.due_date)) }
-                                td class="py-2.5 px-4 text-sm text-fg" { (r.party_name) }
-                                td class="py-2.5 px-4 text-sm text-fg-2 font-mono" { (r.source_doc_no) }
+                                td class="py-2.5 px-4 text-sm text-fg" {
+                                    a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                                        href=(if is_receivable {
+                                            crate::routes::customer::CustomerDetailPath { id: r.party_id }.to_string()
+                                        } else {
+                                            crate::routes::supplier::SupplierDetailPath { id: r.party_id }.to_string()
+                                        })
+                                        target="_blank" { (r.party_name) }
+                                }
+                                td class="py-2.5 px-4 text-sm font-mono" {
+                                    button type="button" class="text-fg-2 text-sm font-mono bg-transparent border-none p-0 cursor-pointer hover:text-accent hover:underline text-left"
+                                        hx-get=(FcLedgerDetailDrawerPath { id: r.id }.to_string())
+                                        hx-target="#fc-ledger-detail-drawer-body" hx-swap="innerHTML"
+                                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #fc-ledger-detail-overlay" { (r.source_doc_no) }
+                                }
                                 td class="py-2.5 px-4 text-sm text-muted max-w-[200px] truncate" { (r.product_summary.as_deref().unwrap_or("—")) }
                                 td class="py-2.5 px-4 text-sm text-right text-fg font-mono tabular-nums" { (fmt_amount(r.amount_outstanding)) (currency_tag(&r.currency)) }
                                 td class="py-2.5 px-4 text-sm" { (ledger_row_status(&r.due_date, r.amount_outstanding, today)) }
@@ -682,8 +698,21 @@ fn adjustments_table(rows: &[AdjustmentRow]) -> Markup {
                         @for a in rows {
                             tr class="hover:bg-surface" {
                                 td class="py-2.5 px-4 text-sm text-fg-2 font-mono" { (fmt_date(a.adjustment_date)) }
-                                td class="py-2.5 px-4 text-sm text-fg font-mono" { (a.doc_number) }
-                                td class="py-2.5 px-4 text-sm text-fg" { (a.party_name) }
+                                td class="py-2.5 px-4 text-sm font-mono" {
+                                    button type="button" class="text-fg text-sm font-mono bg-transparent border-none p-0 cursor-pointer hover:text-accent hover:underline text-left"
+                                        hx-get=(FcAdjustmentDetailDrawerPath { id: a.id }.to_string())
+                                        hx-target="#fc-adjustment-detail-drawer-body" hx-swap="innerHTML"
+                                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #fc-adjustment-detail-overlay" { (a.doc_number) }
+                                }
+                                td class="py-2.5 px-4 text-sm text-fg" {
+                                    a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                                        href=(match a.party_type {
+                                            CounterpartyType::Customer => crate::routes::customer::CustomerDetailPath { id: a.party_id }.to_string(),
+                                            CounterpartyType::Supplier => crate::routes::supplier::SupplierDetailPath { id: a.party_id }.to_string(),
+                                            _ => "#".to_string(),
+                                        })
+                                        target="_blank" { (a.party_name) }
+                                }
                                 td class="py-2.5 px-4 text-sm" { (adjustment_direction_badge(&a.direction)) }
                                 td class="py-2.5 px-4 text-sm text-right text-fg font-mono tabular-nums" { (fmt_amount(a.amount)) (currency_tag(&a.currency)) }
                                 td class="py-2.5 px-4 text-sm text-fg-2" { (a.int_order_no.as_deref().unwrap_or("—")) }
@@ -990,6 +1019,115 @@ pub async fn get_ledger_detail_drawer(
             .into_string(),
         },
     ))
+}
+
+/// 调整单详情 drawer body（只读）：单号+方向 / 往来方 / 金额+币种 / 日期+期间 / 内外部订单号 / 说明 / 操作人+时间。
+#[require_permission("FMS", "read")]
+pub async fn get_adjustment_detail_drawer(
+    path: FcAdjustmentDetailDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let adj = state
+        .adjustment_service()
+        .get_adjustment(&service_ctx, &mut conn, path.id)
+        .await?;
+    let party_name = match adj.party_type {
+        CounterpartyType::Customer => state
+            .customer_service()
+            .get(&service_ctx, &mut conn, adj.party_id)
+            .await
+            .map(|c| c.name)
+            .unwrap_or_else(|_| format!("客户 #{}", adj.party_id)),
+        CounterpartyType::Supplier => state
+            .supplier_service()
+            .get(&service_ctx, &mut conn, adj.party_id)
+            .await
+            .map(|s| s.name)
+            .unwrap_or_else(|_| format!("供应商 #{}", adj.party_id)),
+        _ => format!("往来方 #{}", adj.party_id),
+    };
+    let operator_name = state
+        .user_service()
+        .get_user(&service_ctx, &mut conn, adj.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+    Ok(Html(
+        render_adjustment_detail_body(&adj, &party_name, &operator_name).into_string(),
+    ))
+}
+
+fn render_adjustment_detail_body(adj: &ArApAdjustment, party_name: &str, operator_name: &str) -> Markup {
+    html! {
+        div class="space-y-3" {
+            div class="flex items-center gap-2.5 mb-4" {
+                span class="text-base font-bold font-mono text-fg" { (adj.doc_number) }
+                (adjustment_direction_badge(&adj.direction))
+            }
+            div class="grid grid-cols-2 gap-4" {
+                div class="mb-4" {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "往来方" }
+                    div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg" { (party_name) }
+                }
+                div class="mb-4" {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "金额" }
+                    div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg font-mono" { (fmt_amount(adj.amount)) (currency_tag(&adj.currency)) }
+                }
+            }
+            div class="grid grid-cols-2 gap-4" {
+                div class="mb-4" {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "调整日期" }
+                    div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg-2 font-mono" { (adj.adjustment_date.format("%Y-%m-%d")) }
+                }
+                div class="mb-4" {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "期间" }
+                    div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg-2 font-mono" { (&adj.period) }
+                }
+            }
+            div class="grid grid-cols-2 gap-4" {
+                div class="mb-4" {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "内部订单号" }
+                    div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg-2 font-mono" { (adj.int_order_no.as_deref().unwrap_or("—")) }
+                }
+                div class="mb-4" {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "外部订单号" }
+                    div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg-2 font-mono" { (adj.ext_order_no.as_deref().unwrap_or("—")) }
+                }
+            }
+            @if adj.currency != "CNY" {
+                div class="grid grid-cols-2 gap-4" {
+                    div class="mb-4" {
+                        label class="block text-xs text-muted font-medium mb-1.5" { "币种" }
+                        div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg-2 font-mono" { (&adj.currency) }
+                    }
+                    div class="mb-4" {
+                        label class="block text-xs text-muted font-medium mb-1.5" { "汇率" }
+                        div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg-2 font-mono" { (adj.exchange_rate) }
+                    }
+                }
+            }
+            div class="mb-4" {
+                label class="block text-xs text-muted font-medium mb-1.5" { "说明" }
+                div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg-2" { (if adj.description.is_empty() { "—" } else { adj.description.as_str() }) }
+            }
+            div class="grid grid-cols-2 gap-4" {
+                div class="mb-4" {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "操作人" }
+                    div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg-2" { (operator_name) }
+                }
+                div class="mb-4" {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "创建时间" }
+                    div class="px-2.5 py-1.5 bg-surface border border-border-soft rounded-sm text-sm text-fg-2 font-mono" { (adj.created_at.format("%Y-%m-%d %H:%M")) }
+                }
+            }
+        }
+    }
 }
 
 fn render_ledger_detail_body(row: &ArApLedgerRow, items: &[LedgerDetailItem]) -> Markup {

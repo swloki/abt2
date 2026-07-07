@@ -244,6 +244,26 @@ fn doc_detail_trigger(drawer: &str, id: i64, view: &str, label: Markup, cls: &st
     }
 }
 
+/// 按 tab domain（+ Arrival 的 source_kind）返回该行「单据详情 drawer」名。
+/// 单号列与对象列共用：点任一列都开同一张订单详情 drawer（对象列让用户从往来方也能钻取单据）。
+/// LowStock 非单据（预警），无详情 drawer → None。
+fn row_detail_drawer(domain: WorkCenterDomain, source_kind: TaskSourceKind) -> Option<&'static str> {
+    match domain {
+        WorkCenterDomain::Requisition => Some("req_detail"),
+        WorkCenterDomain::Transfer => Some("transfer_detail"),
+        WorkCenterDomain::CycleCount => Some("cc_detail"),
+        WorkCenterDomain::Outbound => Some("ship_detail"),
+        WorkCenterDomain::Arrival => {
+            if matches!(source_kind, TaskSourceKind::WorkOrder) {
+                Some("arrival_wo_detail")
+            } else {
+                Some("arrival_po_detail")
+            }
+        }
+        WorkCenterDomain::LowStock => None,
+    }
+}
+
 /// 领料单详情 drawer body（替代独立 detail 页，阶段 3.1 收口）：
 /// 单据头（单号/状态/工单/仓库/日期）+ 行项目（产品/申请/实领）+ 就地操作（确认/取消/发料）。
 /// 操作按钮各自 form 提交单端点，hidden view 携带当前视图，POST 后重渲染对应 card。
@@ -2096,31 +2116,21 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                 }
             }
             td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
-                @if domain == WorkCenterDomain::Requisition {
-                    (doc_detail_trigger("req_detail",t.doc_id, "pending", html! { (t.doc_number) },
+                @if let Some(drw) = row_detail_drawer(domain, t.source_kind) {
+                    (doc_detail_trigger(drw, t.doc_id, "pending", html! { (t.doc_number) },
                         "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
-                } @else if domain == WorkCenterDomain::Transfer {
-                    (doc_detail_trigger("transfer_detail",t.doc_id, "pending", html! { (t.doc_number) },
-                        "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
-                } @else if domain == WorkCenterDomain::CycleCount {
-                    (doc_detail_trigger("cc_detail",t.doc_id, "pending", html! { (t.doc_number) },
-                        "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
-                } @else if domain == WorkCenterDomain::Outbound {
-                    (doc_detail_trigger("ship_detail",t.doc_id, "pending", html! { (t.doc_number) },
-                        "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
-                } @else if domain == WorkCenterDomain::Arrival {
-                    @if matches!(t.source_kind, TaskSourceKind::WorkOrder) {
-                        (doc_detail_trigger("arrival_wo_detail",t.doc_id, "pending", html! { (t.doc_number) },
-                            "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
-                    } @else {
-                        (doc_detail_trigger("arrival_po_detail",t.doc_id, "pending", html! { (t.doc_number) },
-                            "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
-                    }
                 } @else {
                     (t.doc_number)
                 }
             }
-            td class="py-3 px-3 text-sm text-fg-2" { (t.counterparty) }
+            td class="py-3 px-3 text-sm" {
+                @if let Some(drw) = row_detail_drawer(domain, t.source_kind) {
+                    (doc_detail_trigger(drw, t.doc_id, "pending", html! { (t.counterparty) },
+                        "text-fg-2 text-sm bg-transparent border-none p-0 cursor-pointer hover:text-accent hover:underline text-left"))
+                } @else {
+                    span class="text-fg-2" { (t.counterparty) }
+                }
+            }
             td class="py-3 px-3 text-sm text-muted" {
                 (t.summary)
             }

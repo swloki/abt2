@@ -68,6 +68,7 @@ struct JsStep {
  is_required: bool,
  remark: String,
  product_id: String,
+ product_name: String,
  work_center_id: String,
  unit_price: String,
  standard_time: String,
@@ -81,6 +82,7 @@ impl JsStep {
  is_required: s.is_required,
  remark: s.remark.clone().unwrap_or_default(),
  product_id: s.product_id.map(|id| id.to_string()).unwrap_or_default(),
+ product_name: s.product_name.clone().unwrap_or_default(),
  work_center_id: s.work_center_id.map(|id| id.to_string()).unwrap_or_default(),
  unit_price: s.unit_price.map(|d| d.to_string()).unwrap_or_default(),
  standard_time: s.standard_time.map(|d| d.to_string()).unwrap_or_default(),
@@ -382,6 +384,7 @@ fn routing_form_page(
  is_required: true,
  remark: String::new(),
  product_id: String::new(),
+ product_name: String::new(),
  work_center_id: String::new(),
  unit_price: String::new(),
  standard_time: String::new(),
@@ -495,7 +498,7 @@ fn routing_form_page(
     }
     // 产品选择弹窗（步骤行产出品共用，openProductPicker 动态指向当前行）
     ({
-        crate::components::product_picker::product_picker_modal(
+        crate::components::product_picker::product_picker_modal_deferred(
             "routing-product-modal",
             "routing-product-target",
             "routing-product-display",
@@ -531,7 +534,7 @@ function getStepsJson() {{
 }}
 
 function addStep() {{
- steps.push({{ process_code: '', is_required: true, remark: '', product_id: '', work_center_id: '', unit_price: '', standard_time: '', is_outsourced: false }});
+ steps.push({{ process_code: '', is_required: true, remark: '', product_id: '', product_name: '', work_center_id: '', unit_price: '', standard_time: '', is_outsourced: false }});
  syncFromDom();
  renderSteps();
 }}
@@ -543,20 +546,17 @@ function removeStep(idx) {{
  renderSteps();
 }}
 
-function getProcessName(code) {{
- return processMap[code] || '—';
-}}
-
 function syncFromDom() {{
  const rows = document.querySelectorAll('#routing-steps-body tr');
  rows.forEach((row, idx) => {{
  if (!steps[idx]) return;
  const selects = row.querySelectorAll('select');
  const checkboxes = row.querySelectorAll('input[type="checkbox"]');
- const inputs = row.querySelectorAll('input[type="number"], input[type="text"]');
+ const inputs = row.querySelectorAll('input[type="number"], input[type="text"]:not(.cat-search)');
  const productInput = row.querySelector('.step-product-id');
- if (selects[0]) steps[idx].process_code = selects[0].value;
- if (selects[1]) steps[idx].work_center_id = selects[1].value;
+ const opHidden = row.querySelector('.cat-select input[type=hidden]');
+ if (opHidden) steps[idx].process_code = opHidden.value;
+ if (selects[0]) steps[idx].work_center_id = selects[0].value;
  if (productInput) steps[idx].product_id = productInput.value;
  if (checkboxes[0]) steps[idx].is_outsourced = checkboxes[0].checked;
  if (checkboxes[1]) steps[idx].is_required = checkboxes[1].checked;
@@ -569,11 +569,12 @@ function syncFromDom() {{
 function renderSteps() {{
  let html = '';
  steps.forEach((step, idx) => {{
- let opts = '<option value="">-- 请选择 --</option>';
- for (let code in processMap) {{
- let sel = step.process_code === code ? ' selected' : '';
- opts += '<option value="' + code + '"' + sel + '>' + processMap[code] + '</option>';
- }}
+ // 工序搜索下拉选项（复用 .cat-* class + filterCatOptions/selectCat）；data-name 含 code+名称便于搜索
+ let opOptionsHtml = Object.keys(processMap).map(function(code) {{
+ let label = code + ' · ' + processMap[code];
+ return '<button type="button" class="cat-option block w-full text-left px-3 py-1.5 text-[13px] text-fg-2 hover:bg-accent-bg hover:text-accent border-none bg-transparent cursor-pointer" data-id="' + code + '" data-name="' + label + '" onclick="selectCat(this)">' + label + '</button>';
+ }}).join('');
+ let opLabel = step.process_code ? (step.process_code + ' · ' + (processMap[step.process_code] || '')) : '请选择工序';
  let wcopts = '<option value="">-- 无 --</option>';
  for (let wcid in workCenterMap) {{
  let sel = String(step.work_center_id) === wcid ? ' selected' : '';
@@ -584,10 +585,26 @@ function renderSteps() {{
  let up = step.unit_price || '';
  let st = step.standard_time || '';
  let rem = step.remark || '';
- let pname = (step.product_id && productMap[step.product_id]) ? productMap[step.product_id] : '';
+ // 产出品名优先取选中时缓存的 product_name（picker 搜索结果直达），回退 productMap（编辑回填的前 N 个）
+ let pname = step.product_name || (step.product_id && productMap[step.product_id]) || '';
  html += '<tr>' +
  '<td class="text-muted text-xs text-center">' + (idx + 1) + '</td>' +
- '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + opts + '</select></td>' +
+ '<td>' +
+ '<div class="cat-select relative">' +
+ '<input type="hidden" class="step-process-code" value="' + (step.process_code || '') + '" onchange="onStepChange(' + idx + ')">' +
+ '<button type="button" class="cat-trigger w-full flex items-center justify-between gap-2 px-2 py-[5px] border border-border rounded-sm text-[13px] bg-white text-fg cursor-pointer hover:border-[rgba(37,99,235,0.3)]" onclick="toggleOpCombo(this)">' +
+ '<span class="cat-label truncate flex-1 text-left ' + (step.process_code ? '' : 'text-muted') + '">' + opLabel + '</span>' +
+ '<svg class="w-3.5 h-3.5 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"></path></svg>' +
+ '</button>' +
+ '<div class="cat-backdrop fixed inset-0 z-[999]" style="display:none" onclick="closeOpCombo(this)"></div>' +
+ '<div class="cat-dropdown fixed z-[1000] w-80 bg-white border border-border rounded-sm shadow-[var(--shadow-card)]" style="display:none">' +
+ '<div class="p-2 border-b border-border-soft">' +
+ '<input type="text" placeholder="搜索工序编码或名称…" class="cat-search w-full px-2 py-1 border border-border rounded-sm text-sm outline-none focus:border-accent" oninput="filterCatOptions(this)">' +
+ '</div>' +
+ '<div class="cat-list max-h-[280px] overflow-y-auto py-1">' + opOptionsHtml + '</div>' +
+ '</div>' +
+ '</div>' +
+ '</td>' +
  '<td>' +
  '<input type="hidden" id="step-product-id-' + idx + '" class="step-product-id" value="' + (step.product_id || '') + '">' +
  '<div class="flex items-center gap-1">' +
@@ -605,6 +622,40 @@ function renderSteps() {{
  '</tr>';
  }});
  document.querySelector('#routing-steps-body').innerHTML = html;
+}}
+
+// 工序搜索下拉开关：fixed 定位（步骤表在 overflow-hidden 卡片内，absolute 会被裁）
+function toggleOpCombo(trigger) {{
+ const wrapper = trigger.closest('.cat-select');
+ const dropdown = wrapper.querySelector('.cat-dropdown');
+ const backdrop = wrapper.querySelector('.cat-backdrop');
+ if (dropdown.style.display !== 'none') {{ closeOpCombo(trigger); return; }}
+ const r = trigger.getBoundingClientRect();
+ dropdown.style.left = r.left + 'px';
+ dropdown.style.top = (r.bottom + 4) + 'px';
+ dropdown.style.display = 'block';
+ // 向下溢出视口则向上展开
+ if (r.bottom + 304 > window.innerHeight && r.top > 324) {{
+ dropdown.style.top = (r.top - dropdown.offsetHeight - 4) + 'px';
+ }}
+ // 向右溢出视口则右对齐
+ if (r.left + 320 > window.innerWidth) {{
+ dropdown.style.left = Math.max(8, window.innerWidth - 328) + 'px';
+ }}
+ backdrop.style.display = 'block';
+ const search = wrapper.querySelector('.cat-search');
+ search.value = '';
+ filterCatOptions(search);
+ search.focus();
+}}
+
+function closeOpCombo(el) {{
+ const wrapper = el.closest('.cat-select');
+ if (!wrapper) return;
+ const dropdown = wrapper.querySelector('.cat-dropdown');
+ const backdrop = wrapper.querySelector('.cat-backdrop');
+ if (dropdown) dropdown.style.display = 'none';
+ if (backdrop) backdrop.style.display = 'none';
 }}
 
 function onStepChange(idx) {{
@@ -626,9 +677,11 @@ function openProductPicker(idx) {{
  values: {{ target_id: 'step-product-id-' + idx, display_id: 'step-product-display-' + idx, modal_id: 'routing-product-modal', name: '', code: '' }}
  }});
 }}
-document.body.addEventListener('productSelected', () => {{
+document.body.addEventListener('productSelected', (e) => {{
  if (editingProductIdx !== null) {{
  syncFromDom();
+ // 产品名由事件 detail 携带（picker 搜索结果直达，绕过仅含前 N 个产品的 productMap）
+ steps[editingProductIdx].product_name = (e.detail && e.detail.productName) || '';
  editingProductIdx = null;
  renderSteps();
  }}

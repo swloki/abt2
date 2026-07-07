@@ -144,7 +144,7 @@ fn modules() -> Vec<NavModule> {
             name: "采购管理",
             items: vec![
                 NavItem {
-                    name: "采购作业中心",
+                    name: "作业中心",
                     path: "/admin/purchase/work-center",
                     icon: NavIcon::Grid,
                     permission: Some(("PURCHASE_ORDER", "read")),

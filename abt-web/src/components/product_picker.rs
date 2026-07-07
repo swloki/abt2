@@ -106,7 +106,19 @@ pub async fn search_products(
 ///
 /// 调用方可选监听：`hx-trigger="productSelected from:body"` 做额外处理（加载价格等）
 pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -> Markup {
-    product_picker_modal_with_bom_filter(modal_id, target_id, display_id, None)
+    product_picker_modal_with_bom_filter(modal_id, target_id, display_id, None, true)
+}
+
+/// 产品选择弹窗（延迟首次加载版）
+///
+/// 与 [`product_picker_modal`] 的唯一区别：结果区**不带** `intersect once` 自动首次加载，
+/// 首次加载完全由调用方负责（如 `openProductPicker` 用 `htmx.ajax` 以**动态 target_id** 拉取）。
+///
+/// 用于「一个 modal 服务多行 + 动态 target_id」场景：否则结果区 `intersect once` 会用
+/// 硬编码 target_id 发出请求，与调用方动态 target_id 的请求并发 swap 同一容器造成竞态覆盖——
+/// 后到者覆盖先到者，若 intersect 后到，点击 hyperscript 会指向 DOM 不存在的硬编码 id 而静默失败。
+pub fn product_picker_modal_deferred(modal_id: &str, target_id: &str, display_id: &str) -> Markup {
+    product_picker_modal_with_bom_filter(modal_id, target_id, display_id, None, false)
 }
 
 /// 产品选择弹窗（带 BOM 物料过滤）
@@ -117,6 +129,7 @@ pub fn product_picker_modal_with_bom_filter(
     target_id: &str,
     display_id: &str,
     bom_product_ids: Option<&str>,
+    initial_load: bool,
 ) -> Markup {
     let close_hs = format!("on click remove .is-open from #{}", modal_id);
     let bom_inputs = if let Some(ids) = bom_product_ids {
@@ -125,6 +138,41 @@ pub fn product_picker_modal_with_bom_filter(
         }
     } else {
         Markup::default()
+    };
+    // 结果区：initial_load=true 时由 intersect once 自动首次加载（用硬编码 target_id 的 hx-vals）；
+    // initial_load=false 时仅占位容器，首次加载交给调用方（htmx.ajax 以动态 target_id 拉取），
+    // 避免两者并发 swap 同一容器造成竞态覆盖（见 product_picker_modal_deferred 文档）。
+    let results_div: Markup = if initial_load {
+        let mut vals = format!(
+            "{{\"target_id\":\"{}\",\"display_id\":\"{}\",\"modal_id\":\"{}\"",
+            target_id, display_id, modal_id,
+        );
+        if let Some(ids) = bom_product_ids {
+            use std::fmt::Write;
+            write!(&mut vals, ",\"bom_product_ids\":\"{}\"", ids).unwrap();
+        }
+        vals.push_str("}");
+        html! {
+            div id="product-search-results"
+                class="max-h-[400px] overflow-y-auto"
+                hx-get=(ProductSearchPath::PATH)
+                hx-trigger="intersect once"
+                hx-swap="innerHTML"
+                hx-include=".product-search-bar"
+                hx-vals=(vals) {
+                div class="flex items-center justify-center py-8 text-muted text-sm" {
+                    "加载中…"
+                }
+            }
+        }
+    } else {
+        html! {
+            div id="product-search-results" class="max-h-[400px] overflow-y-auto" {
+                div class="flex items-center justify-center py-8 text-muted text-sm" {
+                    "加载中…"
+                }
+            }
+        }
     };
     modal_shell(modal_id, "z-[1100]", html! {
         div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
@@ -185,32 +233,7 @@ pub fn product_picker_modal_with_bom_filter(
                         { "清除" }
                     }
                     // ── Results ──
-                    div id="product-search-results"
-                        class="max-h-[400px] overflow-y-auto"
-                        hx-get=(ProductSearchPath::PATH)
-                        hx-trigger="intersect once"
-                        hx-swap="innerHTML"
-                        hx-include=".product-search-bar"
-                        hx-vals=({
-                            let mut vals = format!(
-                                "{{\"target_id\":\"{}\",\"display_id\":\"{}\",\"modal_id\":\"{}\"",
-                                target_id,
-                                display_id,
-                                modal_id,
-                            );
-                            if let Some(ids) = bom_product_ids {
-                                use std::fmt::Write;
-                                write!(&mut vals, ",\"bom_product_ids\":\"{}\"", ids)
-                                    .unwrap();
-                            }
-                            vals.push_str("}");
-                            vals
-                        })
-                    {
-                        div class="flex items-center justify-center py-8 text-muted text-sm" {
-                            "加载中…"
-                        }
-                    }
+                    (results_div)
                 }
             }
         })
@@ -308,7 +331,7 @@ pub fn product_picker_results(
     modal_id: &str,
 ) -> Markup {
     let click_hs = format!(
-        "on click set #{}'s value to my @data-pid then put my @data-pname into #{} then remove .is-open from #{} then send productSelected to body",
+        "on click set #{}'s value to my @data-pid then put my @data-pname into #{} then remove .is-open from #{} then send productSelected(productId: my @data-pid, productName: my @data-pname) to body",
         target_id, display_id, modal_id
     );
     html! {

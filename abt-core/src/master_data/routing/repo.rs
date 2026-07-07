@@ -97,7 +97,7 @@ impl RoutingRepo {
 
     pub async fn find_steps(&self, executor: PgExecutor<'_>, routing_id: i64) -> Result<Vec<RoutingStep>> {
         let steps = sqlx::query_as::<sqlx::Postgres, RoutingStep>(
-            "SELECT rs.id, rs.routing_id, rs.process_code, rs.step_order, rs.is_required, rs.remark, rs.created_at, lpd.name AS process_name, rs.work_center_id, rs.standard_time, rs.standard_cost, rs.unit_price, rs.allowed_loss_rate, rs.is_outsourced, rs.is_inspection_point, rs.product_id FROM routing_steps rs LEFT JOIN labor_process_dicts lpd ON rs.process_code = lpd.code WHERE rs.routing_id = $1 ORDER BY rs.step_order",
+            "SELECT rs.id, rs.routing_id, rs.process_code, rs.step_order, rs.is_required, rs.remark, rs.created_at, lpd.name AS process_name, p.pdt_name AS product_name, rs.work_center_id, rs.standard_time, rs.standard_cost, rs.unit_price, rs.allowed_loss_rate, rs.is_outsourced, rs.is_inspection_point, rs.product_id FROM routing_steps rs LEFT JOIN labor_process_dicts lpd ON rs.process_code = lpd.code LEFT JOIN products p ON rs.product_id = p.product_id WHERE rs.routing_id = $1 ORDER BY rs.step_order",
         )
         .bind(routing_id)
         .fetch_all(executor)

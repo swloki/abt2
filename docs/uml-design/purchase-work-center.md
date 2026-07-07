@@ -126,6 +126,7 @@ pub struct PurchaseWorkCenterSummary {
 | `/demand-rows?product_id=` | GET | 需求物料行懒加载明细（调 `list_pending_demands`） |
 | `/batch-convert/{supplier_id}/drawer?demand_ids=` | GET | 批量转单 drawer body（采购明细：同供应商多物料多选 → 一张 PO，调 `get_demands_by_ids` 汇总） |
 | `/batch-convert` | POST | 批量转采购单 → `demandChanged, poChanged`（复用 `create_order_from_demands`） |
+| `/excel/export/purchase-order?order_id=` | POST | 详情 drawer 单 PO 导出：订单头（单号/供应商/日期/交期/金额/状态/采购员/付款条款/交货地址/备注）+ 全部明细行（行号/物料/数量/单价/金额/已收）。`PurchaseOrderExporter`（`shared/excel/purchase_order_export.rs`）。order_id 经 URL query（同 `/excel/export/bom?bom_id=` 既有模式）。打印复用独立端点 `POPrintPath`（`/admin/purchase/orders/{id}/print`，非本 work-center 路由） |
 
 **HTMX 契约**（tab 模式，对齐 `mes_work_center` — section 外壳 + 单容器 + 顶部业务 tab 栏）：
 - card 外壳分离（对齐 MES `render_card_shell`）：首页 `section`（边框/阴影/圆角）持久不替换，内含**标题栏**（图标 + 「采购作业」+ `summary.total()` 件待办 meta）+ 内容 div `#pc-card`；各 card 端点只返回 `#pc-card`（替换内容，外壳 + 标题栏保留）。
@@ -145,6 +146,12 @@ pub struct PurchaseWorkCenterSummary {
 
 **drawer**：复用 `render_drawer_overlay`（overlay + `open:` 变体 + Hyperscript 关闭），body 由 `hx-get` 填充。
 
+**详情 drawer 单 PO 打印 + 导出**（Phase 1.11，Issue #200）：
+- PO 详情 drawer（`render_po_detail_drawer_body`）头部加 `print_dropdown`（compact）+ 导出按钮。打印复用独立详情页端点 `POPrintPath`（`/admin/purchase/orders/{id}/print`，minijinja `purchase_order` 模板 + `window.print()`），drawer 内隐藏 iframe `#pc-po-print-frame` 触发（`print_dropdown` set src）；模板下拉列 `list_by_document_type("purchase_order")` + 「管理打印模板」入口。
+- 导出按钮 `hx-post="/excel/export/purchase-order?order_id={id}"`：order_id 经 URL query 传（同 `/excel/export/bom?bom_id=` 既有模式；`post_export_start` 用 `Query<ExportForm>` 从 URL 解析，非 body）。
+- 导出器 `PurchaseOrderExporter`（`abt-core/src/shared/excel/purchase_order_export.rs`）：`new(pool, order_id)`，导出**单个 PO** 的订单头（单号/供应商/订单日期/预计交期/状态/采购员/总金额/付款条款/交货地址/备注，label:value 两列）+ 全部明细行（行号/物料编码/物料名称/数量/单价/金额/已收数量）。注册到 `/excel/export/purchase-order`（`routes/excel.rs`：`ExportForm.order_id`（`empty_as_none`）+ `post_export_start` 权限 `PURCHASE_ORDER read` + `execute_export` 分支）。
+- `render_po_print_fragment`（`purchase_order_detail.rs`）是 `print_purchase_order` 渲染主体抽出的共享 helper（单 PO minijinja 渲染，不含 `window.print()`），`POPrintPath` 端点调它。
+
 ## 7. Phase 划分
 
 - **Phase 1**：4 只读 card + 锚点条 + 订单审批/付款审批 drawer + 审批/驳回/对账确认/付款审批 4 写操作。
@@ -157,4 +164,5 @@ pub struct PurchaseWorkCenterSummary {
 - **Phase 1.8（已实现）**：card 查询逻辑对齐各列表页 —— Params 改 `status: Option<i16>` 默认全部（替代原 `tab` 强制状态分桶；如退货原默认 `Confirmed` 只显 26 条 → 现默认全部 36 条 = `/admin/purchase/returns`，订单原默认 `PendingApproval` 0 条 → 现全部 453 条 = `/admin/purchase/orders`），状态下拉选项 = 列表页 `status_tabs` TabItem；新增「供应商报价」+「零星请购」2 tab（共 7 tab），报价走 `PurchaseQuotationService::list`，请购走 `state.misc_request_service().list`（工厂 `new_misc_request_service`，`misc_request/mod.rs:10`）。
 - **Phase 1.9（已实现）**：tab badge 改用各业务「全部」计数 —— `PurchaseWorkCenterSummary` 加 `total_orders / total_returns / total_quotations / total_misc / total_recon / demand_detail_total` 6 字段，`summary()` 各调一次 `list(default)` count（best-effort），`pc_tab_bar` badge 改用这些字段（与 card 默认全部查询的数据一致：退货 badge 36 = 数据 36，订单 453 = 453）。原 badge 用 `pending_*` 待办计数（与「默认全部」数据不一致）已弃用于 badge；`pending_*` 仍留 header 逾期/临期 pill。
 - **Phase 1.10（已实现）**：采购明细 tab（`view=detail`）按供应商归集转单 —— 顶部加供应商搜索控件（`components/supplier_search`：搜全部供应商，store_id=true 选中存 id），选中后需求表切 checkbox 多选模式（`.pc-demand-cb` + 全选 + `.pc-batch-bar` 批量栏，对齐 MES detail_batch_bar），多选同供应商多物料需求 → drawer 确认（供应商只读 + 需求/物料/总量汇总 + 交期/备注）→ `post_batch_convert` 复用 `create_order_from_demands` 生成同一供应商一张 PO（按物料聚合多行）。配套：`DemandPoolQuery.supplier_id`（repo 子查询 `product_id ∈ 该供应商有效报价`，对齐 `compare_by_product` 口径）；`PurchaseDemandService::get_demands_by_ids`（drawer 汇总）；`supplier_search` 加 `display_value` 参数（store_id=true 时 SSR 回显名）。批量栏 JS 与 MES `.demand-cb` 隔离（采购允许同供应商多物料，MES 强制单物料）。性能：summary 15 查询 `tokio::join!` 并发 + `AppState` 内存缓存（TTL 30s，写操作 invalidate）。实现了 Phase 2「转单就地 drawer」的采购明细部分。
+- **Phase 1.11（已实现）**：详情 drawer 单 PO 打印 + 导出（Issue #200）—— drawer 头部加 `print_dropdown`（复用 `POPrintPath` 单 PO 打印端点）+ 导出按钮（`PurchaseOrderExporter` 单 PO 头 + 明细）。复用 `print_template` 服务 + `shared/excel` 框架，不改 core Service trait / 数据模型。详见 §6「详情 drawer 单 PO 打印 + 导出」。
 - **Phase 2（后续）**：登记收货 / 退货发货 / 创建对账单的就地 drawer；退货物流单号字段（`PurchaseReturn` 现无 `tracking_no`，需 migration）；settlement card「待对账入库」tab（当前仅 draft/payment 两 tab）。

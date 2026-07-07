@@ -49,6 +49,9 @@ pub struct ExportForm {
     pub start_date: Option<String>,
     #[serde(default)]
     pub end_date: Option<String>,
+    /// 采购订单导出：订单 id（详情 drawer 导出单个 PO：头 + 明细）
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub order_id: Option<i64>,
 }
 
 // ── TypedPath 路由定义 ──
@@ -275,6 +278,7 @@ pub async fn post_export_start(
     let (resource, action) = match path.export_type.as_str() {
         "warehouse-location" => ("WAREHOUSE", "read"),
         "ap-ledger-detail" | "ar-ledger-detail" => ("FMS", "read"),
+        "purchase-order" => ("PURCHASE_ORDER", "read"),
         _ => ("PRODUCT", "read"),
     };
     crate::permissions::check_permission(&ctx, resource, action).await?;
@@ -447,6 +451,17 @@ async fn execute_export(
             );
             let bytes = exporter.export().await?;
             Ok((bytes, "应收台账明细".to_string()))
+        }
+        "purchase-order" => {
+            let order_id = form
+                .order_id
+                .ok_or_else(|| anyhow::anyhow!("采购订单导出需要 order_id 参数"))?;
+            let exporter = abt_core::shared::excel::purchase_order_export::PurchaseOrderExporter::new(
+                pool.clone(),
+                order_id,
+            );
+            let bytes = exporter.export().await?;
+            Ok((bytes, "采购订单".to_string()))
         }
         _ => anyhow::bail!("未知的导出类型: {}", export_type),
     }

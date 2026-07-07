@@ -15,6 +15,7 @@ use serde::Deserialize;
 
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::master_data::product::ProductService;
+use abt_core::master_data::print_template::{PrintTemplate, PrintTemplateService};
 use abt_core::shared::identity::{DepartmentService, UserService};
 use abt_core::purchase::demand_handler::{
     CreateOrderFromDemandsReq, DemandPoolQuery, DemandSummary, MaterialAggQuery,
@@ -63,6 +64,7 @@ use crate::errors::Result;
 use crate::toast::{add_toast, ToastType};
 use crate::layout::page::admin_page;
 use crate::routes::purchase_work_center::*;
+use crate::routes::print_template::PrintTemplateListPath;
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -1315,6 +1317,11 @@ pub async fn get_po_detail_drawer(
         .list_active(&service_ctx, &mut conn)
         .await
         .unwrap_or_default();
+    let print_templates = state
+        .print_template_service()
+        .list_by_document_type(&mut conn, "purchase_order")
+        .await
+        .unwrap_or_default();
     Ok(Html(
         render_po_detail_drawer_body(
             &order,
@@ -1324,6 +1331,7 @@ pub async fn get_po_detail_drawer(
             &product_codes,
             &product_names,
             &tax_rates,
+            &print_templates,
         )
         .into_string(),
     ))
@@ -1532,15 +1540,33 @@ fn render_po_detail_drawer_body(
     product_codes: &HashMap<i64, String>,
     product_names: &HashMap<i64, String>,
     tax_rates: &[abt_core::purchase::tax::model::TaxRate],
+    print_templates: &[PrintTemplate],
 ) -> Markup {
     let is_draft = order.status == PurchaseOrderStatus::Draft;
     html! {
-        // header：单号 + 状态 pills + 金额
+        // 隐藏 iframe：打印按钮 set src 后，POPrintPath 响应自带 window.print()
+        iframe id="pc-po-print-frame" class="hidden" {}
+        // header：单号 + 状态 pills + 打印/导出 + 金额
         div class="flex items-center gap-2 mb-4 flex-wrap" {
             span class="font-mono text-sm text-muted" { (order.doc_number) }
             (po_status_pill(order.status))
             (invoice_status_pill(order.invoice_status))
-            span class="ml-auto text-lg font-bold font-mono text-accent" { (fmt_decimal(order.total_amount)) }
+            div class="flex items-center gap-2 ml-auto" {
+                (po_print_buttons(
+                    "pc-po-print-frame",
+                    &crate::routes::purchase_order::POPrintPath { id: order.id }.to_string(),
+                    print_templates,
+                    &format!("{}?document_type=purchase_order", PrintTemplateListPath::PATH),
+                ))
+                button type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
+                    hx-post=(format!("{}/purchase-order?order_id={}", crate::routes::excel::EXPORT_START_PATH, order.id))
+                    hx-confirm="确定要导出此采购订单吗？"
+                    hx-swap="none" {
+                    (icon::download_icon("w-3.5 h-3.5")) "导出"
+                }
+                span class="text-lg font-bold font-mono text-accent" { (fmt_decimal(order.total_amount)) }
+            }
         }
         @if !items.is_empty() {
             (po_drawer_progress(items))
@@ -3095,6 +3121,41 @@ fn pc_batch_bar(supplier_id: i64) -> Markup {
 }
 
 // ── 订单 card 渲染 ──
+
+/// 详情 drawer 打印区：单个「打印 ▾」下拉按钮 —— 点击展开菜单选模板打印。
+fn po_print_buttons(frame_id: &str, default_url: &str, templates: &[PrintTemplate], manage_url: &str) -> Markup {
+    html! {
+        div class="relative inline-flex group"
+            _="on click toggle .is-open then on click from elsewhere remove .is-open" {
+            button type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
+                title="打印" {
+                (icon::printer_icon("w-3.5 h-3.5")) "打印" (icon::chevron_down_icon("w-3 h-3"))
+            }
+            div class="absolute top-full right-0 mt-1 min-w-[208px] bg-surface border border-border rounded-md shadow-lg p-1.5 z-[60] opacity-0 invisible -translate-y-1 transition-all duration-150 group-[.is-open]:opacity-100 group-[.is-open]:visible group-[.is-open]:translate-y-0" {
+                @if templates.is_empty() {
+                    div class="px-3 py-2 text-xs text-muted" { "暂无可用模板，请先在模板管理中创建" }
+                } @else {
+                    @for tpl in templates {
+                        button type="button"
+                            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent rounded-sm transition-colors cursor-pointer border-none bg-transparent text-left"
+                            _=(format!("on click halt the event then set #{}'s src to '{}?template_id={}' then remove .is-open from closest .group", frame_id, default_url, tpl.id)) {
+                            span class="flex-1 truncate" { (tpl.name) }
+                            @if tpl.is_default {
+                                span class="text-[10px] text-accent font-semibold shrink-0" { "默认" }
+                            }
+                        }
+                    }
+                }
+                div class="border-t border-border-soft mt-1 pt-1" {
+                    a class="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-accent rounded-sm transition-colors" href=(manage_url) {
+                        (icon::sliders_icon("w-3.5 h-3.5")) "管理打印模板"
+                    }
+                }
+            }
+        }
+    }
+}
 
 fn orders_filter_bar(status: Option<i16>, p: &OrdersCardParams) -> Markup {
     let kw = p.keyword.as_deref().unwrap_or("");

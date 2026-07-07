@@ -130,6 +130,117 @@ pub async fn get_po_detail(
  Ok(Html(page_html.into_string()))
 }
 
+/// 渲染单个采购订单的打印 HTML 片段（不含 `window.print()` 脚本）。
+/// `print_purchase_order` 调它渲染后再追加 `window.print()` 脚本返回给浏览器
+/// （作业中心详情 drawer 的单 PO 打印经 `POPrintPath` 复用本端点）。
+///
+/// `template_id` 可选：None 用 `purchase_order` 类型默认模板，Some(id) 用指定模板。
+pub(crate) async fn render_po_print_fragment(
+    state: &crate::state::AppState,
+    ctx: &abt_core::shared::types::context::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    order_id: i64,
+    template_id: Option<i64>,
+) -> Result<String> {
+    let svc = state.purchase_order_service();
+    let supplier_svc = state.supplier_service();
+    let product_svc = state.product_service();
+    let user_svc = state.user_service();
+    let print_svc = state.print_template_service();
+
+    let order = svc.get(ctx, db, order_id).await?;
+    let items = svc.list_items(ctx, db, order_id).await.unwrap_or_default();
+
+    let supplier_name = supplier_svc
+        .get(ctx, db, order.supplier_id)
+        .await
+        .map(|s| s.name)
+        .unwrap_or_default();
+
+    let operator_name = user_svc
+        .get_user(ctx, db, order.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_default();
+
+    let status_text: &'static str = status_label(order.status).0;
+
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let product_map: HashMap<i64, (String, String, String)> = if product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        product_svc
+            .get_by_ids(ctx, db, product_ids)
+            .await
+            .map(|ps| ps.into_iter().map(|p| (p.product_id, (p.pdt_name, p.unit, p.product_code))).collect())
+            .unwrap_or_default()
+    };
+
+    let detail_items: Vec<serde_json::Value> = items
+        .iter()
+        .map(|it| {
+            let (pname, punit, pcode) = product_map.get(&it.product_id).cloned().unwrap_or_default();
+            serde_json::json!({
+                "行号": it.line_no.to_string(),
+                "产品编码": pcode,
+                "产品名称": pname,
+                "数量": it.quantity.round_dp(0).to_string(),
+                "采购数量": it.quantity.round_dp(0).to_string(),
+                "单位": punit,
+                "单价": it.unit_price.round_dp(2).to_string(),
+                "采购净价": it.unit_price.round_dp(2).to_string(),
+                "金额": it.amount.round_dp(2).to_string(),
+                "净价合计": it.price_subtotal.round_dp(2).to_string(),
+                "已收数量": it.received_qty.round_dp(0).to_string(),
+                "备注": it.description.clone(),
+            })
+        })
+        .collect();
+
+    // 顶层明细字段取第一个明细（兼容硬编码单行明细的模板，如 {{ 产品编码 }}）；
+    // 多明细模板应改用 `{% for item in 明细 %}` + `item.产品编码`。
+    let first = items.first();
+    let (fname, funit, fcode) = first
+        .and_then(|it| product_map.get(&it.product_id).cloned())
+        .unwrap_or_default();
+
+    let vars = serde_json::json!({
+        "采购单号": order.doc_number,
+        "采购日期": order.order_date.format("%Y-%m-%d").to_string(),
+        "供应商全称": supplier_name,
+        "采购总金额": order.total_amount.round_dp(2).to_string(),
+        "付款条款": order.payment_terms.clone().unwrap_or_default(),
+        "采购员": operator_name,
+        "采购状态": status_text,
+        "公司名称": "江门市艾伯特照明科技有限公司",
+        "打印时间": chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        "要求交期": order.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default(),
+        "交货地址": order.delivery_address.clone().unwrap_or_default(),
+        "订单说明": order.remark.clone(),
+        // 以下为兼容采购订单打印模板（硬编码单行明细 + 顶层变量）补充的字段：
+        // 明细类取第一个明细；PO/Supplier 当前无的字段留空（供应商地址/部门/委外工单号/采购经理）
+        "供应商地址": String::new(),
+        "部门": String::new(),
+        "委外工单号": String::new(),
+        "采购经理": String::new(),
+        "产品编码": fcode,
+        "产品名称": fname,
+        "单位": funit,
+        "采购净价": first.map(|it| it.unit_price.round_dp(2).to_string()).unwrap_or_default(),
+        "采购数量": first.map(|it| it.quantity.round_dp(0).to_string()).unwrap_or_default(),
+        "净价合计": order.amount_untaxed.round_dp(2).to_string(),
+        "备注": first.map(|it| it.description.clone()).unwrap_or_default(),
+        "明细": detail_items,
+    });
+
+    let html = match template_id {
+        Some(tid) => print_svc.render(db, tid, vars).await?,
+        None => print_svc.render_default(db, "purchase_order", vars).await?,
+    };
+
+    Ok(html)
+}
+
 /// 打印采购订单：用 purchase_order 模板 + 真实业务数据渲染，返回完整 HTML 供浏览器打印。
 /// template_id 可选：None 用 purchase_order 类型默认模板，Some(id) 用指定模板。
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -139,75 +250,7 @@ pub async fn print_purchase_order(
     Query(param): Query<PrintParam>,
 ) -> Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-
-    let svc = state.purchase_order_service();
-    let supplier_svc = state.supplier_service();
-    let product_svc = state.product_service();
-    let user_svc = state.user_service();
-    let print_svc = state.print_template_service();
-
-    let order = svc.get(&service_ctx, &mut conn, path.id).await?;
-    let items = svc.list_items(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
-
-    let supplier_name = supplier_svc
-        .get(&service_ctx, &mut conn, order.supplier_id)
-        .await
-        .map(|s| s.name)
-        .unwrap_or_default();
-
-    let operator_name = user_svc
-        .get_user(&service_ctx, &mut conn, order.operator_id)
-        .await
-        .map(|u| u.display_name.unwrap_or(u.username))
-        .unwrap_or_default();
-
-    let status_text: &'static str = status_label(order.status).0;
-
-    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-    let product_map: HashMap<i64, (String, String)> = if product_ids.is_empty() {
-        HashMap::new()
-    } else {
-        product_svc
-            .get_by_ids(&service_ctx, &mut conn, product_ids)
-            .await
-            .map(|ps| ps.into_iter().map(|p| (p.product_id, (p.pdt_name, p.unit))).collect())
-            .unwrap_or_default()
-    };
-
-    let detail_items: Vec<serde_json::Value> = items
-        .iter()
-        .map(|it| {
-            let (pname, punit) = product_map.get(&it.product_id).cloned().unwrap_or_default();
-            serde_json::json!({
-                "行号": it.line_no.to_string(),
-                "产品名称": pname,
-                "数量": it.quantity.to_string(),
-                "单位": punit,
-                "单价": it.unit_price.to_string(),
-                "金额": it.amount.to_string(),
-                "已收数量": it.received_qty.to_string(),
-            })
-        })
-        .collect();
-
-    let vars = serde_json::json!({
-        "采购单号": order.doc_number,
-        "采购日期": order.order_date.format("%Y-%m-%d").to_string(),
-        "供应商全称": supplier_name,
-        "采购总金额": order.total_amount.to_string(),
-        "付款条款": order.payment_terms.clone().unwrap_or_default(),
-        "采购员": operator_name,
-        "采购状态": status_text,
-        "公司名称": "江门市艾伯特照明科技有限公司",
-        "打印时间": chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-        "明细": detail_items,
-    });
-
-    let html = match param.template_id {
-        Some(tid) => print_svc.render(&mut conn, tid, vars).await?,
-        None => print_svc.render_default(&mut conn, "purchase_order", vars).await?,
-    };
-
+    let html = render_po_print_fragment(&state, &service_ctx, &mut conn, path.id, param.template_id).await?;
     Ok(Html(format!(
         "{html}<script>window.onload=function(){{window.print()}}</script>"
     )))

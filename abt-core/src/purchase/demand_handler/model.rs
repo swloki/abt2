@@ -34,6 +34,9 @@ pub struct DemandSummary {
     pub target_doc_type: Option<i16>,     // 关联下游单据类型 (7=PO,12=PP,10=WO,11=OM)
     pub cascade_from_product_name: Option<String>, // BOM 级联来源成品名称（Odoo origin 等价）
     pub created_at: DateTime<Utc>,
+    /// 物料单位（来自 products.unit），供前端展示数量单位（Issue #210）
+    #[sqlx(default)]
+    pub uom: String,
 }
 /// 物料汇总视图排序方式
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

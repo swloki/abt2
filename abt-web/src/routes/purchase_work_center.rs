@@ -122,6 +122,12 @@ pub struct PcQuotationDetailDrawerPath {
     pub id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/misc/{id}/detail-drawer")]
+pub struct PcMiscDetailDrawerPath {
+    pub id: i64,
+}
+
 // ── 创建 drawer（就地新建，对标 wms domain_entries 但走 drawer）──
 
 #[derive(TypedPath, Deserialize, Clone)]
@@ -356,6 +362,10 @@ pub fn router() -> Router<AppState> {
         .route(
             PcMiscCreatePath::PATH,
             post(purchase_work_center::post_misc_create),
+        )
+        .route(
+            PcMiscDetailDrawerPath::PATH,
+            get(purchase_work_center::get_misc_detail_drawer),
         )
         .route(
             PcReconCreateDrawerPath::PATH,

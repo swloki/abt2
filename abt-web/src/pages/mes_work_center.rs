@@ -740,7 +740,11 @@ fn wc_demand_detail_row(item: &DemandSummary) -> Markup {
                 }
             }
             td class="py-2.5 px-3" {
-                div class="font-medium text-fg" { (item.product_name) }
+                div class="font-medium text-fg" {
+                    a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                        href=(crate::routes::product::ProductDetailPath { id: item.product_id }.to_string())
+                        target="_blank" { (item.product_name) }
+                }
                 div class="text-xs text-muted font-mono" { (item.product_code) }
             }
             td class="py-2.5 px-3" {
@@ -1002,7 +1006,11 @@ fn orders_row(
                     _="on click halt the event" { (w.doc_number.as_str()) }
             }
             td class="py-2.5 px-3" {
-                div class="font-medium text-fg" { (pn) }
+                div class="font-medium text-fg" {
+                    a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                        href=(crate::routes::product::ProductDetailPath { id: w.product_id }.to_string())
+                        target="_blank" { (pn) }
+                }
                 div class="text-xs text-muted" { (fmt_qty(w.planned_qty)) " 件" }
             }
             td class="py-2.5 px-3" { (wo_progress(w)) }

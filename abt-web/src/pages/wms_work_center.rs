@@ -1346,7 +1346,7 @@ pub async fn post_work_center_action(
     _path: WmsWorkCenterPath,
     ctx: RequestContext,
     axum::Form(form): axum::Form<WorkCenterActionForm>,
-) -> Result<Html<String>> {
+) -> Result<impl IntoResponse> {
     let domain = action_domain(&form.action)?;
     let RequestContext { state, service_ctx, mut conn, .. } = ctx;
     let svc = state.wms_work_center_service();
@@ -1361,6 +1361,13 @@ pub async fn post_work_center_action(
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
+
+    // 成功 toast（HX-Trigger: showToast 触发客户端到 /api/toast 拉取渲染）
+    crate::toast::add_toast(
+        service_ctx.operator_id,
+        action_success_msg(&form.action),
+        crate::toast::ToastType::Success,
+    );
 
     // 重渲染当前 tab 主体（受影响 domain）+ 顶栏总数 badge（oob）。
     // Requisition 全部视图下的操作：重渲染全部 card（保持视图不跳回待办）；其余渲染待办队列。
@@ -1393,7 +1400,7 @@ pub async fn post_work_center_action(
         // 顶栏总数 badge：hx-swap-oob 自动替换页面 #wc-total-badge
         (total_badge(summary.total(), true))
     };
-    Ok(Html(fragment.into_string()))
+    Ok(([("HX-Trigger", "showToast")], Html(fragment.into_string())))
 }
 
 /// 按 action 分发到各域 service（均在传入事务内执行）
@@ -1599,6 +1606,28 @@ async fn dispatch_action(
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     }
     Ok(())
+}
+
+/// 就地操作成功 toast 文案（按 action 语义给反馈）
+fn action_success_msg(action: &str) -> &'static str {
+    match action {
+        "receive_po" => "收货入库完成",
+        "receive_wo" => "工单入库完成",
+        "direct_ship" | "batch_ship" => "发货完成",
+        "issue" => "发料完成",
+        "confirm" => "已确认",
+        "cancel" | "transfer_cancel" => "已取消",
+        "dispatch" => "已发车",
+        "complete" => "已完成",
+        "cc_start" => "盘点已开始",
+        "cc_complete" => "盘点已完成",
+        "cc_cancel" => "盘点已取消",
+        "cc_adjust" => "盘点已调整",
+        "cc_approve" => "盘点已审批",
+        "cc_reject" => "盘点已驳回",
+        "ack_low_stock" => "已确认",
+        _ => "操作完成",
+    }
 }
 
 /// 解析批量 action 的 ids（逗号分隔 → Vec<i64>），仅 batch_* action 用。
@@ -2311,8 +2340,13 @@ pub async fn post_cycle_count_create(
 ) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::wms_cycle_count_create::do_create_cycle_count(&state, &service_ctx, form).await?;
-    // 空 body + wcChanged：form afterRequest 守卫关 drawer；#wc-domain-card 监听 wcChanged 自刷新（带 active domain 保 tab）
-    Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
+    // 成功 toast + wcChanged：form afterRequest 守卫关 drawer；#wc-domain-card 监听 wcChanged 自刷新（带 active domain 保 tab）
+    crate::toast::add_toast(
+        service_ctx.operator_id,
+        "盘点单已创建",
+        crate::toast::ToastType::Success,
+    );
+    Ok(([("HX-Trigger", "wcChanged, showToast")], Html(String::new())))
 }
 
 // ── 领料创建 drawer（Requisition tab「新建领料单」按钮）──
@@ -2350,7 +2384,12 @@ pub async fn post_requisition_create(
 ) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::wms_requisition_create::do_create_requisition(&state, &service_ctx, form).await?;
-    Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
+    crate::toast::add_toast(
+        service_ctx.operator_id,
+        "领料单已创建",
+        crate::toast::ToastType::Success,
+    );
+    Ok(([("HX-Trigger", "wcChanged, showToast")], Html(String::new())))
 }
 
 // ── 调拨创建 drawer（Transfer tab「新建调拨单」按钮）──
@@ -2387,7 +2426,12 @@ pub async fn post_transfer_create(
 ) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::wms_transfer_create::do_create_transfer(&state, &service_ctx, form).await?;
-    Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
+    crate::toast::add_toast(
+        service_ctx.operator_id,
+        "调拨单已创建",
+        crate::toast::ToastType::Success,
+    );
+    Ok(([("HX-Trigger", "wcChanged, showToast")], Html(String::new())))
 }
 
 // ── 发货创建 drawer（Outbound tab「新建发货单」按钮）──
@@ -2436,7 +2480,12 @@ pub async fn post_shipping_create(
 ) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::shipping_create::do_create_shipping(&state, &service_ctx, form).await?;
-    Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
+    crate::toast::add_toast(
+        service_ctx.operator_id,
+        "发货单已创建",
+        crate::toast::ToastType::Success,
+    );
+    Ok(([("HX-Trigger", "wcChanged, showToast")], Html(String::new())))
 }
 
 // ── 入库创建 drawer（Arrival tab「新建入库单」按钮）──
@@ -2474,7 +2523,12 @@ pub async fn post_stock_in_create(
 ) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
     crate::pages::wms_stock_in_create::do_create_stock_in(&state, &service_ctx, form).await?;
-    Ok(([("HX-Trigger", "wcChanged")], Html(String::new())))
+    crate::toast::add_toast(
+        service_ctx.operator_id,
+        "入库单已创建",
+        crate::toast::ToastType::Success,
+    );
+    Ok(([("HX-Trigger", "wcChanged, showToast")], Html(String::new())))
 }
 
 // ── drawer body（GET ?drawer=&id=）：按 action 渲染表单，提交走单端点 POST ──

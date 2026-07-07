@@ -1147,6 +1147,14 @@ impl DemandService for DemandServiceImpl {
                 db, order_id, line.order_line_id, line.product_id,
             ).await?;
 
+            // 批量查询 BOM 子物料的 acquire_channel（按子物料自身属性分流：
+            // 自制半成品→MES 作业中心，外购原材料→采购需求池；修复 #197/#198）
+            let cascade_pids: Vec<i64> = bom_reqs.iter().map(|r| r.product_id).collect();
+            let cascade_products = new_product_service(self.pool.clone())
+                .get_by_ids(ctx, db, cascade_pids).await?;
+            let cascade_ac_map: std::collections::HashMap<i64, AcquireChannel> = cascade_products
+                .into_iter().map(|p| (p.product_id, p.acquire_channel)).collect();
+
             for req in &bom_reqs {
                 // 已有同源级联需求 -> 跳过
                 if existing_pids.contains(&req.product_id) {
@@ -1168,7 +1176,7 @@ impl DemandService for DemandServiceImpl {
                     source_id: order_id,
                     source_line_id: line.order_line_id,
                     product_id: req.product_id,
-                    acquire_channel: AcquireChannel::Purchased.as_i16(),
+                    acquire_channel: cascade_ac_map.get(&req.product_id).copied().unwrap_or(AcquireChannel::Purchased).as_i16(),
                     required_qty: net_shortage,
                     required_date: line.required_date,
                     priority: 5,

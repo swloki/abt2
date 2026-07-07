@@ -185,11 +185,13 @@ async fn load_step_options(
  Ok((processes, products, work_centers))
 }
 
-/// 计算工序产出品候选集 = 关联产品 BOM 非叶子节点 product_id 集合（Issue #212）。
+/// 计算工序产出品候选集 = 代表产品 BOM 非叶子节点 product_id 集合（Issue #212）。
 ///
-/// - `routing_id`（编辑模式）：取该 routing 所有关联 BOM 的非叶子节点并集（多产品共享）
-/// - `bind_product_code`（新建/复制模式）：取该单产品 BOM 非叶子节点
-/// 二者二选一；均无则返回空集（`parse_steps` 对空集跳过归属校验，仅靠前端限定）。
+/// 多 BOM 关联时只取**第一个关联 BOM**（代表产品）：routing 工序产出品以代表产品 BOM 为准，
+/// 其他关联 BOM 仅共享工序结构（不再取并集，避免候选过多 / 似重复）。
+/// - `routing_id`（编辑模式）：取该 routing 第一个关联 BOM
+/// - `bind_product_code`（新建/复制模式）：取该产品 BOM
+/// 均无则返回空集（`parse_steps` 对空集跳过归属校验，仅靠前端限定）。
 async fn compute_output_candidates(
  state: &crate::state::AppState,
  service_ctx: &abt_core::shared::types::ServiceContext,
@@ -197,18 +199,16 @@ async fn compute_output_candidates(
  routing_id: Option<i64>,
  bind_product_code: Option<&str>,
 ) -> HashSet<i64> {
- let codes: Vec<String> = if let Some(rid) = routing_id {
+ let code: Option<String> = if let Some(rid) = routing_id {
  state.routing_service()
- .list_boms_by_routing(service_ctx, db, rid)
- .await.unwrap_or_default()
- .into_iter().map(|br| br.product_code).collect()
- } else if let Some(pc) = bind_product_code.filter(|s| !s.trim().is_empty()) {
- vec![pc.to_string()]
+ .paginate_boms_by_routing(service_ctx, db, rid, None, PageParams::new(1, 1))
+ .await.ok().and_then(|p| p.items.into_iter().next()).map(|b| b.product_code)
  } else {
- return HashSet::new();
+ bind_product_code.filter(|s| !s.trim().is_empty()).map(|s| s.to_string())
  };
+ let Some(code) = code else { return HashSet::new() };
  state.bom_query_service()
- .list_non_leaf_product_ids_by_product_codes(service_ctx, db, &codes)
+ .list_non_leaf_product_ids_by_product_codes(service_ctx, db, &[code])
  .await.unwrap_or_default()
  .into_iter().collect()
 }
@@ -242,23 +242,21 @@ pub async fn get_routing_output_search(
  Query(params): Query<RoutingOutputSearchParams>,
 ) -> Result<Html<String>> {
  let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ // 多 BOM 关联时只取第一个关联 BOM（代表产品）的非叶子节点（Issue #212：不再取并集）
  let candidate_ids: Vec<i64> = {
- let codes: Vec<String> = if let Some(rid) = params.routing_id {
+ let code: Option<String> = if let Some(rid) = params.routing_id {
  state.routing_service()
- .list_boms_by_routing(&service_ctx, &mut conn, rid)
- .await.unwrap_or_default()
- .into_iter().map(|br| br.product_code).collect()
- } else if let Some(ref pc) = params.product_code {
- vec![pc.clone()]
+ .paginate_boms_by_routing(&service_ctx, &mut conn, rid, None, PageParams::new(1, 1))
+ .await.ok().and_then(|p| p.items.into_iter().next()).map(|b| b.product_code)
  } else {
- Vec::new()
+ params.product_code.as_ref().filter(|s| !s.is_empty()).cloned()
  };
- if codes.is_empty() {
- Vec::new()
- } else {
+ if let Some(c) = code {
  state.bom_query_service()
- .list_non_leaf_product_ids_by_product_codes(&service_ctx, &mut conn, &codes)
+ .list_non_leaf_product_ids_by_product_codes(&service_ctx, &mut conn, &[c])
  .await.unwrap_or_default()
+ } else {
+ Vec::new()
  }
  };
  let products = if candidate_ids.is_empty() {

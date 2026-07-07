@@ -21,17 +21,11 @@ pub fn pagination(
     }
 
     html! {
-        div class="flex items-center justify-between py-4 px-5" {
-            span class="text-[13px] text-muted" {
-                "共 "
-                (total)
-                " 条记录，第 "
-                (current_page)
-                "/"
-                (total_pages)
-                " 页"
+        div class="flex items-center justify-between gap-2 py-4 px-5" {
+            span class="text-[13px] text-muted whitespace-nowrap" {
+                (total) " 条 · " (current_page) "/" (total_pages)
             }
-            div class="flex gap-1" {
+            div class="flex gap-1 flex-nowrap shrink-0" {
                 @if current_page > 1 {
                     (page_link(base_path, target_sel, form_sel, current_page - 1, "«"))
                 }

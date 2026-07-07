@@ -11,6 +11,7 @@ pub mod bom_export;
 pub mod boms_list_export;
 pub mod boms_no_labor_cost_export;
 pub mod ledger_detail_export;
+pub mod purchase_order_export;
 pub mod product_inventory_import;
 pub mod warehouse_location_import;
 pub mod labor_process_import;

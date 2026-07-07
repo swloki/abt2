@@ -130,33 +130,35 @@ pub async fn get_po_detail(
  Ok(Html(page_html.into_string()))
 }
 
-/// 打印采购订单：用 purchase_order 模板 + 真实业务数据渲染，返回完整 HTML 供浏览器打印。
-/// template_id 可选：None 用 purchase_order 类型默认模板，Some(id) 用指定模板。
-#[require_permission("PURCHASE_ORDER", "read")]
-pub async fn print_purchase_order(
-    path: POPrintPath,
-    ctx: RequestContext,
-    Query(param): Query<PrintParam>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-
+/// 渲染单个采购订单的打印 HTML 片段（不含 `window.print()` 脚本）。
+/// `print_purchase_order` 调它渲染后再追加 `window.print()` 脚本返回给浏览器
+/// （作业中心详情 drawer 的单 PO 打印经 `POPrintPath` 复用本端点）。
+///
+/// `template_id` 可选：None 用 `purchase_order` 类型默认模板，Some(id) 用指定模板。
+pub(crate) async fn render_po_print_fragment(
+    state: &crate::state::AppState,
+    ctx: &abt_core::shared::types::context::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    order_id: i64,
+    template_id: Option<i64>,
+) -> Result<String> {
     let svc = state.purchase_order_service();
     let supplier_svc = state.supplier_service();
     let product_svc = state.product_service();
     let user_svc = state.user_service();
     let print_svc = state.print_template_service();
 
-    let order = svc.get(&service_ctx, &mut conn, path.id).await?;
-    let items = svc.list_items(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
+    let order = svc.get(ctx, db, order_id).await?;
+    let items = svc.list_items(ctx, db, order_id).await.unwrap_or_default();
 
     let supplier_name = supplier_svc
-        .get(&service_ctx, &mut conn, order.supplier_id)
+        .get(ctx, db, order.supplier_id)
         .await
         .map(|s| s.name)
         .unwrap_or_default();
 
     let operator_name = user_svc
-        .get_user(&service_ctx, &mut conn, order.operator_id)
+        .get_user(ctx, db, order.operator_id)
         .await
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_default();
@@ -168,7 +170,7 @@ pub async fn print_purchase_order(
         HashMap::new()
     } else {
         product_svc
-            .get_by_ids(&service_ctx, &mut conn, product_ids)
+            .get_by_ids(ctx, db, product_ids)
             .await
             .map(|ps| ps.into_iter().map(|p| (p.product_id, (p.pdt_name, p.unit))).collect())
             .unwrap_or_default()
@@ -203,11 +205,24 @@ pub async fn print_purchase_order(
         "明细": detail_items,
     });
 
-    let html = match param.template_id {
-        Some(tid) => print_svc.render(&mut conn, tid, vars).await?,
-        None => print_svc.render_default(&mut conn, "purchase_order", vars).await?,
+    let html = match template_id {
+        Some(tid) => print_svc.render(db, tid, vars).await?,
+        None => print_svc.render_default(db, "purchase_order", vars).await?,
     };
 
+    Ok(html)
+}
+
+/// 打印采购订单：用 purchase_order 模板 + 真实业务数据渲染，返回完整 HTML 供浏览器打印。
+/// template_id 可选：None 用 purchase_order 类型默认模板，Some(id) 用指定模板。
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn print_purchase_order(
+    path: POPrintPath,
+    ctx: RequestContext,
+    Query(param): Query<PrintParam>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let html = render_po_print_fragment(&state, &service_ctx, &mut conn, path.id, param.template_id).await?;
     Ok(Html(format!(
         "{html}<script>window.onload=function(){{window.print()}}</script>"
     )))

@@ -15,6 +15,7 @@ use serde::Deserialize;
 
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::master_data::product::ProductService;
+use abt_core::master_data::print_template::{PrintTemplate, PrintTemplateService};
 use abt_core::shared::identity::UserService;
 use abt_core::purchase::demand_handler::{
     CreateOrderFromDemandsReq, DemandPoolQuery, DemandSummary, MaterialAggQuery,
@@ -57,11 +58,13 @@ use axum::Form;
 use crate::components::alert;
 use crate::components::icon;
 use crate::components::overlay::drawer_shell;
+use crate::components::print_dropdown::print_dropdown;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::toast::{add_toast, ToastType};
 use crate::layout::page::admin_page;
 use crate::routes::purchase_work_center::*;
+use crate::routes::print_template::PrintTemplateListPath;
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -1313,6 +1316,11 @@ pub async fn get_po_detail_drawer(
         .list_active(&service_ctx, &mut conn)
         .await
         .unwrap_or_default();
+    let print_templates = state
+        .print_template_service()
+        .list_by_document_type(&mut conn, "purchase_order")
+        .await
+        .unwrap_or_default();
     Ok(Html(
         render_po_detail_drawer_body(
             &order,
@@ -1322,6 +1330,7 @@ pub async fn get_po_detail_drawer(
             &product_codes,
             &product_names,
             &tax_rates,
+            &print_templates,
         )
         .into_string(),
     ))
@@ -1484,15 +1493,34 @@ fn render_po_detail_drawer_body(
     product_codes: &HashMap<i64, String>,
     product_names: &HashMap<i64, String>,
     tax_rates: &[abt_core::purchase::tax::model::TaxRate],
+    print_templates: &[PrintTemplate],
 ) -> Markup {
     let is_draft = order.status == PurchaseOrderStatus::Draft;
     html! {
-        // header：单号 + 状态 pills + 金额
+        // 隐藏 iframe：打印按钮 set src 后，POPrintPath 响应自带 window.print()
+        iframe id="pc-po-print-frame" class="hidden" {}
+        // header：单号 + 状态 pills + 打印/导出 + 金额
         div class="flex items-center gap-2 mb-4 flex-wrap" {
             span class="font-mono text-sm text-muted" { (order.doc_number) }
             (po_status_pill(order.status))
             (invoice_status_pill(order.invoice_status))
-            span class="ml-auto text-lg font-bold font-mono text-accent" { (fmt_decimal(order.total_amount)) }
+            div class="flex items-center gap-2 ml-auto" {
+                (print_dropdown(
+                    "pc-po-print-frame",
+                    &crate::routes::purchase_order::POPrintPath { id: order.id }.to_string(),
+                    print_templates,
+                    &format!("{}?document_type=purchase_order", PrintTemplateListPath::PATH),
+                    true,
+                ))
+                button type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
+                    hx-post=(format!("{}/purchase-order?order_id={}", crate::routes::excel::EXPORT_START_PATH, order.id))
+                    hx-confirm="确定要导出此采购订单吗？"
+                    hx-swap="none" {
+                    (icon::download_icon("w-3.5 h-3.5")) "导出"
+                }
+                span class="text-lg font-bold font-mono text-accent" { (fmt_decimal(order.total_amount)) }
+            }
         }
         @if !items.is_empty() {
             (po_drawer_progress(items))

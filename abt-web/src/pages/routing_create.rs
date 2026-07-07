@@ -15,15 +15,16 @@ use abt_core::master_data::work_center::WorkCenterService;
 use abt_core::master_data::routing::model::{
     BomRouting, CreateRoutingReq, RoutingDetail, RoutingStep, RoutingStepInput, UpdateRoutingReq,
 };
-use abt_core::shared::types::{DomainError, PageParams, PgExecutor};
+use abt_core::shared::types::{DomainError, PageParams, PaginatedResult, PgExecutor};
 use abt_macros::require_permission;
 
 use crate::components::icon;
+use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::routing::{
-    RoutingCopyPath, RoutingCreatePath, RoutingDetailPath, RoutingEditPath, RoutingListPath,
-    RoutingOutputSearchPath,
+    RoutingBoundBomsPath, RoutingCopyPath, RoutingCreatePath, RoutingDetailPath, RoutingEditPath,
+    RoutingListPath, RoutingOutputSearchPath,
 };
 use crate::utils::RequestContext;
 
@@ -283,6 +284,26 @@ pub async fn get_routing_output_search(
  ))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct BoundBomPageParams {
+    #[serde(default)]
+    pub page: Option<u32>,
+}
+
+/// Issue #212：编辑页关联 BOM drawer 分页端点（每页 10 条，返回 `#bound-boms-list` 片段）。
+#[require_permission("ROUTING", "read")]
+pub async fn get_routing_bound_boms(
+    path: RoutingBoundBomsPath,
+    ctx: RequestContext,
+    Query(qp): Query<BoundBomPageParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let boms = state.routing_service()
+        .paginate_boms_by_routing(&service_ctx, &mut conn, path.id, None, PageParams::new(qp.page.unwrap_or(1), 10))
+        .await?;
+    Ok(Html(bound_boms_list_fragment(path.id, &boms).into_string()))
+}
+
 // ── Handlers ──
 
 #[require_permission("ROUTING", "create")]
@@ -304,7 +325,7 @@ pub async fn get_routing_create(
  let content = routing_form_page(
  &processes, &products, &work_centers, None, FormMode::New,
  // Issue #212：新建无 routing_id，产出品候选由用户在基本信息区选关联产品后动态拉取
- None, None, &[],
+ None, None, "", 0,
  );
  let page_html = admin_page(
  is_htmx,
@@ -337,13 +358,18 @@ pub async fn get_routing_edit(
  let detail = state.routing_service().get_detail(&service_ctx, &mut conn, path.id).await?;
  let (processes, products, work_centers) = load_step_options(&state, &service_ctx, &mut conn).await?;
  // Issue #212：编辑模式产出品候选 = 该 routing 所有关联 BOM 非叶子节点并集（picker 按 routing_id 动态拉取）
- let bound_boms = state.routing_service()
- .list_boms_by_routing(&service_ctx, &mut conn, path.id)
- .await.unwrap_or_default();
+ // 关联 BOM 取首页（10 条）+ 总数：first 用于基本信息区展示，count 用于判断是否渲染更多 drawer
+ let bound_page = state.routing_service()
+ .paginate_boms_by_routing(&service_ctx, &mut conn, path.id, None, PageParams::new(1, 10))
+ .await?;
+ let first_bound_name: String = bound_page.items.first()
+ .map(|b| b.product_name.clone().filter(|s| !s.is_empty()).unwrap_or_else(|| b.product_code.clone()))
+ .unwrap_or_default();
+ let bound_count = bound_page.total as usize;
  let edit_path_str = RoutingEditPath { id: path.id }.to_string();
  let content = routing_form_page(
  &processes, &products, &work_centers, Some(&detail), FormMode::Edit,
- Some(path.id), None, &bound_boms,
+ Some(path.id), None, &first_bound_name, bound_count,
  );
  let page_html = admin_page(
  is_htmx,
@@ -378,7 +404,7 @@ pub async fn get_routing_copy(
  // Issue #212：复制模式新 routing 尚未创建，关联产品由用户在基本信息区选（同新建）
  let content = routing_form_page(
  &processes, &products, &work_centers, Some(&detail), FormMode::Copy,
- None, None, &[],
+ None, None, "", 0,
  );
  let page_html = admin_page(
  is_htmx,
@@ -540,31 +566,54 @@ fn routing_output_picker_modal(routing_id: Option<i64>, product_code: &str) -> M
 
 /// Issue #212：编辑模式关联 BOM 列表 drawer（基本信息区"更多"按钮就地展开，不跳详情页）。
 ///
-/// 内联 drawer（保留 `.drawer-overlay`/`.drawer-panel` class 供 preflight 显隐动画）；
-/// 背景点击 / Esc / × 按钮均可关。仅展示（编辑页不改关联，管理仍在详情页）。
-fn bound_boms_drawer(boms: &[BomRouting]) -> Markup {
+/// 列表区 `#bound-boms-list` 由 htmx `load` 拉取首页（`/{id}/bound-boms?page=1`），
+/// 翻页走 pagination 组件（每页 10 条）。背景点击 / Esc / × 按钮均可关。
+fn bound_boms_drawer(routing_id: i64) -> Markup {
+    let bound_boms_path = RoutingBoundBomsPath { id: routing_id }.to_string();
     html! {
         div id="bound-boms-drawer"
             class="drawer-overlay fixed inset-0 z-[90] flex justify-end bg-slate-900/40"
             _="on click[me is event.target] remove .open\non keydown[event.key is 'Escape'] from body remove .open"
         {
-            div class="drawer-panel bg-bg h-full w-[460px] max-w-[92vw] shadow-lg flex flex-col" {
+            div class="drawer-panel bg-bg h-full w-[480px] max-w-[92vw] shadow-lg flex flex-col" {
                 div class="flex items-center gap-3 px-5 py-4 border-b border-border-soft shrink-0" {
-                    span class="text-sm font-semibold text-fg" { (format!("关联 BOM（{} 个）", boms.len())) }
+                    span class="text-sm font-semibold text-fg" { "关联 BOM" }
                     span class="text-muted text-xs font-normal" { "产出品候选来自这些 BOM" }
                     button type="button"
                         class="ml-auto text-muted hover:text-fg text-xl leading-none bg-transparent border-none cursor-pointer"
                         _="on click remove .open from closest .drawer-overlay"
                     { "×" }
                 }
-                div class="overflow-y-auto flex-1 p-3" {
-                    @for bom in boms {
-                        div class="p-3 border-b border-border-soft" {
-                            div class="text-sm text-fg truncate" { (bom.product_name.as_deref().unwrap_or("—")) }
-                            div class="text-xs text-muted font-mono mt-0.5" { (bom.product_code.as_str()) }
-                        }
+                div class="overflow-y-auto flex-1" {
+                    div id="bound-boms-list"
+                        hx-get=(&bound_boms_path)
+                        hx-trigger="load"
+                        hx-target="this"
+                        hx-select="#bound-boms-list"
+                        hx-swap="outerHTML" {
+                        div class="flex items-center justify-center py-8 text-muted text-sm" { "加载中…" }
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Issue #212：drawer 关联 BOM 列表片段（`#bound-boms-list`）：当前页 10 行 + pagination 控件。
+fn bound_boms_list_fragment(routing_id: i64, boms: &PaginatedResult<BomRouting>) -> Markup {
+    let path = RoutingBoundBomsPath { id: routing_id }.to_string();
+    html! {
+        div id="bound-boms-list" {
+            @if boms.items.is_empty() {
+                div class="text-center py-8 text-muted text-sm" { "暂无关联 BOM" }
+            } @else {
+                @for bom in &boms.items {
+                    div class="p-3 border-b border-border-soft" {
+                        div class="text-sm text-fg truncate" { (bom.product_name.as_deref().unwrap_or("—")) }
+                        div class="text-xs text-muted font-mono mt-0.5" { (bom.product_code.as_str()) }
+                    }
+                }
+                (pagination(&path, "#bound-boms-list", "", boms.total, boms.page, boms.total_pages))
             }
         }
     }
@@ -579,7 +628,8 @@ fn routing_form_page(
  // Issue #212：产出品候选上下文
  routing_id: Option<i64>,
  bind_product_code: Option<String>,
- bound_boms: &[BomRouting],
+ first_bound_name: &str,
+ bound_count: usize,
 ) -> Markup {
  let process_map: HashMap<&str, &str> = processes
  .iter()
@@ -618,12 +668,6 @@ fn routing_form_page(
  .to_string();
  // Issue #212：产出品专用搜索端点（注入 JS）
  let output_search_path: &str = RoutingOutputSearchPath::PATH;
- // 编辑模式：关联 BOM 第一个产品名 + 总数（基本信息区就地展示，多个时更多在 drawer）
- let bound_count = bound_boms.len();
- let first_bound_name: String = bound_boms
- .first()
- .map(|b| b.product_name.clone().filter(|s| !s.is_empty()).unwrap_or_else(|| b.product_code.clone()))
- .unwrap_or_default();
 
  // 回填字段（编辑/复制模式预填；新建模式为空 + code 自动生成）
  let name_value: String = match (existing, mode) {
@@ -703,11 +747,11 @@ fn routing_form_page(
                     div class="form-field" {
                         @if is_edit {
                             label { "关联 BOM" }
-                            @if bound_boms.is_empty() {
+                            @if bound_count == 0 {
                                 div class="text-sm text-muted mt-1" { "未关联 BOM" }
                             } @else {
                                 div class="flex items-center gap-2 text-sm text-fg-2 mt-1" {
-                                    span class="truncate" { (first_bound_name.as_str()) }
+                                    span class="truncate" { (first_bound_name) }
                                     @if bound_count > 1 {
                                         span class="text-muted text-xs whitespace-nowrap" { (format!("等 {} 个", bound_count)) }
                                         button type="button"
@@ -800,7 +844,7 @@ fn routing_form_page(
     }
     // Issue #212：编辑模式关联 BOM 列表 drawer（多个时点"更多"就地展开，不跳详情页）
     @if is_edit && bound_count > 1 {
-        (bound_boms_drawer(bound_boms))
+        (bound_boms_drawer(output_routing_id.unwrap_or(0)))
     }
     // Issue #212：产出品专用 picker（候选集 = 关联 BOM 非叶子节点，后端按 routing_id/product_code 过滤）
     (routing_output_picker_modal(output_routing_id, &output_product_code))

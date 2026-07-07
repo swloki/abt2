@@ -890,6 +890,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .text-danger-500{color:color-mix(in srgb, var(--danger-500) var(--un-text-opacity), transparent) /* var(--danger-500) */;}
 .text-danger-800{color:color-mix(in srgb, var(--danger-800) var(--un-text-opacity), transparent) /* var(--danger-800) */;}
 .text-info{color:color-mix(in srgb, var(--info) var(--un-text-opacity), transparent) /* var(--info) */;}
+.text-muted\/40{color:color-mix(in srgb, var(--muted) 40%, transparent) /* var(--muted) */;}
 .text-purple{color:color-mix(in srgb, var(--purple) var(--un-text-opacity), transparent) /* var(--purple) */;}
 .text-purple-600{color:color-mix(in srgb, var(--colors-purple-600) var(--un-text-opacity), transparent) /* oklch(55.8% 0.288 302.321) */;}
 .text-purple-700{color:color-mix(in srgb, var(--purple-700) var(--un-text-opacity), transparent) /* var(--purple-700) */;}
@@ -1010,6 +1011,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .p-2{padding:calc(var(--spacing) * 2);}
 .p-2\.5{padding:calc(var(--spacing) * 2.5);}
 .p-3{padding:calc(var(--spacing) * 3);}
+.p-3\.5{padding:calc(var(--spacing) * 3.5);}
 .p-4{padding:calc(var(--spacing) * 4);}
 .p-5{padding:calc(var(--spacing) * 5);}
 .p-6{padding:calc(var(--spacing) * 6);}
@@ -1075,6 +1077,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .pl{padding-left:calc(var(--spacing) * 4);}
 .pl-\[42px\]{padding-left:42px;}
 .pl-11{padding-left:calc(var(--spacing) * 11);}
+.pl-3{padding-left:calc(var(--spacing) * 3);}
 .pl-3\.5{padding-left:calc(var(--spacing) * 3.5);}
 .pl-7{padding-left:calc(var(--spacing) * 7);}
 .pl-8{padding-left:calc(var(--spacing) * 8);}
@@ -1273,6 +1276,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .bg-success-500{background-color:color-mix(in srgb, var(--success-500) var(--un-bg-opacity), transparent) /* var(--success-500) */;}
 .bg-success-bg{background-color:color-mix(in srgb, var(--success-bg) var(--un-bg-opacity), transparent) /* var(--success-bg) */;}
 .bg-surface-raised{background-color:color-mix(in srgb, var(--surface-raised) var(--un-bg-opacity), transparent) /* var(--surface-raised) */;}
+.bg-surface\/60{background-color:color-mix(in srgb, var(--surface) 60%, transparent) /* var(--surface) */;}
 .bg-teal-500{background-color:color-mix(in srgb, var(--colors-teal-500) var(--un-bg-opacity), transparent) /* oklch(70.4% 0.14 182.503) */;}
 .bg-transparent{background-color:transparent;}
 .bg-warn{background-color:color-mix(in srgb, var(--warn) var(--un-bg-opacity), transparent) /* var(--warn) */;}
@@ -1306,6 +1310,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:bg-slate-50:hover{background-color:color-mix(in srgb, var(--slate-50) var(--un-bg-opacity), transparent) /* var(--slate-50) */;}
 .hover\:bg-surface-raised:hover{background-color:color-mix(in srgb, var(--surface-raised) var(--un-bg-opacity), transparent) /* var(--surface-raised) */;}
 .hover\:bg-surface:hover{background-color:color-mix(in srgb, var(--surface) var(--un-bg-opacity), transparent) /* var(--surface) */;}
+.hover\:bg-surface\/50:hover{background-color:color-mix(in srgb, var(--surface) 50%, transparent) /* var(--surface) */;}
 .hover\:bg-surface\/60:hover{background-color:color-mix(in srgb, var(--surface) 60%, transparent) /* var(--surface) */;}
 .hover\:bg-warn-100:hover{background-color:color-mix(in srgb, var(--warn-100) var(--un-bg-opacity), transparent) /* var(--warn-100) */;}
 .hover\:bg-warn-bg:hover{background-color:color-mix(in srgb, var(--warn-bg) var(--un-bg-opacity), transparent) /* var(--warn-bg) */;}
@@ -1620,6 +1625,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .w-\[920px\]{width:920px;}
 .w-\[96px\]{width:96px;}
 .w-\[9px\]{width:9px;}
+.w-1{width:var(--spacing-1);}
 .w-1\.5{width:calc(var(--spacing) * 1.5);}
 .w-10{width:var(--spacing-10);}
 .w-11{width:calc(var(--spacing) * 11);}

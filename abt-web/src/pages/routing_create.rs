@@ -473,7 +473,7 @@ pub async fn post_routing_update(
 /// 避免前端传超长 `bom_product_ids` 串——routing#1 候选集达 1776 个）。
 ///
 /// 多行共用一个 modal：`target_id`/`display_id` 由 `openProductPicker(idx)` 动态写入 hidden input，
-/// 搜索 bar 的 `hx-include=".product-search-bar"` 携带上下文与动态 id。
+/// 搜索 bar 的 `hx-include=".routing-output-search-bar"` 携带上下文与动态 id。
 ///
 /// `routing_id`（编辑模式）与 `product_code`（新建/复制模式）二选一渲染为 hidden —— 不渲染的那个
 /// 字段不在表单内，`hx-include` 不会带上，handler `RoutingOutputSearchParams` 收到 `None`，据此走对应分支。
@@ -494,8 +494,8 @@ fn routing_output_picker_modal(routing_id: Option<i64>, product_code: &str) -> M
  }
  // ── Body ──
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
- // ── Search Bar（含 hidden 上下文，hx-include=".product-search-bar" 一并带上）──
- div class="product-search-bar flex gap-4 mb-4 pb-4 border-b border-border-soft" {
+ // ── Search Bar（含 hidden 上下文，hx-include=".routing-output-search-bar" 一并带上）──
+ div class="routing-output-search-bar flex gap-4 mb-4 pb-4 border-b border-border-soft" {
  @if let Some(rid) = routing_id {
  input type="hidden" name="routing_id" value=(rid) {};
  } @else {
@@ -514,7 +514,7 @@ fn routing_output_picker_modal(routing_id: Option<i64>, product_code: &str) -> M
  hx-sync="this:replace"
  hx-target="#routing-output-results"
  hx-swap="innerHTML"
- hx-include=".product-search-bar" {};
+ hx-include=".routing-output-search-bar" {};
  }
  div class="flex-1 flex flex-col gap-1" {
  label class="text-xs font-medium text-fg-2" { "产品编码" }
@@ -526,7 +526,7 @@ fn routing_output_picker_modal(routing_id: Option<i64>, product_code: &str) -> M
  hx-sync="this:replace"
  hx-target="#routing-output-results"
  hx-swap="innerHTML"
- hx-include=".product-search-bar" {};
+ hx-include=".routing-output-search-bar" {};
  }
  }
  // ── Results（deferred：不带 intersect once，首次加载由 openProductPicker htmx.ajax 拉取）──

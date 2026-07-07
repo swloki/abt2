@@ -341,6 +341,47 @@ impl BomRepo {
         .await?;
         Ok(bom_id)
     }
+
+    /// 给定一组 product_code，返回这些产品已发布 BOM 树中【非叶子节点】的 product_id 集合（去重）。
+    ///
+    /// 用于工艺路线工序产出品候选集（Issue #212）：
+    /// - 内层子查询：批量找 product_code 对应的已发布 BOM bom_id（根节点 parent_id=0 匹配）
+    /// - 外层：在这些 bom_id 范围内，筛 `EXISTS(... c.parent_id = bn.node_id)` 即非叶子节点
+    /// - DISTINCT 去重（同一 product_id 可能出现在多个 BOM 中）
+    pub async fn list_non_leaf_product_ids_by_codes(
+        &self,
+        executor: PgExecutor<'_>,
+        product_codes: &[String],
+    ) -> Result<Vec<i64>> {
+        if product_codes.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<i64> = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            r#"
+            SELECT DISTINCT bn.product_id
+            FROM bom_nodes bn
+            JOIN boms b ON b.bom_id = bn.bom_id
+            JOIN products p ON p.product_id = bn.product_id
+            WHERE b.status IN (1, 2)
+              AND b.deleted_at IS NULL
+              AND bn.bom_id IN (
+                  SELECT b2.bom_id
+                  FROM boms b2
+                  JOIN bom_nodes bn2 ON bn2.bom_id = b2.bom_id
+                  JOIN products p2 ON p2.product_id = bn2.product_id
+                  WHERE COALESCE(bn2.product_code, p2.product_code) = ANY($1)
+                    AND bn2.parent_id = 0
+                    AND b2.status IN (1, 2)
+                    AND b2.deleted_at IS NULL
+              )
+              AND EXISTS (SELECT 1 FROM bom_nodes c WHERE c.parent_id = bn.node_id)
+            "#,
+        )
+        .bind(product_codes)
+        .fetch_all(executor)
+        .await?;
+        Ok(ids)
+    }
 }
 
 // ── BomNodeRepo ──────────────────────────────────────────────────────────────

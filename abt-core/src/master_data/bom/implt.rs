@@ -207,6 +207,15 @@ impl BomQueryService for BomQueryServiceImpl {
     ) -> Result<Option<BomSnapshot>> {
         self.snapshot_repo.find_by_snapshot_id(db, snapshot_id).await
     }
+
+    async fn list_non_leaf_product_ids_by_product_codes(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_codes: &[String],
+    ) -> Result<Vec<i64>> {
+        self.repo.list_non_leaf_product_ids_by_codes(db, product_codes).await
+    }
 }
 
 // ── BomCommandServiceImpl ────────────────────────────────────────────────────

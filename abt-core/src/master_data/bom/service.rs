@@ -80,6 +80,17 @@ pub trait BomQueryService: Send + Sync {
         db: PgExecutor<'_>,
         snapshot_id: i64,
     ) -> Result<Option<BomSnapshot>>;
+
+    /// 给定一组 product_code，返回这些产品已发布 BOM 树中【非叶子节点】的 product_id 集合（去重）。
+    ///
+    /// 用于工艺路线工序产出品候选集：产出品必须是关联产品 BOM 的成品/半成品（非原材料）。
+    /// 非叶子 = 节点存在子节点（`EXISTS c.parent_id = bn.node_id`）。Issue #212。
+    async fn list_non_leaf_product_ids_by_product_codes(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_codes: &[String],
+    ) -> Result<Vec<i64>>;
 }
 
 #[async_trait]

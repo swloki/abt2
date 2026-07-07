@@ -3074,25 +3074,15 @@ fn pc_batch_bar(supplier_id: i64) -> Markup {
 
 // ── 订单 card 渲染 ──
 
-/// 详情 drawer 打印区：2 个独立按钮 ——「打印」（默认模板直打）+「模板」（独立按钮 + 下拉选模板）。
-/// 拆自 print_dropdown 的连体 split，按钮各自完整圆角、中间留 gap。
+/// 详情 drawer 打印区：单个「打印 ▾」下拉按钮 —— 点击展开菜单选模板打印。
 fn po_print_buttons(frame_id: &str, default_url: &str, templates: &[PrintTemplate], manage_url: &str) -> Markup {
-    let print_hs = format!("on click halt the event then set #{}'s src to '{}'", frame_id, default_url);
     html! {
-        // 按钮 1：打印（默认模板，直打）
-        button type="button"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
-            _=(print_hs)
-            title="使用默认模板打印" {
-            (icon::printer_icon("w-3.5 h-3.5")) "打印"
-        }
-        // 按钮 2：模板（独立按钮 + 下拉菜单，选模板后打印）
         div class="relative inline-flex group"
             _="on click toggle .is-open then on click from elsewhere remove .is-open" {
             button type="button"
-                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
-                title="选择打印模板" {
-                "模板" (icon::chevron_down_icon("w-3 h-3"))
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
+                title="打印" {
+                (icon::printer_icon("w-3.5 h-3.5")) "打印" (icon::chevron_down_icon("w-3 h-3"))
             }
             div class="absolute top-full right-0 mt-1 min-w-[208px] bg-surface border border-border rounded-md shadow-lg p-1.5 z-[60] opacity-0 invisible -translate-y-1 transition-all duration-150 group-[.is-open]:opacity-100 group-[.is-open]:visible group-[.is-open]:translate-y-0" {
                 @if templates.is_empty() {

@@ -58,7 +58,6 @@ use axum::Form;
 use crate::components::alert;
 use crate::components::icon;
 use crate::components::overlay::drawer_shell;
-use crate::components::print_dropdown::print_dropdown;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::toast::{add_toast, ToastType};
@@ -1505,12 +1504,11 @@ fn render_po_detail_drawer_body(
             (po_status_pill(order.status))
             (invoice_status_pill(order.invoice_status))
             div class="flex items-center gap-2 ml-auto" {
-                (print_dropdown(
+                (po_print_buttons(
                     "pc-po-print-frame",
                     &crate::routes::purchase_order::POPrintPath { id: order.id }.to_string(),
                     print_templates,
                     &format!("{}?document_type=purchase_order", PrintTemplateListPath::PATH),
-                    true,
                 ))
                 button type="button"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
@@ -3075,6 +3073,51 @@ fn pc_batch_bar(supplier_id: i64) -> Markup {
 }
 
 // ── 订单 card 渲染 ──
+
+/// 详情 drawer 打印区：2 个独立按钮 ——「打印」（默认模板直打）+「模板」（独立按钮 + 下拉选模板）。
+/// 拆自 print_dropdown 的连体 split，按钮各自完整圆角、中间留 gap。
+fn po_print_buttons(frame_id: &str, default_url: &str, templates: &[PrintTemplate], manage_url: &str) -> Markup {
+    let print_hs = format!("on click halt the event then set #{}'s src to '{}'", frame_id, default_url);
+    html! {
+        // 按钮 1：打印（默认模板，直打）
+        button type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
+            _=(print_hs)
+            title="使用默认模板打印" {
+            (icon::printer_icon("w-3.5 h-3.5")) "打印"
+        }
+        // 按钮 2：模板（独立按钮 + 下拉菜单，选模板后打印）
+        div class="relative inline-flex group"
+            _="on click toggle .is-open then on click from elsewhere remove .is-open" {
+            button type="button"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
+                title="选择打印模板" {
+                "模板" (icon::chevron_down_icon("w-3 h-3"))
+            }
+            div class="absolute top-full right-0 mt-1 min-w-[208px] bg-surface border border-border rounded-md shadow-lg p-1.5 z-[60] opacity-0 invisible -translate-y-1 transition-all duration-150 group-[.is-open]:opacity-100 group-[.is-open]:visible group-[.is-open]:translate-y-0" {
+                @if templates.is_empty() {
+                    div class="px-3 py-2 text-xs text-muted" { "暂无可用模板，请先在模板管理中创建" }
+                } @else {
+                    @for tpl in templates {
+                        button type="button"
+                            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent rounded-sm transition-colors cursor-pointer border-none bg-transparent text-left"
+                            _=(format!("on click halt the event then set #{}'s src to '{}?template_id={}' then remove .is-open from closest .group", frame_id, default_url, tpl.id)) {
+                            span class="flex-1 truncate" { (tpl.name) }
+                            @if tpl.is_default {
+                                span class="text-[10px] text-accent font-semibold shrink-0" { "默认" }
+                            }
+                        }
+                    }
+                }
+                div class="border-t border-border-soft mt-1 pt-1" {
+                    a class="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-accent rounded-sm transition-colors" href=(manage_url) {
+                        (icon::sliders_icon("w-3.5 h-3.5")) "管理打印模板"
+                    }
+                }
+            }
+        }
+    }
+}
 
 fn orders_filter_bar(status: Option<i16>, p: &OrdersCardParams) -> Markup {
     let kw = p.keyword.as_deref().unwrap_or("");

@@ -1007,6 +1007,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .p-\[3px\]{padding:3px;}
 .p-0{padding:calc(var(--spacing) * 0);}
 .p-1{padding:calc(var(--spacing) * 1);}
+.p-1\.5{padding:calc(var(--spacing) * 1.5);}
 .p-10{padding:calc(var(--spacing) * 10);}
 .p-12{padding:calc(var(--spacing) * 12);}
 .p-2{padding:calc(var(--spacing) * 2);}
@@ -1725,6 +1726,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .after\:shadow-\[0_1px_3px_rgba\(0\,0\,0\,0\.15\)\]::after{--un-shadow:0 1px 3px var(--un-shadow-color, rgba(0, 0, 0, 0.15));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .group.is-open .group-\[\.is-open\]\:translate-y-0{--un-translate-y:calc(var(--spacing) * 0);translate:var(--un-translate-x) var(--un-translate-y);}
 .-translate-x-1\/2{--un-translate-x:-50%;translate:var(--un-translate-x) var(--un-translate-y);}
+.-translate-y-1{--un-translate-y:calc(var(--spacing) * -1);translate:var(--un-translate-x) var(--un-translate-y);}
 .-translate-y-1\/2,
 .icon\:-translate-y-1\/2 [class*=i-lucide]{--un-translate-y:-50%;translate:var(--un-translate-x) var(--un-translate-y);}
 .-translate-y-2{--un-translate-y:calc(var(--spacing) * -2);translate:var(--un-translate-x) var(--un-translate-y);}

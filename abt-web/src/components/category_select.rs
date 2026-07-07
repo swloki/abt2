@@ -67,7 +67,7 @@ pub fn category_tree_select(
                 div class="cat-list max-h-[280px] overflow-y-auto py-1" {
                     button
                         type="button"
-                        class="cat-option w-full text-left px-3 py-1.5 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors cursor-pointer border-none bg-transparent"
+                        class="cat-option block w-full text-left px-3 py-1.5 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors cursor-pointer border-none bg-transparent"
                         data-id=""
                         _="on click call selectCat(me)"
                     { (all_label) }
@@ -75,7 +75,7 @@ pub fn category_tree_select(
                     @for cat in &payload.items {
                         button
                             type="button"
-                            class="cat-option w-full text-left py-1.5 pr-3 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors cursor-pointer border-none bg-transparent"
+                            class="cat-option block w-full text-left py-1.5 pr-3 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors cursor-pointer border-none bg-transparent"
                             data-id=(cat.id)
                             data-name=(cat.name)
                             style=(format!("padding-left: {}px", cat.depth * 20 + 12))

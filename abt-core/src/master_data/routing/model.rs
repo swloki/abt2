@@ -26,6 +26,9 @@ pub struct RoutingStep {
     pub created_at: Option<DateTime<Utc>>,
     #[sqlx(default)]
     pub process_name: Option<String>,
+    /// 产出品名称（JOIN products.pdt_name，LEFT JOIN 可能为 None）
+    #[sqlx(default)]
+    pub product_name: Option<String>,
     // migration 045 新增工序属性
     #[sqlx(default)]
     pub work_center_id: Option<i64>,

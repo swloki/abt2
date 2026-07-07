@@ -34,7 +34,7 @@ MES 作业中心是车间执行入口：一进系统看到「待排产需求 →
 | 路径 | 方法 | handler | 说明 |
 |---|---|---|---|
 | `/admin/mes/work-center` | GET | `get_work_center` | 首页（2 card shell + drawer） |
-| `/admin/mes/work-center/demand` | GET | `get_demand_card` | 需求池 card，`view=material\|detail\|orders\|batches` 四 tab + 搜索/筛选/分页 |
+| `/admin/mes/work-center/demand` | GET | `get_demand_card` | 需求池 card，`view=material\|detail\|orders\|batches` 四 tab + 搜索/筛选/分页；可选 `order_id`（从订单详情页「自制需求」按钮跳入）：detail 视图按销售订单过滤、显示该订单**全状态** demand（`MesDemandRepo::find_demands` 在 `order_id` 有值且 `status=None` 时不再强制 `demand_status=1`），筛选栏顶部显示「销售订单 #N·全部状态」chip + 清除 |
 | `…/orders/{id}/drawer` | GET | `get_order_drawer` | 工单详情 drawer body（工单号点击，只读：头部摘要/工艺路线/物料/来源SO） |
 | `…/orders/{id}/release-drawer` | GET | `get_release_drawer` | 下达 drawer body |
 | `…/orders/{id}/release` | POST | `release_order` | 下达（release + 分批单事务），广播 `woChanged` |

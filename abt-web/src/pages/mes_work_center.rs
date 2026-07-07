@@ -58,8 +58,19 @@ use abt_macros::require_permission;
 // 首页
 // =============================================================================
 
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct WcHomeQuery {
+    /// 按销售订单过滤 demand card（来自订单详情页按钮；仅 detail 视图生效）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub order_id: Option<i64>,
+}
+
 #[require_permission("WORK_ORDER", "read")]
-pub async fn get_work_center(_path: WcPath, ctx: RequestContext) -> Result<Html<String>> {
+pub async fn get_work_center(
+    _path: WcPath,
+    ctx: RequestContext,
+    Query(q): Query<WcHomeQuery>,
+) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
     let RequestContext {
@@ -75,7 +86,7 @@ pub async fn get_work_center(_path: WcPath, ctx: RequestContext) -> Result<Html<
         .await
         .unwrap_or_default();
 
-    let content = work_center_content(&summary);
+    let content = work_center_content(&summary, q.order_id);
 
     Ok(Html(
         admin_page(
@@ -97,7 +108,12 @@ pub async fn get_work_center(_path: WcPath, ctx: RequestContext) -> Result<Html<
 ///
 /// 首页 `get_work_center` 与各 card 端点（直接访问时）共用——card 端点直接访问也返回
 /// 完整 work-center 页面（走 `admin_page(is_htmx)` 自动判断），而非裸片段。
-fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
+fn work_center_content(summary: &MesWorkCenterSummary, order_id: Option<i64>) -> Markup {
+    // order_id 有值（来自订单详情页按钮）：demand card 初始进明细视图 + 按订单过滤
+    let demand_src = match order_id {
+        Some(oid) => format!("{}?view=detail&order_id={}", WcDemandPath::PATH, oid),
+        None => WcDemandPath::PATH.to_string(),
+    };
     html! {
         div class="flex items-center justify-between mb-4 flex-wrap gap-4" {
             div {
@@ -116,7 +132,7 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
                 "手动创建工单"
             }
         }
-        (render_card_shell("wc-demand-card", WcDemandPath::PATH, "生产需求池", icon::globe_icon("w-[15px] h-[15px]"), Some((summary.pending_release, "danger")),
+        (render_card_shell("wc-demand-card", &demand_src, "生产需求池", icon::globe_icon("w-[15px] h-[15px]"), Some((summary.pending_release, "danger")),
             Some(html! { (summary.pending_release) " 张待下达 · 销售订单驱动 · 就地「转化为工单」" })))
         (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达工单", "w-[640px]"))
         (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建工单", "w-[680px]"))
@@ -180,6 +196,9 @@ pub struct DemandCardParams {
     pub sort: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
+    /// 按销售订单过滤（来自订单详情页按钮；仅 detail 视图生效，material 物料汇总忽略）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub order_id: Option<i64>,
 }
 
 /// 需求池 card（单端点）：物料汇总 / 订单行明细 两 tab，搜索 + 日期过滤 + 分页。
@@ -214,7 +233,7 @@ pub async fn get_demand_card(
                 WcPath::PATH,
                 "生产管理",
                 Some("作业中心"),
-                work_center_content(&summary),
+                work_center_content(&summary, p.order_id),
                 &nav_filter,
             )
             .into_string(),
@@ -290,6 +309,7 @@ pub async fn get_demand_card(
                         required_date_start: date_start,
                         required_date_end: date_end,
                         sort: p.sort.clone(),
+                        order_id: p.order_id,
                         ..Default::default()
                     },
                     PageParams::new(page, 10),
@@ -412,6 +432,18 @@ fn demand_filter_bar(
         "搜索物料/订单"
     };
     html! {
+        @if let Some(oid) = p.order_id {
+            div class="flex items-center justify-between px-5 py-2 border-b border-border-soft bg-accent-bg" {
+                span class="text-xs text-accent font-medium flex items-center gap-1.5" {
+                    (icon::clipboard_document_icon("w-3.5 h-3.5"))
+                    "销售订单 #" (oid) " 的自制需求 · 全部状态"
+                }
+                button type="button" class="text-xs text-muted hover:text-fg underline cursor-pointer"
+                    hx-get=(WcDemandPath::PATH)
+                    hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
+                { "清除筛选" }
+            }
+        }
         // 第一行：平铺 tab 栏（底部下划线：订单行明细/物料汇总[可合并]/工单/批次）
         div class="flex items-center gap-1 flex-wrap px-5 pt-3 border-b border-border-soft" {
             button class=(toggle_cls(view == "detail")) type="button"
@@ -446,6 +478,9 @@ fn demand_filter_bar(
             hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
             {
             input type="hidden" name="view" value=(view);
+            @if let Some(oid) = p.order_id {
+                input type="hidden" name="order_id" value=(oid);
+            }
             div class="relative" {
                 (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
                 input class="wc-search-input w-[180px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
@@ -533,6 +568,9 @@ fn demand_filter_bar(
             input type="hidden" name="wo_no" value=(wono);
             input type="hidden" name="availability" value=(avail);
             input type="hidden" name="sort" value=(sort);
+            @if let Some(oid) = p.order_id {
+                input type="hidden" name="order_id" value=(oid);
+            }
         }
     }
 }

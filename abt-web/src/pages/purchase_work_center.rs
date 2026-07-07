@@ -72,8 +72,19 @@ use abt_macros::require_permission;
 // 首页
 // =============================================================================
 
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct PcHomeQuery {
+    /// 按销售订单过滤 demand card（来自订单详情页按钮；仅 detail 视图生效）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub order_id: Option<i64>,
+}
+
 #[require_permission("PURCHASE_ORDER", "read")]
-pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext) -> Result<Html<String>> {
+pub async fn get_work_center(
+    _path: PurchaseWorkCenterPath,
+    ctx: RequestContext,
+    Query(q): Query<PcHomeQuery>,
+) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
     let RequestContext {
@@ -84,6 +95,11 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
         ..
     } = ctx;
     let summary = cached_summary(&state, &service_ctx, &mut conn).await;
+    // order_id 有值（来自订单详情页按钮）：demand card 初始进明细视图 + 按订单过滤
+    let pc_demand_src = match q.order_id {
+        Some(oid) => format!("{}?view=detail&order_id={}", PcDemandPath::PATH, oid),
+        None => PcDemandPath::PATH.to_string(),
+    };
 
     let content = html! {
         // detail-header：标题 + 待办总数 + 逾期/临期告警 pill
@@ -130,7 +146,7 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
                 }
             }
             div id="pc-card"
-                hx-get=(PcDemandPath::PATH) hx-trigger="load" hx-target="this" hx-swap="outerHTML" {
+                hx-get=(pc_demand_src) hx-trigger="load" hx-target="this" hx-swap="outerHTML" {
                 "加载中…"
             }
         }
@@ -188,6 +204,9 @@ pub struct DemandCardParams {
     pub supplier_id: Option<i64>,
     #[serde(default)]
     pub page: Option<u32>,
+    /// 按销售订单过滤（来自订单详情页按钮；仅 detail 视图生效，material 物料汇总忽略）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub order_id: Option<i64>,
 }
 
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -224,6 +243,7 @@ pub async fn get_demand_card(
                 DemandPoolQuery {
                     keyword: p.keyword.clone(),
                     supplier_id: p.supplier_id,
+                    order_id: p.order_id,
                     ..Default::default()
                 },
                 PageParams::new(page, 10),
@@ -2924,12 +2944,27 @@ fn demand_filter_bar(view: &str, p: &DemandCardParams, supplier_name: Option<&st
     let sid = p.supplier_id;
     let sid_str = sid.map(|s| s.to_string()).unwrap_or_default();
     html! {
+        @if let Some(oid) = p.order_id {
+            div class="flex items-center justify-between px-5 py-2 border-b border-border-soft bg-accent-bg" {
+                span class="text-xs text-accent font-medium flex items-center gap-1.5" {
+                    (icon::clipboard_document_icon("w-3.5 h-3.5"))
+                    "销售订单 #" (oid) " 的采购需求 · 全部状态"
+                }
+                button type="button" class="text-xs text-muted hover:text-fg underline cursor-pointer"
+                    hx-get=(PcDemandPath::PATH)
+                    hx-target="#pc-card" hx-select="#pc-card" hx-swap="outerHTML"
+                { "清除筛选" }
+            }
+        }
         form class="flex items-center gap-2 flex-wrap px-5 py-3 border-b border-border-soft"
             hx-get=(PcDemandPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.pc-demand-search"
             hx-target="#pc-card" hx-select="#pc-card" hx-swap="outerHTML"
             {
             input type="hidden" name="view" value=(view);
+            @if let Some(oid) = p.order_id {
+                input type="hidden" name="order_id" value=(oid);
+            }
             @if view == "detail" {
                 // 供应商搜索控件（搜全部供应商；store_id=true 存 id，选中 trigger change → 本表单 hx-get 刷新）
                 (crate::components::supplier_search::supplier_search_field(
@@ -2949,6 +2984,9 @@ fn demand_filter_bar(view: &str, p: &DemandCardParams, supplier_name: Option<&st
             input type="hidden" name="keyword" value=(kw);
             input type="hidden" name="view" value=(view);
             input type="hidden" name="supplier_id" value=(sid_str);
+            @if let Some(oid) = p.order_id {
+                input type="hidden" name="order_id" value=(oid);
+            }
         }
     }
 }

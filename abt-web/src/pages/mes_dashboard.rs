@@ -124,7 +124,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
             div class="grid grid-cols-4 gap-4" {
                 ({
                     quick_entry_card(
-                        "/admin/mes/demand-pool",
+                        "/admin/mes/work-center",
                         "生产需求池",
                         "销售订单驱动的生产需求",
                         "purple",

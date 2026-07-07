@@ -83,7 +83,7 @@ pub struct PurchaseWorkCenterSummary {
 
 | Card | tab / 数据源 | pending 状态（枚举值） | Service |
 |---|---|---|---|
-| ① 采购需求 | 物料汇总 / 请购明细 | `demand_status=1`（Pending） | `PurchaseDemandService::list_material_aggregated` / `list_pending_demands` |
+| ① 采购需求 | 物料汇总 / 请购明细 | `demand_status=1`（Pending） | `list_material_aggregated` / `list_pending_demands`；`/admin/purchase/work-center/demand` 支持可选 `order_id`（从订单详情页「采购需求」按钮跳入）：detail 视图按销售订单过滤时显示**全状态** demand（`find_demands` 在 `order_id` 有值且 `status=None` 时不强制 Pending，同 MES）+ chip + 清除 |
 | ① 采购需求 | 请购（misc） | `MiscRequestStatus::Draft` | `MiscellaneousRequestService::list` |
 | ② 采购订单 | 待审批 | `PurchaseOrderStatus::PendingApproval` | `PurchaseOrderService::list` |
 | ② 采购订单 | 待收货 | `PurchaseOrderStatus::Confirmed` | 同上 |

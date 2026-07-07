@@ -371,8 +371,13 @@ classDiagram
     +get(ctx: &ServiceContext, db: PgExecutor, bom_id) Result~Bom~
     +list(ctx: &ServiceContext, db: PgExecutor, query) PaginatedResult~Bom~
     +get_leaf_nodes(ctx: &ServiceContext, db: PgExecutor, bom_id) Vec~BomNode~
+    +get_direct_children_by_product(ctx: &ServiceContext, db: PgExecutor, bom_id, product_id) Vec~BomNode~
     +get_snapshots(ctx: &ServiceContext, db: PgExecutor, bom_id, version, limit: i32) Vec~BomSnapshot~
     +exists_name(ctx: &ServiceContext, db: PgExecutor, name, caller_id) bool
+    +find_published_bom_by_product_code(ctx: &ServiceContext, db: PgExecutor, product_code) Result~Option~i64~~
+    +explode_for_procurement(ctx: &ServiceContext, db: PgExecutor, product_code, quantity) Vec~ProcurementRequirement~
+    +get_snapshot_by_id(ctx: &ServiceContext, db: PgExecutor, snapshot_id) Result~Option~BomSnapshot~
+    +list_non_leaf_product_ids_by_product_codes(ctx: &ServiceContext, db: PgExecutor, product_codes) Vec~i64~
   }
 
   class BomCommandService {
@@ -1306,6 +1311,11 @@ classDiagram
           &nbsp;&nbsp;&nbsp;&nbsp;version?, limit=10) → Vec<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// version 指定则返回单条，默认按 DESC 最新 10 条</span><br>
           &nbsp;&nbsp;exists_name(ctx, db, name, caller_id?) → bool<br>
+          &nbsp;&nbsp;get_direct_children_by_product(ctx, db, bom_id, product_id) → Vec<br>
+          &nbsp;&nbsp;find_published_bom_by_product_code(ctx, db, product_code) → Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;explode_for_procurement(ctx, db, product_code, quantity) → Vec<br>
+          &nbsp;&nbsp;get_snapshot_by_id(ctx, db, snapshot_id) → Option&lt;BomSnapshot&gt;<br>
+          &nbsp;&nbsp;list_non_leaf_product_ids_by_product_codes(ctx, db, product_codes) → Vec&lt;i64&gt; <span style="color:#888;">// Issue #212 工序产出品候选集（关联 BOM 非叶子节点）</span><br>
           }<br><br>
           <span style="color:#e5a655;">// 生命周期写操作</span><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomCommandService</span> {<br>

@@ -330,8 +330,9 @@ pub fn product_picker_results(
     display_id: &str,
     modal_id: &str,
 ) -> Markup {
+    // Issue #212：productSelected 事件额外携带 productCode（向后兼容：现有监听器不读此字段不受影响）
     let click_hs = format!(
-        "on click set #{}'s value to my @data-pid then put my @data-pname into #{} then remove .is-open from #{} then send productSelected(productId: my @data-pid, productName: my @data-pname) to body",
+        "on click set #{}'s value to my @data-pid then put my @data-pname into #{} then remove .is-open from #{} then send productSelected(productId: my @data-pid, productName: my @data-pname, productCode: my @data-code) to body",
         target_id, display_id, modal_id
     );
     html! {
@@ -346,6 +347,7 @@ pub fn product_picker_results(
                     div class="flex items-center justify-between p-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg transition-colors"
                         data-pid=(p.product_id)
                         data-pname=(p.pdt_name.as_str())
+                        data-code=(p.product_code.as_str())
                         _=(click_hs)
                     {
                         div class="flex-1 min-w-0" {

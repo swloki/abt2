@@ -58,6 +58,22 @@ pub struct RoutingUnbindBomPath {
     pub id: i64,
 }
 
+/// 编辑页关联 BOM drawer 分页端点（Issue #212：drawer 内分页，每页 10 条）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/routings/{id}/bound-boms")]
+pub struct RoutingBoundBomsPath {
+    pub id: i64,
+}
+
+/// 工序产出品专用搜索端点（Issue #212）。
+///
+/// 单独前缀 `/admin/md/routing-output-search`（单数 + 连字符），避免与
+/// `/admin/md/routings/{id}` 动态段同层混用导致 axum matchit 静默 404
+/// （见 memory `reference-axum-matchit-route-conflict.md`）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/routing-output-search")]
+pub struct RoutingOutputSearchPath;
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -83,4 +99,12 @@ pub fn router() -> Router<AppState> {
         .route(RoutingBomListPath::PATH, get(routing_detail::get_routing_bom_list))
         .route(RoutingBindBomPath::PATH, post(routing_detail::bind_bom))
         .route(RoutingUnbindBomPath::PATH, post(routing_detail::unbind_bom))
+        .route(
+            RoutingBoundBomsPath::PATH,
+            get(routing_create::get_routing_bound_boms),
+        )
+        .route(
+            RoutingOutputSearchPath::PATH,
+            get(routing_create::get_routing_output_search),
+        )
 }

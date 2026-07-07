@@ -768,7 +768,7 @@ classDiagram
       <h4 style="color: #6bc76b; margin: 0 0 6px 0; font-size: 13px;">请求/响应模型</h4>
       <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
         <b>DemandPoolQuery</b> { status?: i16, product_id?: i64, order_id?: i64 }<br>
-        <b>DemandSummary</b> { id, order_id, order_no, product_id, product_name, product_code, quantity, required_date?, priority, demand_status, created_at }<br>
+        <b>DemandSummary</b> { id, order_id, order_no, product_id, product_name, product_code, quantity, uom, required_date?, priority, demand_status, created_at }<br>
         <b>MaterialAggQuery</b> { product_id?: i64, keyword?: String, required_date_start?: NaiveDate, required_date_end?: NaiveDate, sort: <b>MaterialSort</b> }<br>
         <b>MaterialAggSummary</b> { product_id, product_name, product_code, total_demand_qty, demand_count, earliest_required_date?, latest_required_date? }<br>
         <b>MaterialSort</b> { DemandQty(默认,总需求量降序) | NewestOrder(新订单优先,MAX(created_at) DESC) | EarliestDate(到期日优先,MIN(required_date) ASC) } — 物料汇总视图排序下拉<br>
@@ -784,7 +784,7 @@ classDiagram
         &nbsp;&nbsp;SELECT d.id, d.source_id AS order_id, d.source_line_id AS order_line_id,<br>
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d.product_id, d.required_qty AS quantity, d.required_date, d.priority,<br>
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d.status AS demand_status, d.acquire_channel, d.target_doc_id, d.created_at,<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; p.name AS product_name, p.code AS product_code, so.doc_number AS order_no<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; p.name AS product_name, p.code AS product_code, p.unit AS uom, so.doc_number AS order_no<br>
         &nbsp;&nbsp;FROM demands d<br>
         &nbsp;&nbsp;JOIN products p ON p.id = d.product_id<br>
         &nbsp;&nbsp;JOIN sales_orders so ON so.id = d.source_id<br>

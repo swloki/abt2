@@ -3123,7 +3123,7 @@ fn demand_detail_table(
                                     div class="text-xs text-muted font-mono" { (item.product_code) }
                                 }
                                 td class="py-2.5 px-3 font-mono text-accent" { (item.order_no.as_deref().unwrap_or("—")) }
-                                td class="text-right font-mono py-2.5 px-3" { (fmt_plain(item.quantity)) }
+                                td class="text-right font-mono py-2.5 px-3" { (fmt_plain(item.quantity)) (unit_suffix(&item.uom)) }
                                 td class="py-2.5 px-5 text-muted" { (fmt_date(item.required_date)) }
                             }
                         }
@@ -3157,7 +3157,7 @@ fn demand_detail_table(
                                     div class="text-xs text-muted font-mono" { (item.product_code) }
                                 }
                                 td class="py-2.5 px-3 font-mono text-accent" { (item.order_no.as_deref().unwrap_or("—")) }
-                                td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(item.quantity)) }
+                                td class="text-right font-mono py-2.5 px-3" { (fmt_plain(item.quantity)) (unit_suffix(&item.uom)) }
                                 td class="py-2.5 px-3 text-muted" { (fmt_date(item.required_date)) }
                                 td class="text-right py-2.5 px-5" {
                                     button class="inline-flex items-center px-3 py-1 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90"
@@ -3887,6 +3887,16 @@ fn fmt_plain(d: rust_decimal::Decimal) -> String {
     }
 }
 
+/// 数量单位后缀（uom 为空则返回空串，避免多余空格）。Issue #210：数量应带物料单位而非货币符号。
+fn unit_suffix(uom: &str) -> String {
+    let u = uom.trim();
+    if u.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", u)
+    }
+}
+
 /// 物料图标（按 product_id hash 选语义色 + 图标），对齐 mes_work_center::material_icon。
 fn material_icon(product_id: i64) -> (&'static str, Markup) {
     match (product_id % 4) as u8 {
@@ -4022,7 +4032,7 @@ fn demand_expand_rows(items: &[DemandSummary]) -> Markup {
                 td class="py-1.5 px-4 font-mono text-xs text-accent" {
                     (d.order_no.as_deref().unwrap_or("—"))
                 }
-                td class="py-1.5 px-3 text-right font-mono text-xs" { (fmt_plain(d.quantity)) }
+                td class="py-1.5 px-3 text-right font-mono text-xs" { (fmt_plain(d.quantity)) (unit_suffix(&d.uom)) }
                 td class="py-1.5 px-3 font-mono text-xs text-muted" { (fmt_date(d.required_date)) }
             }
         }

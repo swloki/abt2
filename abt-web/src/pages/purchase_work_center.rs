@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::master_data::product::ProductService;
-use abt_core::shared::identity::UserService;
+use abt_core::shared::identity::{DepartmentService, UserService};
 use abt_core::purchase::demand_handler::{
     CreateOrderFromDemandsReq, DemandPoolQuery, DemandSummary, MaterialAggQuery,
     MaterialAggSummary, PurchaseDemandService,
@@ -49,6 +49,7 @@ use std::time::Instant;
 
 use abt_core::purchase::misc_request::model::{MiscRequestQuery, MiscellaneousRequest};
 use abt_core::purchase::misc_request::MiscellaneousRequestService;
+use rust_decimal::Decimal;
 use abt_core::purchase::quotation::model::{
     PurchaseQuotation, PurchaseQuotationItem, PurchaseQuotationQuery, QuotationComparison,
 };
@@ -143,6 +144,7 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
         (render_drawer_overlay("recon-create-overlay", "recon-create-drawer", "recon-create-drawer-body", "新建采购对账单", "w-[1000px] max-w-[94vw]"))
         (render_drawer_overlay("pay-create-overlay", "pay-create-drawer", "pay-create-drawer-body", "新建付款申请", "w-[680px] max-w-[94vw]"))
         (render_drawer_overlay("po-create-overlay", "po-create-drawer", "po-create-drawer-body", "新建采购订单", "w-[1000px] max-w-[94vw]"))
+        (render_drawer_overlay("misc-detail-overlay", "misc-detail-drawer", "misc-detail-drawer-body", "请购单详情", "w-[860px] max-w-[94vw]"))
         // 转单成功后自动切草稿订单列表：后端广播 convertDone → htmx 原生 hx-get 切订单 card
         div class="hidden"
             hx-trigger="convertDone from:body"
@@ -1322,6 +1324,52 @@ pub async fn get_po_detail_drawer(
             &product_codes,
             &product_names,
             &tax_rates,
+        )
+        .into_string(),
+    ))
+}
+
+/// 请购单详情 drawer body：复用 misc_request_detail::misc_detail_page（单头+工作流+明细+操作）。
+#[require_permission("MISC_REQUEST", "read")]
+pub async fn get_misc_detail_drawer(
+    path: PcMiscDetailDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let svc = state.misc_request_service();
+    let req = svc.get(&service_ctx, &mut conn, path.id).await?;
+    let items = svc
+        .list_items(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+    let operator_name = state
+        .user_service()
+        .get_user(&service_ctx, &mut conn, req.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+    let department_name = state
+        .department_service()
+        .get_department(&service_ctx, &mut conn, req.department_id)
+        .await
+        .map(|d| d.department_name)
+        .unwrap_or_else(|_| "—".into());
+    let total_amount: Decimal = items
+        .iter()
+        .map(|i| i.estimated_price.unwrap_or(Decimal::ZERO) * i.quantity)
+        .sum();
+    Ok(Html(
+        crate::pages::misc_request_detail::misc_detail_page(
+            &req,
+            &items,
+            &department_name,
+            &operator_name,
+            total_amount,
         )
         .into_string(),
     ))
@@ -3100,8 +3148,14 @@ fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>) -> Markup
                     }
                     @for o in items {
                         tr class="border-b border-border-soft hover:bg-accent-bg" {
-                            td class="py-2.5 px-5 font-mono text-accent font-medium" { (o.doc_number) }
-                            td class="py-2.5 px-3 text-fg" { (names.get(&o.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            td class="py-2.5 px-5 font-mono text-accent font-medium" {
+                                (doc_number_detail_btn(&o.doc_number, &PcPoDetailDrawerPath { id: o.id }.to_string(), "#po-detail-drawer-body", "#po-detail-overlay"))
+                            }
+                            td class="py-2.5 px-3 text-fg" {
+                                a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                                    href=(crate::routes::supplier::SupplierDetailPath { id: o.supplier_id }.to_string())
+                                    target="_blank" { (names.get(&o.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            }
                             td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(o.total_amount)) }
                             td class="py-2.5 px-3 text-muted" { (fmt_date(o.expected_delivery_date)) }
                             td class="py-2.5 px-3" { (po_status_pill(o.status)) }
@@ -3207,7 +3261,11 @@ fn recon_table(items: &[PurchaseReconciliation], names: &HashMap<i64, String>) -
                     @for r in items {
                         tr class="border-b border-border-soft hover:bg-accent-bg" {
                             td class="py-2.5 px-5 font-mono text-accent font-medium" { (r.doc_number) }
-                            td class="py-2.5 px-3 text-fg" { (names.get(&r.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            td class="py-2.5 px-3 text-fg" {
+                                a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                                    href=(crate::routes::supplier::SupplierDetailPath { id: r.supplier_id }.to_string())
+                                    target="_blank" { (names.get(&r.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            }
                             td class="py-2.5 px-3 text-muted font-mono" { (r.period) }
                             td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(r.total_amount)) }
                             td class="text-right py-2.5 px-5 whitespace-nowrap" {
@@ -3252,7 +3310,11 @@ fn payment_table(items: &[PaymentRequest], names: &HashMap<i64, String>) -> Mark
                     @for pay in items {
                         tr class="border-b border-border-soft hover:bg-accent-bg" {
                             td class="py-2.5 px-5 font-mono text-accent font-medium" { (pay.doc_number) }
-                            td class="py-2.5 px-3 text-fg" { (names.get(&pay.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            td class="py-2.5 px-3 text-fg" {
+                                a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                                    href=(crate::routes::supplier::SupplierDetailPath { id: pay.supplier_id }.to_string())
+                                    target="_blank" { (names.get(&pay.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            }
                             td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(pay.amount)) }
                             td class="py-2.5 px-3 text-muted font-mono" { (fmt_date(Some(pay.payment_date))) }
                             td class="text-right py-2.5 px-5 whitespace-nowrap" {
@@ -3329,8 +3391,14 @@ fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>) -> Mark
                     }
                     @for r in items {
                         tr class="border-b border-border-soft hover:bg-accent-bg" {
-                            td class="py-2.5 px-5 font-mono text-accent font-medium" { (r.doc_number) }
-                            td class="py-2.5 px-3 text-fg" { (names.get(&r.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            td class="py-2.5 px-5 font-mono text-accent font-medium" {
+                                (doc_number_detail_btn(&r.doc_number, &PcReturnDetailDrawerPath { id: r.id }.to_string(), "#return-detail-drawer-body", "#return-detail-overlay"))
+                            }
+                            td class="py-2.5 px-3 text-fg" {
+                                a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                                    href=(crate::routes::supplier::SupplierDetailPath { id: r.supplier_id }.to_string())
+                                    target="_blank" { (names.get(&r.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            }
                             td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(r.total_amount)) }
                             td class="py-2.5 px-3 text-muted" { @if r.return_reason.is_empty() { "—" } @else { (r.return_reason.as_str()) } }
                             td class="text-right py-2.5 px-5 whitespace-nowrap" {
@@ -3362,6 +3430,20 @@ fn new_drawer_button(get_path: &str, body_sel: &str, overlay_sel: &str, label: &
             _=(hs) {
             (icon::plus_icon("w-3 h-3")) (label)
         }
+    }
+}
+
+/// 单号「详情」触发器：把单号包成链接式 button，点击拉详情 drawer body → afterRequest 开 overlay。
+/// 与行内「详情」按钮开同一张 drawer，让单号本身也成为钻取入口（单号原本 accent styled 但不是链接）。
+fn doc_number_detail_btn(doc_number: &str, get_path: &str, body_sel: &str, overlay_sel: &str) -> Markup {
+    let hs = format!(
+        "on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to {overlay_sel}"
+    );
+    html! {
+        button type="button"
+            class="font-mono text-accent font-medium text-sm bg-transparent border-none p-0 cursor-pointer hover:underline text-left"
+            hx-get=(get_path) hx-target=(body_sel) hx-swap="innerHTML"
+            _=(hs) { (doc_number) }
     }
 }
 
@@ -3412,8 +3494,14 @@ fn quotation_table(items: &[PurchaseQuotation], names: &HashMap<i64, String>) ->
                     }
                     @for q in items {
                         tr class="border-b border-border-soft hover:bg-accent-bg" {
-                            td class="py-2.5 px-5 font-mono text-accent font-medium" { (q.doc_number) }
-                            td class="py-2.5 px-3 text-fg" { (names.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            td class="py-2.5 px-5 font-mono text-accent font-medium" {
+                                (doc_number_detail_btn(&q.doc_number, &PcQuotationDetailDrawerPath { id: q.id }.to_string(), "#quotation-detail-drawer-body", "#quotation-detail-overlay"))
+                            }
+                            td class="py-2.5 px-3 text-fg" {
+                                a class="text-fg hover:text-accent hover:underline cursor-pointer"
+                                    href=(crate::routes::supplier::SupplierDetailPath { id: q.supplier_id }.to_string())
+                                    target="_blank" { (names.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            }
                             td class="py-2.5 px-3 text-muted font-mono" { (fmt_date(Some(q.valid_from))) " → " (fmt_date(Some(q.valid_until))) }
                             td class="py-2.5 px-3" { (quotation_status_pill(q.status)) }
                             td class="text-right py-2.5 px-5" {
@@ -3486,7 +3574,9 @@ fn misc_table(items: &[MiscellaneousRequest]) -> Markup {
                     }
                     @for m in items {
                         tr class="border-b border-border-soft hover:bg-accent-bg" {
-                            td class="py-2.5 px-5 font-mono text-accent font-medium" { (m.doc_number) }
+                            td class="py-2.5 px-5 font-mono text-accent font-medium" {
+                                (doc_number_detail_btn(&m.doc_number, &PcMiscDetailDrawerPath { id: m.id }.to_string(), "#misc-detail-drawer-body", "#misc-detail-overlay"))
+                            }
                             td class="py-2.5 px-3 text-fg" { (m.purpose) }
                             td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(m.total_amount)) }
                             td class="py-2.5 px-3" { (misc_status_pill(m.status)) }

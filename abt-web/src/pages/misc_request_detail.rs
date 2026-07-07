@@ -166,7 +166,7 @@ fn workflow_steps(current: MiscRequestStatus) -> Markup {
 
 // ── Components ──
 
-fn misc_detail_page(
+pub(crate) fn misc_detail_page(
  req: &MiscellaneousRequest,
  items: &[MiscRequestItem],
  department_name: &str,

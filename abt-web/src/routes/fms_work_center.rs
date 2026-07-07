@@ -99,6 +99,12 @@ pub struct FcAdjustmentCreatePath;
 #[typed_path("/admin/fms/work-center/adjustment/balance")]
 pub struct FcAdjustmentBalancePath;
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/fms/work-center/adjustment-detail/{id}/drawer")]
+pub struct FcAdjustmentDetailDrawerPath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -148,6 +154,10 @@ pub fn router() -> Router<AppState> {
         .route(
             FcAdjustmentBalancePath::PATH,
             get(fms_work_center::get_adjustment_balance),
+        )
+        .route(
+            FcAdjustmentDetailDrawerPath::PATH,
+            get(fms_work_center::get_adjustment_detail_drawer),
         )
         // 写操作（POST）
         .route(

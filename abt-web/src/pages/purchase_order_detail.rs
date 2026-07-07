@@ -166,28 +166,30 @@ pub(crate) async fn render_po_print_fragment(
     let status_text: &'static str = status_label(order.status).0;
 
     let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-    let product_map: HashMap<i64, (String, String)> = if product_ids.is_empty() {
+    let product_map: HashMap<i64, (String, String, String)> = if product_ids.is_empty() {
         HashMap::new()
     } else {
         product_svc
             .get_by_ids(ctx, db, product_ids)
             .await
-            .map(|ps| ps.into_iter().map(|p| (p.product_id, (p.pdt_name, p.unit))).collect())
+            .map(|ps| ps.into_iter().map(|p| (p.product_id, (p.pdt_name, p.unit, p.product_code))).collect())
             .unwrap_or_default()
     };
 
     let detail_items: Vec<serde_json::Value> = items
         .iter()
         .map(|it| {
-            let (pname, punit) = product_map.get(&it.product_id).cloned().unwrap_or_default();
+            let (pname, punit, pcode) = product_map.get(&it.product_id).cloned().unwrap_or_default();
             serde_json::json!({
                 "行号": it.line_no.to_string(),
+                "产品编码": pcode,
                 "产品名称": pname,
                 "数量": it.quantity.to_string(),
                 "单位": punit,
                 "单价": it.unit_price.to_string(),
                 "金额": it.amount.to_string(),
                 "已收数量": it.received_qty.to_string(),
+                "备注": it.description.clone(),
             })
         })
         .collect();
@@ -202,6 +204,9 @@ pub(crate) async fn render_po_print_fragment(
         "采购状态": status_text,
         "公司名称": "江门市艾伯特照明科技有限公司",
         "打印时间": chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        "要求交期": order.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default(),
+        "交货地址": order.delivery_address.clone().unwrap_or_default(),
+        "订单说明": order.remark.clone(),
         "明细": detail_items,
     });
 

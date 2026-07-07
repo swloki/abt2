@@ -736,12 +736,51 @@ pub struct ConvertPoForm {
     /// 逗号分隔的 demand id
     #[serde(default)]
     pub demand_ids: String,
-    #[serde(default)]
-    pub supplier_id: i64,
+    /// 单物料 drawer 用 supplier_search 渲染隐藏 input，无 preferred 报价时值为空串。
+    /// 用 Option + empty_as_none 容忍空串，避免 axum Form 反序列化 i64 时崩溃
+    /// （"cannot parse integer from empty string"）；缺失校验在 convert_demands_to_po。
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub supplier_id: Option<i64>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub expected_delivery_date: Option<String>,
     #[serde(default)]
     pub remark: String,
+}
+
+/// 单物料转单 drawer 视图装配：待转需求 + 报价对比 + 供应商名。
+/// GET drawer 与 POST 校验失败重渲染共用，避免 re-fetch 逻辑重复。
+async fn fetch_convert_po_view(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::context::ServiceContext,
+    conn: abt_core::shared::types::PgExecutor<'_>,
+    product_id: i64,
+) -> (
+    Vec<DemandSummary>,
+    Vec<QuotationComparison>,
+    HashMap<i64, String>,
+) {
+    let demands = state
+        .purchase_demand_service()
+        .list_pending_demands(
+            service_ctx,
+            conn,
+            DemandPoolQuery {
+                product_id: Some(product_id),
+                ..Default::default()
+            },
+            PageParams::new(1, 100),
+        )
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let quotes = state
+        .purchase_quotation_service()
+        .compare(service_ctx, conn, product_id)
+        .await
+        .unwrap_or_default();
+    let supplier_ids: Vec<i64> = quotes.iter().map(|q| q.supplier_id).collect();
+    let names = supplier_names(state, service_ctx, conn, &supplier_ids).await;
+    (demands, quotes, names)
 }
 
 /// 转采购单核心逻辑（单物料 drawer / 批量 drawer 共用）：解析 demand_ids →
@@ -760,13 +799,16 @@ async fn convert_demands_to_po(
     if demand_ids.is_empty() {
         return Err(DomainError::validation("demand_ids 不能为空"));
     }
+    let supplier_id = form
+        .supplier_id
+        .ok_or_else(|| DomainError::validation("请选择供应商"))?;
     let expected_delivery_date = form
         .expected_delivery_date
         .as_deref()
         .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
     let req = CreateOrderFromDemandsReq {
         demand_ids,
-        supplier_id: form.supplier_id,
+        supplier_id,
         expected_delivery_date,
         remark: form.remark.clone(),
     };
@@ -799,6 +841,18 @@ pub async fn post_convert_po(
         claims,
         ..
     } = ctx;
+    // supplier_id 缺失（supplier_search 未选 / 无 preferred 报价）：字段级错误标红供应商框，
+    // 不进入 service（避免传 0 造脏 PO）。空串已在 Form 反序列化层转 None。
+    if form.supplier_id.is_none() {
+        let errors = HashMap::from([("supplier_id", "请选择供应商".to_string())]);
+        let (demands, quotes, names) =
+            fetch_convert_po_view(&state, &service_ctx, &mut conn, path.product_id).await;
+        return Ok(Html(
+            render_convert_po_body(path.product_id, &demands, &quotes, &names, Some(&errors))
+                .into_string(),
+        )
+        .into_response());
+    }
     Ok(match convert_demands_to_po(&state, &service_ctx, &form).await {
         Ok(_) => {
             add_toast(
@@ -815,27 +869,8 @@ pub async fn post_convert_po(
         Err(DomainError::Validation(m) | DomainError::BusinessRule(m)) => {
             // 校验失败：re-fetch 数据 + 重渲染 form（顶部 alert），不 toast、不关 drawer
             let errors = HashMap::from([("__all__", m)]);
-            let demands = state
-                .purchase_demand_service()
-                .list_pending_demands(
-                    &service_ctx,
-                    &mut conn,
-                    DemandPoolQuery {
-                        product_id: Some(path.product_id),
-                        ..Default::default()
-                    },
-                    PageParams::new(1, 100),
-                )
-                .await
-                .map(|r| r.items)
-                .unwrap_or_default();
-            let quotes = state
-                .purchase_quotation_service()
-                .compare(&service_ctx, &mut conn, path.product_id)
-                .await
-                .unwrap_or_default();
-            let supplier_ids: Vec<i64> = quotes.iter().map(|q| q.supplier_id).collect();
-            let names = supplier_names(&state, &service_ctx, &mut conn, &supplier_ids).await;
+            let (demands, quotes, names) =
+                fetch_convert_po_view(&state, &service_ctx, &mut conn, path.product_id).await;
             Html(
                 render_convert_po_body(path.product_id, &demands, &quotes, &names, Some(&errors))
                     .into_string(),
@@ -889,13 +924,15 @@ pub async fn post_batch_convert(
                     .await
                     .unwrap_or_default()
             };
-            let supplier = supplier_names(&state, &service_ctx, &mut conn, &[form.supplier_id])
+            // batch 的 supplier_id 来自路径（drawer 表单隐藏字段），一定非空
+            let supplier_id = form.supplier_id.unwrap_or(0);
+            let supplier = supplier_names(&state, &service_ctx, &mut conn, &[supplier_id])
                 .await
-                .get(&form.supplier_id)
+                .get(&supplier_id)
                 .cloned()
                 .unwrap_or_default();
             Html(
-                render_batch_convert_body(form.supplier_id, &supplier, &demands, Some(&errors))
+                render_batch_convert_body(supplier_id, &supplier, &demands, Some(&errors))
                     .into_string(),
             )
             .into_response()

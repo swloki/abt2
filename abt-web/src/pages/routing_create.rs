@@ -68,6 +68,7 @@ struct JsStep {
  is_required: bool,
  remark: String,
  product_id: String,
+ product_name: String,
  work_center_id: String,
  unit_price: String,
  standard_time: String,
@@ -81,6 +82,7 @@ impl JsStep {
  is_required: s.is_required,
  remark: s.remark.clone().unwrap_or_default(),
  product_id: s.product_id.map(|id| id.to_string()).unwrap_or_default(),
+ product_name: s.product_name.clone().unwrap_or_default(),
  work_center_id: s.work_center_id.map(|id| id.to_string()).unwrap_or_default(),
  unit_price: s.unit_price.map(|d| d.to_string()).unwrap_or_default(),
  standard_time: s.standard_time.map(|d| d.to_string()).unwrap_or_default(),
@@ -382,6 +384,7 @@ fn routing_form_page(
  is_required: true,
  remark: String::new(),
  product_id: String::new(),
+ product_name: String::new(),
  work_center_id: String::new(),
  unit_price: String::new(),
  standard_time: String::new(),
@@ -495,7 +498,7 @@ fn routing_form_page(
     }
     // 产品选择弹窗（步骤行产出品共用，openProductPicker 动态指向当前行）
     ({
-        crate::components::product_picker::product_picker_modal(
+        crate::components::product_picker::product_picker_modal_deferred(
             "routing-product-modal",
             "routing-product-target",
             "routing-product-display",
@@ -531,7 +534,7 @@ function getStepsJson() {{
 }}
 
 function addStep() {{
- steps.push({{ process_code: '', is_required: true, remark: '', product_id: '', work_center_id: '', unit_price: '', standard_time: '', is_outsourced: false }});
+ steps.push({{ process_code: '', is_required: true, remark: '', product_id: '', product_name: '', work_center_id: '', unit_price: '', standard_time: '', is_outsourced: false }});
  syncFromDom();
  renderSteps();
 }}
@@ -584,7 +587,8 @@ function renderSteps() {{
  let up = step.unit_price || '';
  let st = step.standard_time || '';
  let rem = step.remark || '';
- let pname = (step.product_id && productMap[step.product_id]) ? productMap[step.product_id] : '';
+ // 产出品名优先取选中时缓存的 product_name（picker 搜索结果直达），回退 productMap（编辑回填的前 N 个）
+ let pname = step.product_name || (step.product_id && productMap[step.product_id]) || '';
  html += '<tr>' +
  '<td class="text-muted text-xs text-center">' + (idx + 1) + '</td>' +
  '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + opts + '</select></td>' +
@@ -626,9 +630,11 @@ function openProductPicker(idx) {{
  values: {{ target_id: 'step-product-id-' + idx, display_id: 'step-product-display-' + idx, modal_id: 'routing-product-modal', name: '', code: '' }}
  }});
 }}
-document.body.addEventListener('productSelected', () => {{
+document.body.addEventListener('productSelected', (e) => {{
  if (editingProductIdx !== null) {{
  syncFromDom();
+ // 产品名由事件 detail 携带（picker 搜索结果直达，绕过仅含前 N 个产品的 productMap）
+ steps[editingProductIdx].product_name = (e.detail && e.detail.productName) || '';
  editingProductIdx = null;
  renderSteps();
  }}

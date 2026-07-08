@@ -156,8 +156,8 @@ impl WorkOrderService for WorkOrderServiceImpl {
         new_bom_step_price_service(self.pool.clone())
             .upsert_price(ctx, db, product.product_code, step_no, unit_price,
                 "work_order_release".into(), Some(work_order_id)).await?;
-        // (b) 本工单快照（copy-on-write 执行价）
-        sqlx::query("UPDATE work_order_routings SET unit_price = $1, updated_at = now() WHERE work_order_id = $2 AND step_no = $3")
+        // (b) 本工单快照（copy-on-write 执行价；work_order_routings 无 updated_at 列）
+        sqlx::query("UPDATE work_order_routings SET unit_price = $1 WHERE work_order_id = $2 AND step_no = $3")
             .bind(unit_price).bind(work_order_id).bind(step_no).execute(&mut *db).await?;
         Ok(())
     }

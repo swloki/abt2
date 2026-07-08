@@ -104,6 +104,7 @@
 --spacing-5: var(--space-5);
 --tracking-tight: -0.025em;
 --fontWeight-normal: 400;
+--colors-purple-600: oklch(55.8% 0.288 302.321);
 --container-xs: 20rem;
 --tracking-wide: 0.025em;
 --colors-black: #000;
@@ -129,7 +130,6 @@
 --tracking-wider: 0.05em;
 --colors-red-500: oklch(63.7% 0.237 25.331);
 --colors-red-600: oklch(57.7% 0.245 27.325);
---colors-purple-600: oklch(55.8% 0.288 302.321);
 --colors-indigo-500: oklch(58.5% 0.233 277.117);
 --colors-cyan-500: oklch(71.5% 0.143 215.221);
 --colors-gray-400: oklch(70.7% 0.022 261.325);
@@ -955,6 +955,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .mx-1{margin-inline:calc(var(--spacing) * 1);}
 .mx-2{margin-inline:calc(var(--spacing) * 2);}
 .mx-3{margin-inline:calc(var(--spacing) * 3);}
+.mx-5{margin-inline:calc(var(--spacing) * 5);}
 .mx-auto{margin-inline:auto;}
 .my,
 .my-4{margin-block:calc(var(--spacing) * 4);}
@@ -1274,6 +1275,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .bg-pink-500{background-color:color-mix(in srgb, var(--colors-pink-500) var(--un-bg-opacity), transparent) /* oklch(65.6% 0.241 354.308) */;}
 .bg-purple{background-color:color-mix(in srgb, var(--purple) var(--un-bg-opacity), transparent) /* var(--purple) */;}
 .bg-purple-100{background-color:color-mix(in srgb, var(--purple-100) var(--un-bg-opacity), transparent) /* var(--purple-100) */;}
+.bg-purple-50{background-color:color-mix(in srgb, var(--purple-50) var(--un-bg-opacity), transparent) /* var(--purple-50) */;}
 .bg-purple-500{background-color:color-mix(in srgb, var(--purple-500) var(--un-bg-opacity), transparent) /* var(--purple-500) */;}
 .bg-purple-700{background-color:color-mix(in srgb, var(--purple-700) var(--un-bg-opacity), transparent) /* var(--purple-700) */;}
 .bg-purple-bg{background-color:color-mix(in srgb, var(--purple-bg) var(--un-bg-opacity), transparent) /* var(--purple-bg) */;}
@@ -1308,6 +1310,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:bg-\[rgba\(255\,255\,255\,0\.1\)\]:hover{background-color:color-mix(in oklab, rgba(255,255,255,0.1) var(--un-bg-opacity), transparent) /* rgba(255,255,255,0.1) */;}
 .hover\:bg-\[rgba\(37\,99\,235\,0\.1\)\]:hover{background-color:color-mix(in oklab, rgba(37,99,235,0.1) var(--un-bg-opacity), transparent) /* rgba(37,99,235,0.1) */;}
 .hover\:bg-\[rgba\(37\,99\,235\,0\.14\)\]:hover{background-color:color-mix(in oklab, rgba(37,99,235,0.14) var(--un-bg-opacity), transparent) /* rgba(37,99,235,0.14) */;}
+.hover\:bg-accent-50:hover{background-color:color-mix(in srgb, var(--accent-50) var(--un-bg-opacity), transparent) /* var(--accent-50) */;}
 .hover\:bg-accent-bg:hover{background-color:color-mix(in srgb, var(--accent-bg) var(--un-bg-opacity), transparent) /* var(--accent-bg) */;}
 .hover\:bg-accent-hover:hover{background-color:color-mix(in srgb, var(--accent-hover) var(--un-bg-opacity), transparent) /* var(--accent-hover) */;}
 .hover\:bg-accent:hover{background-color:color-mix(in srgb, var(--accent) var(--un-bg-opacity), transparent) /* var(--accent) */;}
@@ -1403,6 +1406,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .\[\&_button\]\:grid button,
 .grid{display:grid;}
 .inline-grid{display:inline-grid;}
+.col-span-1{grid-column:span 1/span 1;}
 .col-span-2{grid-column:span 2/span 2;}
 .col-span-full{grid-column:1/-1;}
 .expanded\:grid-rows-\[1fr\].expanded{grid-template-rows:1fr;}
@@ -1526,6 +1530,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .max-h-\[420px\]{max-height:420px;}
 .max-h-\[80vh\]{max-height:80vh;}
 .max-h-\[85vh\]{max-height:85vh;}
+.max-h-\[88vh\]{max-height:88vh;}
 .max-w-\[100px\]{max-width:100px;}
 .max-w-\[120px\]{max-width:120px;}
 .max-w-\[140px\]{max-width:140px;}
@@ -1578,7 +1583,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .min-w-\[80px\]{min-width:80px;}
 .min-w-\[900px\]{min-width:900px;}
 .min-w-\[950px\]{min-width:950px;}
-.min-w-\[960px\]{min-width:960px;}
 .min-w-0{min-width:calc(var(--spacing) * 0);}
 .min-w-80{min-width:calc(var(--spacing) * 80);}
 .w-\[1000px\]{width:1000px;}
@@ -1831,6 +1835,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .static{position:static;}
 .z-\[1000\]{z-index:1000;}
 .z-\[1001\]{z-index:1001;}
+.z-\[1080\]{z-index:1080;}
 .z-\[1100\]{z-index:1100;}
 .z-\[1200\]{z-index:1200;}
 .z-\[30\],

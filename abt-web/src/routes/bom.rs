@@ -100,6 +100,41 @@ pub struct BomCostClearTempPath {
     pub id: i64,
 }
 
+// ── BOM 内联工序（bom_operations）── 路径设计：动态段 {step_order} 下沉第三层，
+//    /operations/X 层全静态段，避免 axum matchit 同层静态+动态混用 404（见 memory reference-axum-matchit-route-conflict）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/operations")]
+pub struct BomOperationsPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/operations/edit/{step_order}")]
+pub struct BomOperationEditPath {
+    pub id: i64,
+    pub step_order: i32,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/operations/delete/{step_order}")]
+pub struct BomOperationDeletePath {
+    pub id: i64,
+    pub step_order: i32,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/operations/move/{step_order}")]
+pub struct BomOperationMovePath {
+    pub id: i64,
+    pub step_order: i32,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/operations/apply")]
+pub struct BomOperationApplyPath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -120,4 +155,9 @@ pub fn router() -> Router<AppState> {
         .route(BomLaborCostDrawerPath::PATH, get(bom_detail::get_labor_cost_drawer))
         .route(BomCostTempPricePath::PATH, post(bom_detail::save_temp_price))
         .route(BomCostClearTempPath::PATH, delete(bom_detail::clear_temp_prices))
+        .route(BomOperationsPath::PATH, get(bom_edit::get_bom_operations).post(bom_edit::upsert_bom_operation))
+        .route(BomOperationEditPath::PATH, get(bom_edit::get_bom_operation_edit))
+        .route(BomOperationDeletePath::PATH, post(bom_edit::delete_bom_operation))
+        .route(BomOperationMovePath::PATH, post(bom_edit::move_bom_operation))
+        .route(BomOperationApplyPath::PATH, post(bom_edit::apply_routing_to_bom))
 }

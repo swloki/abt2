@@ -191,6 +191,11 @@ pub static RESOURCE_ACTION_DEFS: &[ResourceActionDef] = &[
     ResourceActionDef { resource_code: "LABOR_PROCESS_DICT", resource_name: "工序字典", description: "工序字典管理", action: "read", action_name: "查看" },
     ResourceActionDef { resource_code: "LABOR_PROCESS_DICT", resource_name: "工序字典", description: "工序字典管理", action: "update", action_name: "编辑" },
     ResourceActionDef { resource_code: "LABOR_PROCESS_DICT", resource_name: "工序字典", description: "工序字典管理", action: "delete", action_name: "删除" },
+    // ── 计件单价（R-13：定价影响全员工资，独立闸门，非 WORK_ORDER update）──
+    ResourceActionDef { resource_code: "BOM_STEP_PRICE", resource_name: "计件单价", description: "BOM 工序计件单价管理（影响全员工资）", action: "create", action_name: "创建" },
+    ResourceActionDef { resource_code: "BOM_STEP_PRICE", resource_name: "计件单价", description: "BOM 工序计件单价管理（影响全员工资）", action: "read", action_name: "查看" },
+    ResourceActionDef { resource_code: "BOM_STEP_PRICE", resource_name: "计件单价", description: "BOM 工序计件单价管理（影响全员工资）", action: "update", action_name: "编辑" },
+    ResourceActionDef { resource_code: "BOM_STEP_PRICE", resource_name: "计件单价", description: "BOM 工序计件单价管理（影响全员工资）", action: "delete", action_name: "删除" },
     // ── 仓储 ──
     ResourceActionDef { resource_code: "WAREHOUSE", resource_name: "仓库管理", description: "仓库管理", action: "create", action_name: "创建" },
     ResourceActionDef { resource_code: "WAREHOUSE", resource_name: "仓库管理", description: "仓库管理", action: "read", action_name: "查看" },

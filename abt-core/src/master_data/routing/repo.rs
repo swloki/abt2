@@ -26,9 +26,9 @@ impl RoutingRepo {
         for step in steps {
             sqlx::query(
                 r#"INSERT INTO routing_steps (routing_id, process_code, step_order, is_required, remark,
-                   work_center_id, standard_time, standard_cost, unit_price,
-                   allowed_loss_rate, is_outsourced, is_inspection_point, product_id)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)"#,
+                   work_center_id, standard_time, standard_cost,
+                   allowed_loss_rate, is_outsourced, is_inspection_point)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"#,
             )
             .bind(routing_id)
             .bind(&step.process_code)
@@ -38,11 +38,9 @@ impl RoutingRepo {
             .bind(step.work_center_id)
             .bind(step.standard_time)
             .bind(step.standard_cost)
-            .bind(step.unit_price)
             .bind(step.allowed_loss_rate)
             .bind(step.is_outsourced)
             .bind(step.is_inspection_point)
-            .bind(step.product_id)
             .execute(&mut *executor)
             .await?;
         }
@@ -97,7 +95,7 @@ impl RoutingRepo {
 
     pub async fn find_steps(&self, executor: PgExecutor<'_>, routing_id: i64) -> Result<Vec<RoutingStep>> {
         let steps = sqlx::query_as::<sqlx::Postgres, RoutingStep>(
-            "SELECT rs.id, rs.routing_id, rs.process_code, rs.step_order, rs.is_required, rs.remark, rs.created_at, lpd.name AS process_name, p.pdt_name AS product_name, rs.work_center_id, rs.standard_time, rs.standard_cost, rs.unit_price, rs.allowed_loss_rate, rs.is_outsourced, rs.is_inspection_point, rs.product_id FROM routing_steps rs LEFT JOIN labor_process_dicts lpd ON rs.process_code = lpd.code LEFT JOIN products p ON rs.product_id = p.product_id WHERE rs.routing_id = $1 ORDER BY rs.step_order",
+            "SELECT rs.id, rs.routing_id, rs.process_code, rs.step_order, rs.is_required, rs.remark, rs.created_at, lpd.name AS process_name, rs.work_center_id, rs.standard_time, rs.standard_cost, rs.allowed_loss_rate, rs.is_outsourced, rs.is_inspection_point FROM routing_steps rs LEFT JOIN labor_process_dicts lpd ON rs.process_code = lpd.code WHERE rs.routing_id = $1 ORDER BY rs.step_order",
         )
         .bind(routing_id)
         .fetch_all(executor)
@@ -105,7 +103,6 @@ impl RoutingRepo {
         Ok(steps)
     }
 
-    #[allow(unused_assignments)]
     pub async fn query(&self, executor: PgExecutor<'_>, filter: &RoutingQuery, page: &PageParams) -> Result<PaginatedResult<Routing>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;

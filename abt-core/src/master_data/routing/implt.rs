@@ -112,6 +112,8 @@ impl RoutingService for RoutingServiceImpl {
         self.repo.update(db, id, &req, ctx.operator_id).await?;
 
         if let Some(ref steps) = req.steps {
+            // copy-on-write：routing 降级为纯模板，改 steps 不影响已拷贝的 bom_operations
+            // （bom_operations.source_routing_id 仅作溯源）。delete_steps + insert_steps 全重建可自由进行。
             self.repo.delete_steps(db, id).await?;
             self.repo.insert_steps(db, id, steps).await?;
         }

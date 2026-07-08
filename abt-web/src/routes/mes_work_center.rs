@@ -41,6 +41,14 @@ pub struct WcReleasePath {
     pub order_id: i64,
 }
 
+/// 工单下达 drawer 内联填计件单价（per-step）：blur 触发，行自替换。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/orders/{order_id}/steps/{step_no}/price")]
+pub struct WoStepPricePath {
+    pub order_id: i64,
+    pub step_no: i32,
+}
+
 /// 分批：一次事务创建多批（既有 split_order 只建 1 批，故工作中心新建多批端点）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/orders/{order_id}/split-multi")]
@@ -197,6 +205,7 @@ pub fn router() -> Router<AppState> {
         )
         .route(WcOrderDrawerPath::PATH, get(mes_work_center::get_order_drawer))
         .route(WcReleasePath::PATH, post(mes_work_center::release_order))
+        .route(WoStepPricePath::PATH, post(mes_work_center::set_step_price))
         .route(WcSplitMultiPath::PATH, post(mes_work_center::split_multi))
         .route(WcCancelPath::PATH, post(mes_work_center::cancel_order))
         .route(

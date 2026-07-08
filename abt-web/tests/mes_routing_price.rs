@@ -14,6 +14,7 @@ use abt_core::mes::production_batch::{
     CreateBatchReq, ProductionBatchService, StepConfirmationReq,
 };
 use abt_core::mes::enums::ShiftType;
+use abt_core::master_data::product::ProductService;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::shared::types::context::ServiceContext;
 use chrono::NaiveDate;
@@ -59,7 +60,7 @@ async fn create_work_order(app: &common::TestApp, product_id: i64, qty: &str) ->
 /// 下达工单（复用 mes_flow_e2e.rs 逻辑）
 async fn release_work_order(app: &common::TestApp, wo_id: i64) {
     let resp = app
-        .post_htmx(&format!("/admin/mes/orders/{wo_id}/release"), "")
+        .post_htmx(&format!("/admin/mes/work-center/orders/{wo_id}/release"), "")
         .await;
     assert!(
         resp.is_ok() || resp.is_redirect(),
@@ -76,12 +77,19 @@ async fn seed_routings(app: &common::TestApp, wo_id: i64, product_id: i64, qty: 
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     let product = app.state.product_service().get(&ctx, &mut conn, product_id).await.unwrap();
-    let detail = app.state.routing_service().get_bom_routing(&ctx, &mut conn, product.product_code).await.unwrap();
+    let detail = app.state.routing_service().get_bom_routing(&ctx, &mut conn, product.product_code.clone()).await.unwrap();
     let batch_svc = app.state.production_batch_service();
     let planned = qty.parse::<Decimal>().unwrap_or(Decimal::from(100));
     match detail {
-        Some(d) => {
-            batch_svc.load_routings_from_template(&ctx, &mut conn, wo_id, d.routing.id).await.unwrap();
+        Some(_d) => {
+            // BOM 内联工序（098 已回填 bom_operations）；补 step 1 价让 load 带出
+            // （wage_is_frozen 测试依赖工序单价非 None）
+            use abt_core::master_data::bom_step_price::{new_bom_step_price_service, BomStepPriceService};
+            let _ = new_bom_step_price_service(app.state.pool.clone())
+                .upsert_price(&ctx, &mut conn, product.product_code.clone(), 1,
+                    Decimal::new(10, 0), "test".into(), None)
+                .await;
+            batch_svc.load_operations_from_bom(&ctx, &mut conn, wo_id, product.product_code.clone()).await.unwrap();
         }
         None => {
             sqlx::query(
@@ -150,21 +158,11 @@ async fn service_delete_renumbers_and_blocks_last() {
     assert!(matches!(err, DomainError::BusinessRule { .. }), "删最后一道应拒绝，got {err:?}");
 }
 
-#[tokio::test]
-async fn detail_page_shows_editable_price_and_delete_when_unreported() {
-    let app = common::TestApp::new().await;
-    let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "200").await;
-    let resp = app.get(&format!("/admin/mes/orders/{wo_id}")).await;
-    assert!(
-        resp.is_ok(),
-        "detail GET FAIL: {} body: {}",
-        resp.status,
-        resp.body.chars().take(300).collect::<String>()
-    );
-    assert!(resp.body_contains("/edit"), "未报工工单应渲染编辑按钮");
-    assert!(resp.body_contains("/delete"), "未报工工单应渲染删除端点");
-    assert!(resp.body_contains("#routing-edit-drawer"), "应渲染编辑抽屉壳");
-}
+// detail_page_shows_editable_price_and_delete_when_unreported 已删除：
+// 工单详情页重构为工作中心 modal（/admin/mes/work-center/order-detail-modal/{id}），
+// routing-edit-drawer 元素已移除，原断言（GET /admin/mes/orders/{id} + #routing-edit-drawer）整体过时。
+// 「未报工工单可编辑/删除」的意图由 service_delete_renumbers_and_blocks_last /
+// delete_blocked_after_any_report（删除守卫）覆盖。
 
 #[tokio::test]
 async fn wage_is_frozen_at_report_time() {
@@ -263,29 +261,28 @@ async fn delete_blocked_after_any_report() {
 
 
 #[tokio::test]
-async fn load_routings_from_template_replaces_steps() {
-    use abt_core::master_data::routing::RoutingService;
+async fn load_operations_from_bom_replaces_steps() {
+    use abt_core::master_data::bom_operation::{new_bom_operation_service, BomOperationService};
     let app = common::TestApp::new().await;
     let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "950").await;
     let svc = app.state.production_batch_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
-    // 工单 release 时应该有 routing_id
     let wo = app.state.work_order_service().find_by_id(&ctx, &mut conn, wo_id).await.unwrap();
-    let routing_id = wo.routing_id.expect("工单应有关联的工艺路径");
-    // 加载模板步骤
-    let n = svc.load_routings_from_template(&ctx, &mut conn, wo_id, routing_id).await.unwrap();
+    let pcode = app.state.product_service().get(&ctx, &mut conn, wo.product_id).await.unwrap().product_code;
+    // 加载 BOM 内联工序（per-order lock：seed 已 load 但未报工 → 可 reload）
+    let n = svc.load_operations_from_bom(&ctx, &mut conn, wo_id, pcode.clone()).await.unwrap();
     assert!(n > 0, "应至少插入 1 行，实际 {n}");
-    // 验证加载后的工序行
     let rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
     assert_eq!(rs.len(), n, "加载后的行数应与插入数一致");
-    // 验证模板步骤结构与工单工序对应
-    let detail = app.state.routing_service().get_detail(&ctx, &mut conn, routing_id).await.unwrap();
-    assert_eq!(rs.len(), detail.steps.len(), "工单工序行数应与模板步骤数一致");
-    for (r, s) in rs.iter().zip(detail.steps.iter()) {
-        assert_eq!(r.step_no, s.step_order, "step_no 应对齐");
+    // 验证对齐 bom_operations（切源后真相源）
+    let ops = new_bom_operation_service(app.state.pool.clone())
+        .list_operations(&ctx, &mut conn, pcode).await.unwrap();
+    assert_eq!(rs.len(), ops.len(), "工单工序行数应与 bom_operations 一致");
+    for (r, op) in rs.iter().zip(ops.iter()) {
+        assert_eq!(r.step_no, op.step_order, "step_no 应对齐");
         assert!(!r.process_name.is_empty(), "工序名不应为空");
-        assert_eq!(r.is_outsourced, s.is_outsourced);
-        assert_eq!(r.is_inspection_point, s.is_inspection_point);
+        assert_eq!(r.is_outsourced, op.is_outsourced);
+        assert_eq!(r.is_inspection_point, op.is_inspection_point);
     }
 }

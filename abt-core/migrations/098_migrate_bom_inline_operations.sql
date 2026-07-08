@@ -108,7 +108,7 @@ SELECT
     br.product_code, rs.step_order, rs.process_code,
     COALESCE(lpd.name, rs.process_code),
     COALESCE(bro.work_center_id, rs.work_center_id),    -- 覆盖层优先，回退模板
-    rs.standard_time, rs.standard_cost, rs.allowed_loss_rate,
+    rs.standard_time, rs.standard_cost, COALESCE(rs.allowed_loss_rate, 0),
     rs.is_outsourced, rs.is_inspection_point, rs.is_required,
     bro.output_product_id,                               -- 产出仅来自覆盖层（模板 097 已 DROP）
     br.routing_id,                                       -- source_routing_id = 拷贝来源

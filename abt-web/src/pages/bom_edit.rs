@@ -23,8 +23,9 @@ use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::bom::{
- BomEditPath, BomListPath, BomNodeMovePath, BomNodePath, BomNodesPath, BomProductsPath,
- BomPublishPath, BomSaveAsPath, BomUpdateCategoryPath,
+ BomEditPath, BomListPath, BomNodeMovePath, BomNodePath, BomNodesPath, BomOperationApplyPath,
+ BomOperationDeletePath, BomOperationEditPath, BomOperationMovePath, BomOperationsPath,
+ BomProductsPath, BomPublishPath, BomSaveAsPath, BomUpdateCategoryPath,
 };
 use crate::utils::RequestContext;
 use crate::toast::{toast_response, ToastType};
@@ -663,6 +664,16 @@ fn bom_edit_page(
                 }
             }
         }
+        // ── BOM 工序（内联，异步加载；工序改动广播 bomOpChanged 自刷新）──
+        div id="bom-ops-card"
+            hx-get=(BomOperationsPath { id: bom.bom_id }.to_string())
+            hx-trigger="load, bomOpChanged from:body"
+            hx-target="this"
+            hx-select="#bom-ops-card"
+            hx-swap="outerHTML"
+        {
+            div class="data-card p-8 text-center text-muted text-sm" { "加载工序..." }
+        }
         // ── Node Table ──
         div class="data-card p-0 overflow-hidden" {
             @if bom.bom_detail.nodes.is_empty() {
@@ -1073,4 +1084,629 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
         }
     }
 }
+}
+
+// ============================================================
+// BOM 内联工序（bom_operations）编辑 — 工序 + 产出 + 工作中心内联到 BOM
+// copy-on-write：从 routing 拷贝后解耦；计件单价不在本编辑器（D7：价在 release drawer 填）
+// ============================================================
+
+use abt_core::master_data::bom_operation::{
+    BomOperationService,
+    model::{BomOperation, UpsertBomOperationReq},
+};
+use abt_core::master_data::work_center::WorkCenterService;
+use abt_core::master_data::labor_process_dict::LaborProcessDictService;
+use abt_core::shared::types::PgPoolConn;
+
+#[derive(Debug, Deserialize)]
+pub struct UpsertBomOperationForm {
+    #[serde(default)]
+    pub step_order: Option<i32>,
+    pub process_code: String,
+    pub process_name: String,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub work_center_id: Option<i64>,
+    #[serde(default)]
+    pub standard_time: Option<String>,
+    #[serde(default)]
+    pub standard_cost: Option<String>,
+    #[serde(default)]
+    pub allowed_loss_rate: Option<String>,
+    #[serde(default)]
+    pub is_outsourced: Option<bool>,
+    #[serde(default)]
+    pub is_inspection_point: Option<bool>,
+    #[serde(default, deserialize_with = "deserialize_optional_i64")]
+    pub output_product_id: Option<i64>,
+    #[serde(default)]
+    pub remark: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MoveBomOperationForm {
+    pub dir: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApplyRoutingToBomForm {
+    pub routing_id: i64,
+    #[serde(default)]
+    pub force: Option<bool>,
+}
+
+fn parse_dec_field(s: &Option<String>) -> std::result::Result<Option<Decimal>, DomainError> {
+    match s {
+        Some(s) if !s.trim().is_empty() => s
+            .trim()
+            .parse::<Decimal>()
+            .map(Some)
+            .map_err(|_| DomainError::business_rule(format!("数值格式错误: {s}"))),
+        _ => Ok(None),
+    }
+}
+
+fn bom_op_to_req(op: &BomOperation) -> UpsertBomOperationReq {
+    UpsertBomOperationReq {
+        product_code: op.product_code.clone(),
+        step_order: op.step_order,
+        process_code: op.process_code.clone(),
+        process_name: op.process_name.clone(),
+        work_center_id: op.work_center_id,
+        standard_time: op.standard_time,
+        standard_cost: op.standard_cost,
+        allowed_loss_rate: op.allowed_loss_rate,
+        is_outsourced: op.is_outsourced,
+        is_inspection_point: op.is_inspection_point,
+        is_required: op.is_required,
+        output_product_id: op.output_product_id,
+        remark: op.remark.clone(),
+    }
+}
+
+/// 取 BOM 根 product_code（空 → Err）
+async fn require_bom_product_code(
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::ServiceContext,
+    conn: &mut PgPoolConn,
+    bom_id: i64,
+) -> abt_core::shared::types::Result<String> {
+    let bom = state.bom_query_service().get(service_ctx, conn, bom_id).await?;
+    bom.product_code
+        .clone()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| DomainError::business_rule("该 BOM 无根产品编码，无法配置工序"))
+}
+
+/// GET 工序列表 card（HTMX 异步加载 + bomOpChanged 自刷新）
+#[require_permission("BOM", "read")]
+pub async fn get_bom_operations(
+    path: BomOperationsPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let product_code = state
+        .bom_query_service()
+        .get(&service_ctx, &mut conn, path.id)
+        .await?
+        .product_code
+        .clone()
+        .unwrap_or_default();
+    let operations = if product_code.is_empty() {
+        Vec::new()
+    } else {
+        state
+            .bom_operation_service()
+            .list_operations(&service_ctx, &mut conn, product_code.clone())
+            .await
+            .unwrap_or_default()
+    };
+    let wc_map: HashMap<i64, String> = state
+        .work_center_service()
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|w| (w.id, w.name.clone()))
+        .collect();
+    let out_ids: Vec<i64> = operations.iter().filter_map(|o| o.output_product_id).collect();
+    let out_map: HashMap<i64, String> = if out_ids.is_empty() {
+        HashMap::new()
+    } else {
+        state
+            .product_service()
+            .get_by_ids(&service_ctx, &mut conn, out_ids)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| (p.product_id, p.pdt_name.clone()))
+            .collect()
+    };
+    Ok(Html(
+        bom_operations_card(path.id, &product_code, &operations, &wc_map, &out_map).into_string(),
+    ))
+}
+
+/// GET 工序编辑表单（step_order=0 新增，>0 编辑）— swap 进 #bom-op-modal，afterSettle 打开
+#[require_permission("BOM", "update")]
+pub async fn get_bom_operation_edit(
+    path: BomOperationEditPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    use abt_core::master_data::labor_process_dict::model::LaborProcessDictQuery;
+    use abt_core::shared::types::PageParams;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let product_code = require_bom_product_code(&state, &service_ctx, &mut conn, path.id).await?;
+    let op_svc = state.bom_operation_service();
+    let op = if path.step_order > 0 {
+        op_svc
+            .find_operation(&service_ctx, &mut conn, product_code.clone(), path.step_order)
+            .await?
+            .ok_or_else(|| DomainError::not_found("BomOperation"))?
+    } else {
+        let count = op_svc
+            .count_operations(&service_ctx, &mut conn, product_code.clone())
+            .await
+            .unwrap_or(0);
+        BomOperation {
+            id: 0,
+            product_code: product_code.clone(),
+            step_order: (count as i32) + 1,
+            process_code: String::new(),
+            process_name: String::new(),
+            work_center_id: None,
+            standard_time: None,
+            standard_cost: None,
+            allowed_loss_rate: Decimal::ZERO,
+            is_outsourced: false,
+            is_inspection_point: false,
+            is_required: true,
+            output_product_id: None,
+            remark: None,
+            source_routing_id: None,
+            operator_id: None,
+            created_at: None,
+            updated_at: None,
+        }
+    };
+    let processes = state
+        .labor_process_dict_service()
+        .list(
+            &service_ctx,
+            &mut conn,
+            LaborProcessDictQuery::default(),
+            PageParams::new(1, 500),
+        )
+        .await?
+        .items;
+    let work_centers = state
+        .work_center_service()
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default();
+    let non_leaf_ids = state
+        .bom_query_service()
+        .list_non_leaf_product_ids_by_product_codes(&service_ctx, &mut conn, &[product_code])
+        .await
+        .unwrap_or_default();
+    let nl_products = if non_leaf_ids.is_empty() {
+        Vec::new()
+    } else {
+        state
+            .product_service()
+            .get_by_ids(&service_ctx, &mut conn, non_leaf_ids)
+            .await
+            .unwrap_or_default()
+    };
+    Ok(Html(
+        bom_operation_edit_form(path.id, &op, &processes, &work_centers, &nl_products).into_string(),
+    ))
+}
+
+/// POST upsert 工序（成功广播 bomOpChanged → card 刷 + modal 关）
+#[require_permission("BOM", "update")]
+pub async fn upsert_bom_operation(
+    path: BomOperationsPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<UpsertBomOperationForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let product_code = require_bom_product_code(&state, &service_ctx, &mut conn, path.id).await?;
+    let op_svc = state.bom_operation_service();
+    // 校验产出品 ∈ 该 BOM 非叶子节点并集（R-6）
+    if let Some(pid) = form.output_product_id {
+        let candidates = state
+            .bom_query_service()
+            .list_non_leaf_product_ids_by_product_codes(&service_ctx, &mut conn, &[product_code.clone()])
+            .await?;
+        if !candidates.contains(&pid) {
+            return Err(DomainError::business_rule(
+                "产出品必须属于该产品 BOM 的非叶子节点（成品/半成品）",
+            )
+            .into());
+        }
+    }
+    // step_order：新增（0）→ 末尾追加；编辑 → form 值
+    let step_order = match form.step_order.unwrap_or(0) {
+        0 => {
+            (op_svc
+                .count_operations(&service_ctx, &mut conn, product_code.clone())
+                .await? as i32)
+                + 1
+        }
+        s => s,
+    };
+    let req = UpsertBomOperationReq {
+        product_code,
+        step_order,
+        process_code: form.process_code,
+        process_name: form.process_name,
+        work_center_id: form.work_center_id,
+        standard_time: parse_dec_field(&form.standard_time)?,
+        standard_cost: parse_dec_field(&form.standard_cost)?,
+        allowed_loss_rate: parse_dec_field(&form.allowed_loss_rate)?.unwrap_or(Decimal::ZERO),
+        is_outsourced: form.is_outsourced.unwrap_or(false),
+        is_inspection_point: form.is_inspection_point.unwrap_or(false),
+        is_required: true,
+        output_product_id: form.output_product_id,
+        remark: form.remark.filter(|s| !s.is_empty()),
+    };
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .bom_operation_service()
+        .upsert_operation(&service_ctx, &mut tx, req)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "bomOpChanged")], Html(String::new())))
+}
+
+/// POST 删工序（级联清对应 bom_step_prices，R-5）
+#[require_permission("BOM", "update")]
+pub async fn delete_bom_operation(
+    path: BomOperationDeletePath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let product_code = require_bom_product_code(&state, &service_ctx, &mut conn, path.id).await?;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .bom_operation_service()
+        .delete_operation(&service_ctx, &mut tx, product_code, path.step_order)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "bomOpChanged")], Html(String::new())))
+}
+
+/// POST 上下移（swap 相邻 step_order，replace_operations 重排，R-19 返回完整列表）
+#[require_permission("BOM", "update")]
+pub async fn move_bom_operation(
+    path: BomOperationMovePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<MoveBomOperationForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let product_code = require_bom_product_code(&state, &service_ctx, &mut conn, path.id).await?;
+    let op_svc = state.bom_operation_service();
+    let ops = op_svc
+        .list_operations(&service_ctx, &mut conn, product_code.clone())
+        .await?;
+    let idx = ops
+        .iter()
+        .position(|o| o.step_order == path.step_order)
+        .ok_or_else(|| DomainError::not_found("BomOperation"))?;
+    let target = if form.dir == "up" {
+        idx.checked_sub(1)
+    } else {
+        Some(idx + 1)
+    };
+    if let Some(ti) = target.filter(|&i| i < ops.len()) {
+        let mut reqs: Vec<UpsertBomOperationReq> = ops.iter().map(bom_op_to_req).collect();
+        let tmp_step = reqs[idx].step_order;
+        reqs[idx].step_order = reqs[ti].step_order;
+        reqs[ti].step_order = tmp_step;
+        let mut tx = state
+            .pool
+            .begin()
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        op_svc
+            .replace_operations(&service_ctx, &mut tx, product_code, reqs)
+            .await?;
+        tx.commit()
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+    }
+    Ok(([("HX-Trigger", "bomOpChanged")], Html(String::new())))
+}
+
+/// POST 从 routing 拷贝工序到 BOM（copy-on-write，force=false 守卫拒覆盖）
+#[require_permission("BOM", "update")]
+pub async fn apply_routing_to_bom(
+    path: BomOperationApplyPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ApplyRoutingToBomForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let product_code = require_bom_product_code(&state, &service_ctx, &mut conn, path.id).await?;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .bom_operation_service()
+        .apply_routing_to_bom(
+            &service_ctx,
+            &mut tx,
+            product_code,
+            form.routing_id,
+            form.force.unwrap_or(false),
+        )
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "bomOpChanged")], Html(String::new())))
+}
+
+// ── 渲染 ──
+
+fn bom_operations_card(
+    bom_id: i64,
+    product_code: &str,
+    operations: &[BomOperation],
+    wc_map: &HashMap<i64, String>,
+    out_map: &HashMap<i64, String>,
+) -> Markup {
+    html! {
+        div id="bom-ops-card" class="mb-5" {
+            div class="data-card overflow-hidden" {
+                div class="flex justify-between items-center px-5 py-3.5 border-b border-border-soft" {
+                    h2 class="text-base font-semibold text-fg flex items-center gap-2" {
+                        "工序（内联）"
+                        span class="text-xs font-normal text-muted" { "(" (operations.len()) " 道)" }
+                    }
+                    button type="button"
+                        class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover cursor-pointer transition-all duration-150"
+                        hx-get=(BomOperationEditPath { id: bom_id, step_order: 0 }.to_string())
+                        hx-target="#bom-op-modal"
+                        hx-swap="innerHTML"
+                    { "+ 添加工序" }
+                }
+                @if operations.is_empty() {
+                    div class="p-8 text-center text-muted text-sm" {
+                        "暂无工序"
+                        @if !product_code.is_empty() {
+                            "，可点击「添加工序」手动添加"
+                        }
+                    }
+                } @else {
+                    div class="overflow-x-auto" {
+                        table class="w-full text-[13px]" {
+                            thead {
+                                tr class="bg-surface" {
+                                    th class="w-[50px] px-3 py-2 text-left text-xs font-semibold text-fg-2" { "序号" }
+                                    th class="px-3 py-2 text-left text-xs font-semibold text-fg-2" { "工序" }
+                                    th class="w-[130px] px-3 py-2 text-left text-xs font-semibold text-fg-2" { "工作中心" }
+                                    th class="w-[160px] px-3 py-2 text-left text-xs font-semibold text-fg-2" { "产出品" }
+                                    th class="w-[90px] px-3 py-2 text-center text-xs font-semibold text-fg-2" { "属性" }
+                                    th class="w-[150px] px-3 py-2 text-center text-xs font-semibold text-fg-2" { "操作" }
+                                }
+                            }
+                            tbody {
+                                @for op in operations {
+                                    tr class="border-t border-border-soft" {
+                                        td class="px-3 py-2 text-muted font-mono" { (op.step_order) }
+                                        td class="px-3 py-2" {
+                                            div class="font-medium text-fg" { (op.process_name) }
+                                            div class="text-xs text-muted font-mono" { (op.process_code) }
+                                        }
+                                        td class="px-3 py-2 text-fg-2" {
+                                            (op.work_center_id
+                                                .and_then(|id| wc_map.get(&id).cloned())
+                                                .unwrap_or_else(|| "—".into()))
+                                        }
+                                        td class="px-3 py-2 text-fg-2" {
+                                            @if let Some(pid) = op.output_product_id {
+                                                (out_map.get(&pid).cloned().unwrap_or_else(|| format!("#{pid}")))
+                                            } @else {
+                                                "—"
+                                            }
+                                        }
+                                        td class="px-3 py-2 text-center" {
+                                            div class="flex items-center justify-center gap-1" {
+                                                @if op.is_outsourced {
+                                                    span class="text-[10px] px-1.5 py-0.5 rounded-sm bg-purple-50 text-purple-600" { "委外" }
+                                                }
+                                                @if op.is_inspection_point {
+                                                    span class="text-[10px] px-1.5 py-0.5 rounded-sm bg-warn-50 text-warn-600" { "检验" }
+                                                }
+                                            }
+                                        }
+                                        td class="px-3 py-2" {
+                                            div class="flex items-center justify-center gap-1" {
+                                                button type="button"
+                                                    class="px-2 py-0.5 text-xs text-accent hover:bg-accent-50 rounded-sm cursor-pointer bg-transparent border-none"
+                                                    hx-get=(BomOperationEditPath { id: bom_id, step_order: op.step_order }.to_string())
+                                                    hx-target="#bom-op-modal" hx-swap="innerHTML"
+                                                { "编辑" }
+                                                button type="button"
+                                                    class="px-2 py-0.5 text-xs text-fg-2 hover:bg-surface rounded-sm cursor-pointer bg-transparent border-none disabled:opacity-30"
+                                                    hx-post=(BomOperationMovePath { id: bom_id, step_order: op.step_order }.to_string())
+                                                    hx-vals=(serde_json::json!({"dir":"up"}).to_string())
+                                                { "↑" }
+                                                button type="button"
+                                                    class="px-2 py-0.5 text-xs text-fg-2 hover:bg-surface rounded-sm cursor-pointer bg-transparent border-none disabled:opacity-30"
+                                                    hx-post=(BomOperationMovePath { id: bom_id, step_order: op.step_order }.to_string())
+                                                    hx-vals=(serde_json::json!({"dir":"down"}).to_string())
+                                                { "↓" }
+                                                button type="button"
+                                                    class="px-2 py-0.5 text-xs text-danger hover:bg-danger-50 rounded-sm cursor-pointer bg-transparent border-none"
+                                                    hx-post=(BomOperationDeletePath { id: bom_id, step_order: op.step_order }.to_string())
+                                                    hx-confirm="确认删除该工序？关联的计件单价将一并清除。"
+                                                { "删除" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // 编辑 modal：空容器，hx-get 填充表单，afterSettle 打开，bomOpChanged 关闭
+            div id="bom-op-modal"
+                class="modal-overlay fixed inset-0 z-[1080] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+                _="on 'htmx:afterSettle'[me is event.target] add .is-open\non bomOpChanged from:body remove .is-open\non click[me is event.target] remove .is-open" {}
+        }
+    }
+}
+
+fn bom_operation_edit_form(
+    bom_id: i64,
+    op: &BomOperation,
+    processes: &[abt_core::master_data::labor_process_dict::model::LaborProcessDict],
+    work_centers: &[abt_core::master_data::work_center::model::WorkCenter],
+    nl_products: &[abt_core::master_data::product::model::Product],
+) -> Markup {
+    let is_new = op.id == 0;
+    let title = if is_new { "添加工序" } else { "编辑工序" };
+    let fmt_dec = |d: Option<Decimal>| d.map(|v| v.to_string()).unwrap_or_default();
+    html! {
+        div class="bg-bg rounded-lg w-[560px] max-w-[92vw] max-h-[88vh] flex flex-col shadow-xl" {
+            // header（点击不关，防冒泡）
+            div class="px-5 py-4 border-b border-border-soft flex justify-between items-center shrink-0"
+                _="on click halt the event" {
+                h2 class="text-base font-semibold text-fg" { (title) }
+                button class="text-muted hover:text-fg cursor-pointer bg-transparent border-none text-xl leading-none"
+                    _="on click remove .is-open from closest .modal-overlay" { "×" }
+            }
+            form class="overflow-y-auto flex-1 min-h-0 p-5 grid grid-cols-2 gap-4"
+                hx-post=(BomOperationsPath { id: bom_id }.to_string())
+                hx-target="this"
+                hx-swap="outerHTML" {
+                input type="hidden" name="step_order" value=(op.step_order) {}
+                div class="form-field col-span-1" {
+                    label { "工序 " span class="text-danger" { "*" } }
+                    select name="process_code" class="w-full px-3 py-2 border border-border rounded-sm bg-white text-fg text-sm" required {
+                        option value="" { "— 选择工序 —" }
+                        @for p in processes {
+                            option value=(p.code) selected[p.code == op.process_code] {
+                                (p.code) " · " (p.name)
+                            }
+                        }
+                    }
+                }
+                div class="form-field col-span-1" {
+                    label { "工序名（物化）" }
+                    input type="text" name="process_name" value=(op.process_name)
+                        class="w-full px-3 py-2 border border-border rounded-sm bg-white text-fg text-sm"
+                        placeholder="留空则用工序字典名" {}
+                }
+                div class="form-field col-span-1" {
+                    label { "工作中心" }
+                    select name="work_center_id" class="w-full px-3 py-2 border border-border rounded-sm bg-white text-fg text-sm" {
+                        option value="" { "— 未指定 —" }
+                        @for w in work_centers {
+                            option value=(w.id) selected[Some(w.id) == op.work_center_id] {
+                                (w.name)
+                            }
+                        }
+                    }
+                }
+                div class="form-field col-span-1" {
+                    label { "产出品（非叶子节点）" }
+                    select name="output_product_id" class="w-full px-3 py-2 border border-border rounded-sm bg-white text-fg text-sm" {
+                        option value="" { "— 无产出 —" }
+                        @for p in nl_products {
+                            option value=(p.product_id) selected[Some(p.product_id) == op.output_product_id] {
+                                (p.pdt_name) " · " (p.product_code)
+                            }
+                        }
+                    }
+                }
+                div class="form-field col-span-1" {
+                    label { "标准工时(分钟)" }
+                    input type="number" step="0.000001" name="standard_time" value=(fmt_dec(op.standard_time))
+                        class="w-full px-3 py-2 border border-border rounded-sm bg-white text-fg text-sm" {}
+                }
+                div class="form-field col-span-1" {
+                    label { "标准成本(每小时)" }
+                    input type="number" step="0.000001" name="standard_cost" value=(fmt_dec(op.standard_cost))
+                        class="w-full px-3 py-2 border border-border rounded-sm bg-white text-fg text-sm" {}
+                }
+                div class="form-field col-span-1" {
+                    label { "允许损耗率" }
+                    input type="number" step="0.000001" name="allowed_loss_rate" value=(fmt_dec(if op.allowed_loss_rate == Decimal::ZERO { None } else { Some(op.allowed_loss_rate) }))
+                        class="w-full px-3 py-2 border border-border rounded-sm bg-white text-fg text-sm" {}
+                }
+                div class="form-field col-span-1 flex items-end gap-4 pb-2" {
+                    label class="flex items-center gap-1.5 text-sm text-fg-2 cursor-pointer" {
+                        input type="checkbox" name="is_outsourced" checked[op.is_outsourced] class="accent-accent" {}
+                        "委外"
+                    }
+                    label class="flex items-center gap-1.5 text-sm text-fg-2 cursor-pointer" {
+                        input type="checkbox" name="is_inspection_point" checked[op.is_inspection_point] class="accent-accent" {}
+                        "检验点"
+                    }
+                }
+                div class="form-field col-span-2" {
+                    label { "备注" }
+                    input type="text" name="remark" value=(op.remark.as_deref().unwrap_or(""))
+                        class="w-full px-3 py-2 border border-border rounded-sm bg-white text-fg text-sm" {}
+                }
+                div class="col-span-2 flex justify-end gap-2 pt-2 border-t border-border-soft" {
+                    button type="button"
+                        class="px-4 py-2 text-sm text-fg-2 bg-white border border-border rounded-sm hover:bg-surface cursor-pointer"
+                        _="on click remove .is-open from closest .modal-overlay"
+                    { "取消" }
+                    button type="submit"
+                        class="px-4 py-2 text-sm text-accent-on bg-accent rounded-sm hover:bg-accent-hover cursor-pointer"
+                    { "保存" }
+                }
+            }
+        }
+    }
 }

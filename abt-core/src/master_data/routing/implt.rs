@@ -112,28 +112,8 @@ impl RoutingService for RoutingServiceImpl {
         self.repo.update(db, id, &req, ctx.operator_id).await?;
 
         if let Some(ref steps) = req.steps {
-            // 覆盖护栏：有 bom_routing_outputs 覆盖的 routing，禁止破坏性 step 删除/重排
-            // （仅允许末尾 append + 改非身份属性如工时/工作中心/备注）。
-            // step_order 是覆盖层关联键，delete+insert 全重建会令覆盖行错位
-            // （把"焊接的产出/计件价"挂到"测试"工序上）。参照 production_batch has_report 锁定先例。
-            let covered = self.repo.count_bom_outputs_by_routing(db, id).await?;
-            if covered > 0 {
-                let orig_steps = self.repo.find_steps(db, id).await?;
-                if steps.len() < orig_steps.len() {
-                    return Err(DomainError::business_rule(format!(
-                        "该工艺路线已关联 {covered} 条 BOM 产出覆盖，不能删除已有工序（仅允许在末尾追加新工序）"
-                    )));
-                }
-                for (i, orig) in orig_steps.iter().enumerate() {
-                    let Some(new) = steps.get(i) else { break };
-                    if new.process_code != orig.process_code {
-                        return Err(DomainError::business_rule(format!(
-                            "该工艺路线已关联 {covered} 条 BOM 产出覆盖，不能修改或重排已有工序「{}」（仅允许在末尾追加）",
-                            orig.process_name.as_deref().unwrap_or(&orig.process_code)
-                        )));
-                    }
-                }
-            }
+            // copy-on-write：routing 降级为纯模板，改 steps 不影响已拷贝的 bom_operations
+            // （bom_operations.source_routing_id 仅作溯源）。delete_steps + insert_steps 全重建可自由进行。
             self.repo.delete_steps(db, id).await?;
             self.repo.insert_steps(db, id, steps).await?;
         }

@@ -546,12 +546,11 @@ fn routing_form_page(
                         { (icon::plus_icon("w-3.5 h-3.5")) "添加工序" }
                     }
                     @if is_edit && bound_count > 0 {
-                        div class="mx-5 mb-3 p-2.5 rounded-sm bg-warn-bg text-warn text-xs flex items-start gap-2" {
+                        div class="mx-5 mb-3 p-2.5 rounded-sm bg-accent-50 text-accent text-xs flex items-start gap-2" {
                             (icon::alert_triangle_icon("w-4 h-4 shrink-0 mt-0.5"))
                             span {
-                                "该路线已关联 BOM 并可能存在产出覆盖，"
-                                strong { "删除或重排已有工序将被拒绝" }
-                                "（仅允许在末尾追加新工序）；如需调整已有工序，请先到详情页清除相关 BOM 的产出覆盖。"
+                                "此模板已关联 " strong { (bound_count) } " 个 BOM；编辑只影响未来新拷贝，"
+                                "已拷贝的 BOM 工序独立（修改模板不会同步，如需同步到 BOM 编辑页 force 重拷）。"
                             }
                         }
                     }

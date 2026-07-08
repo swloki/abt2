@@ -171,7 +171,7 @@ impl BomOperationRepo {
                   is_inspection_point, is_required, remark, source_routing_id, operator_id, created_at)
                SELECT $1, rs.step_order, rs.process_code,
                       COALESCE(lpd.name, rs.process_code),
-                      rs.work_center_id, rs.standard_time, rs.standard_cost, rs.allowed_loss_rate,
+                      rs.work_center_id, rs.standard_time, rs.standard_cost, COALESCE(rs.allowed_loss_rate, 0),
                       rs.is_outsourced, rs.is_inspection_point, rs.is_required, rs.remark,
                       $2, $3, now()
                FROM routing_steps rs

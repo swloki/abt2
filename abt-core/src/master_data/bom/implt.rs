@@ -769,62 +769,58 @@ impl BomCostServiceImpl {
         Self { pool, repo: BomRepo, node_repo: BomNodeRepo, price_repo: PriceRepo }
     }
 
-    /// 尝试从 routing 模板构建人工成本项。返回 `Ok(None)` 表示无绑定或无工序。
-    async fn try_build_labor_from_routing(
+    /// 尝试从 BOM 内联工序（bom_operations）构建人工成本项。返回 `Ok(None)` 表示无工序（回退 legacy）。
+    /// unit_price + quantity 从 bom_step_prices 取（N-4：未投产 BOM 价为空 → 人工费 0 属正常）。
+    async fn try_build_labor_from_bom(
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
         product_code: &str,
     ) -> Result<Option<Vec<LaborCostItem>>> {
-        use crate::master_data::routing::{new_routing_service, RoutingService};
+        use crate::master_data::bom_operation::{new_bom_operation_service, service::BomOperationService};
+        use crate::master_data::bom_step_price::{new_bom_step_price_service, service::BomStepPriceService};
         use crate::master_data::work_center::{new_work_center_service, WorkCenterService};
-        use crate::master_data::bom_routing_output::{
-            new_bom_routing_output_service, BomRoutingOutputService, BomRoutingOutput,
-        };
+        use std::collections::HashMap;
 
-        let routing_svc = new_routing_service(self.pool.clone());
-        let detail = match routing_svc.get_bom_routing(ctx, db, product_code.to_string()).await? {
-            Some(d) => d,
-            None => return Ok(None),
-        };
-
-        if detail.steps.is_empty() {
+        let ops = new_bom_operation_service(self.pool.clone())
+            .list_operations(ctx, db, product_code.to_string())
+            .await?;
+        if ops.is_empty() {
             return Ok(None);
         }
 
-        let wc_svc = new_work_center_service(self.pool.clone());
-        // per-BOM 产出覆盖：计件价从覆盖层取（routing 解耦后唯一源），工作中心覆盖优先回退模板
-        let outputs = new_bom_routing_output_service(self.pool.clone())
-            .find_outputs_by_product(ctx, db, product_code.to_string())
+        // bom_step_prices：unit_price + quantity（R-1：quantity 维度保留，含 quantity≠1）
+        let prices = new_bom_step_price_service(self.pool.clone())
+            .find_prices_by_product(ctx, db, product_code.to_string())
             .await?;
-        let out_map: std::collections::HashMap<i32, &BomRoutingOutput> =
-            outputs.iter().map(|o| (o.step_order, o)).collect();
-        let mut items = Vec::with_capacity(detail.steps.len());
+        let price_map: HashMap<i32, (rust_decimal::Decimal, rust_decimal::Decimal)> = prices
+            .iter()
+            .map(|p| (p.step_order, (p.unit_price.unwrap_or(rust_decimal::Decimal::ZERO), p.quantity)))
+            .collect();
 
-        for step in &detail.steps {
-            let out = out_map.get(&step.step_order);
-            let unit_price = out
-                .and_then(|o| o.unit_price)
-                .unwrap_or(rust_decimal::Decimal::ZERO);
-            // 工作中心：覆盖层优先，回退模板（工作中心是可共享工艺属性，保留在模板）
-            let work_center_id = out.and_then(|o| o.work_center_id).or(step.work_center_id);
-            let work_center_name = if let Some(wc_id) = work_center_id {
+        let wc_svc = new_work_center_service(self.pool.clone());
+        let mut items = Vec::with_capacity(ops.len());
+        for op in &ops {
+            let (unit_price, quantity) = price_map
+                .get(&op.step_order)
+                .copied()
+                .unwrap_or((rust_decimal::Decimal::ZERO, rust_decimal::Decimal::ONE));
+            let work_center_name = if let Some(wc_id) = op.work_center_id {
                 wc_svc.get(ctx, db, wc_id).await.ok().map(|wc| wc.name)
             } else {
                 None
             };
-
             items.push(LaborCostItem {
-                id: step.id,
-                name: step.process_name.clone().unwrap_or_else(|| step.process_code.clone()),
+                id: op.id,
+                name: op.process_name.clone(),
                 unit_price,
-                quantity: rust_decimal::Decimal::ONE,
-                sort_order: step.step_order,
-                remark: step.remark.clone().unwrap_or_default(),
-                work_center_id,
+                quantity,
+                sort_order: op.step_order,
+                remark: op.remark.clone().unwrap_or_default(),
+                work_center_id: op.work_center_id,
                 work_center_name,
-                standard_time: step.standard_time,
-                is_outsourced: step.is_outsourced,
+                standard_time: op.standard_time,
+                is_outsourced: op.is_outsourced,
             });
         }
 
@@ -941,7 +937,7 @@ impl BomCostService for BomCostServiceImpl {
         // Labor costs: 优先从 routing 模板获取，找不到再回退 bom_labor_processes
         let labor_costs: Vec<LaborCostItem> = if root_product_code.is_empty() {
             Vec::new()
-        } else if let Some(routing_items) = self.try_build_labor_from_routing(_ctx, db, &root_product_code).await? {
+        } else if let Some(routing_items) = self.try_build_labor_from_bom(_ctx, db, &root_product_code).await? {
             routing_items
         } else {
             self.build_labor_from_legacy(db, &root_product_code).await.unwrap_or_default()
@@ -979,7 +975,7 @@ impl BomCostService for BomCostServiceImpl {
         };
 
         // 优先从 routing 模板获取人工成本，找不到再回退 bom_labor_processes
-        let items = if let Some(routing_items) = self.try_build_labor_from_routing(_ctx, db, &product_code).await? {
+        let items = if let Some(routing_items) = self.try_build_labor_from_bom(_ctx, db, &product_code).await? {
             routing_items
         } else {
             self.build_labor_from_legacy(db, &product_code).await?

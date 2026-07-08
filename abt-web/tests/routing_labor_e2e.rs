@@ -6,8 +6,7 @@
 //! 以及覆盖层计件单价经 load_routings_from_template 流入工单工序。
 
 mod common;
-use abt_core::master_data::bom_routing_output::model::UpsertBomOutputReq;
-use abt_core::master_data::bom_routing_output::{new_bom_routing_output_service, BomRoutingOutputService};
+use abt_core::master_data::bom_step_price::{new_bom_step_price_service, BomStepPriceService};
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::routing::RoutingService;
 use abt_core::master_data::routing::model::{CreateRoutingReq, RoutingStepInput};
@@ -126,16 +125,10 @@ async fn routing_unit_price_carries_to_work_order_on_load() {
     let _ = app.state.routing_service().delete_bom_routing(&ctx, &mut conn, product.product_code.clone()).await;
     app.state.routing_service().set_bom_routing(&ctx, &mut conn, product.product_code.clone(), routing_id).await.unwrap();
 
-    // 2b. upsert per-BOM 产出覆盖（clean break：计件单价在 bom_routing_outputs 覆盖层，不在模板）
-    new_bom_routing_output_service(app.state.pool.clone())
-        .upsert_output(&ctx, &mut conn, UpsertBomOutputReq {
-            product_code: product.product_code.clone(),
-            routing_id,
-            step_order: 1,
-            output_product_id: None,
-            unit_price: Some(Decimal::new(15, 2)),
-            work_center_id: None,
-        })
+    // 2b. upsert per-BOM 计件单价（BOM 内联：价在 bom_step_prices，工序在 bom_operations）
+    new_bom_step_price_service(app.state.pool.clone())
+        .upsert_price(&ctx, &mut conn, product.product_code.clone(), 1,
+            Decimal::new(15, 2), "test".into(), None)
         .await
         .unwrap();
 
@@ -149,7 +142,7 @@ async fn routing_unit_price_carries_to_work_order_on_load() {
     let wo_id = list.items.iter().map(|w| w.id).max().expect("应找到刚创建的 565 工单");
 
     // 4. 从 routing 加载工序到工单
-    app.state.production_batch_service().load_routings_from_template(&ctx, &mut conn, wo_id, routing_id, product.product_code.clone()).await.unwrap();
+    app.state.production_batch_service().load_operations_from_bom(&ctx, &mut conn, wo_id, product.product_code.clone()).await.unwrap();
 
     // 5. 工单工序应继承 routing 单价 0.15
     let rs = app.state.production_batch_service().list_routings(&ctx, &mut conn, wo_id).await.unwrap();

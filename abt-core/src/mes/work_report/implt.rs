@@ -152,9 +152,7 @@ impl WorkReportService for WorkReportServiceImpl {
         let wo_ids: std::collections::HashSet<i64> = all_reports.iter().map(|r| r.work_order_id).collect();
         let wo_ids_vec: Vec<i64> = wo_ids.into_iter().collect();
         let all_routings = WorkOrderRoutingRepo::get_by_work_order_ids(&mut *db, &wo_ids_vec)
-            .await
-            .ok()
-            .unwrap_or_default();
+            .await?;
         let routing_map = all_routings
             .iter()
             .map(|r| ((r.work_order_id, r.id), r))
@@ -174,15 +172,22 @@ impl WorkReportService for WorkReportServiceImpl {
             for report in reports {
                 let routing_info = routing_map.get(&(report.work_order_id, report.routing_id));
 
-                let (process_name, unit_price) = routing_info
-                    .map(|r| (r.process_name.clone(), r.unit_price.unwrap_or(Decimal::ZERO)))
-                    .unwrap_or_else(|| (String::new(), Decimal::ZERO));
-
+                let process_name = routing_info
+                    .map(|r| r.process_name.clone())
+                    .unwrap_or_default();
                 let non_operator_defect_qty = match report.defect_reason {
                     Some(reason) if reason.affect_wage() => report.defect_qty,
                     _ => Decimal::ZERO,
                 };
-                let wage_amount = (report.completed_qty + non_operator_defect_qty) * unit_price;
+                // D6：wage_amount 用冻结值（报工时按当时单价冻结到 work_reports.wage_amount）
+                let wage_amount = report.wage_amount;
+                // R-30：unit_price 反算显示（wage_amount / 完成量），与 wage_amount 对账一致；除零回退当前快照价
+                let qty = report.completed_qty + non_operator_defect_qty;
+                let unit_price = if qty.is_zero() {
+                    routing_info.and_then(|r| r.unit_price).unwrap_or(Decimal::ZERO)
+                } else {
+                    wage_amount / qty
+                };
                 total_amount += wage_amount;
 
                 details.push(WageDetail {

@@ -81,21 +81,15 @@ async fn seed_routings(app: &common::TestApp, wo_id: i64, product_id: i64, qty: 
     let batch_svc = app.state.production_batch_service();
     let planned = qty.parse::<Decimal>().unwrap_or(Decimal::from(100));
     match detail {
-        Some(d) => {
-            // clean break：空壳 routing（routing_steps.product_id 全 NULL，如 4544）M2a 未回填覆盖层，
-            // 手动 upsert step_order=1 计件单价让 load 带出（wage_is_frozen 测试依赖工序单价非 None）
-            use abt_core::master_data::bom_routing_output::{new_bom_routing_output_service, BomRoutingOutputService, model::UpsertBomOutputReq};
-            let _ = new_bom_routing_output_service(app.state.pool.clone())
-                .upsert_output(&ctx, &mut conn, UpsertBomOutputReq {
-                    product_code: product.product_code.clone(),
-                    routing_id: d.routing.id,
-                    step_order: 1,
-                    output_product_id: None,
-                    unit_price: Some(Decimal::new(10, 0)),
-                    work_center_id: None,
-                })
+        Some(_d) => {
+            // BOM 内联工序（098 已回填 bom_operations）；补 step 1 价让 load 带出
+            // （wage_is_frozen 测试依赖工序单价非 None）
+            use abt_core::master_data::bom_step_price::{new_bom_step_price_service, BomStepPriceService};
+            let _ = new_bom_step_price_service(app.state.pool.clone())
+                .upsert_price(&ctx, &mut conn, product.product_code.clone(), 1,
+                    Decimal::new(10, 0), "test".into(), None)
                 .await;
-            batch_svc.load_routings_from_template(&ctx, &mut conn, wo_id, d.routing.id, product.product_code.clone()).await.unwrap();
+            batch_svc.load_operations_from_bom(&ctx, &mut conn, wo_id, product.product_code.clone()).await.unwrap();
         }
         None => {
             sqlx::query(
@@ -267,30 +261,28 @@ async fn delete_blocked_after_any_report() {
 
 
 #[tokio::test]
-async fn load_routings_from_template_replaces_steps() {
-    use abt_core::master_data::routing::RoutingService;
+async fn load_operations_from_bom_replaces_steps() {
+    use abt_core::master_data::bom_operation::{new_bom_operation_service, BomOperationService};
     let app = common::TestApp::new().await;
     let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "950").await;
     let svc = app.state.production_batch_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
-    // 工单 release 时应该有 routing_id
     let wo = app.state.work_order_service().find_by_id(&ctx, &mut conn, wo_id).await.unwrap();
-    let routing_id = wo.routing_id.expect("工单应有关联的工艺路径");
-    // 加载模板步骤
     let pcode = app.state.product_service().get(&ctx, &mut conn, wo.product_id).await.unwrap().product_code;
-    let n = svc.load_routings_from_template(&ctx, &mut conn, wo_id, routing_id, pcode).await.unwrap();
+    // 加载 BOM 内联工序（per-order lock：seed 已 load 但未报工 → 可 reload）
+    let n = svc.load_operations_from_bom(&ctx, &mut conn, wo_id, pcode.clone()).await.unwrap();
     assert!(n > 0, "应至少插入 1 行，实际 {n}");
-    // 验证加载后的工序行
     let rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
     assert_eq!(rs.len(), n, "加载后的行数应与插入数一致");
-    // 验证模板步骤结构与工单工序对应
-    let detail = app.state.routing_service().get_detail(&ctx, &mut conn, routing_id).await.unwrap();
-    assert_eq!(rs.len(), detail.steps.len(), "工单工序行数应与模板步骤数一致");
-    for (r, s) in rs.iter().zip(detail.steps.iter()) {
-        assert_eq!(r.step_no, s.step_order, "step_no 应对齐");
+    // 验证对齐 bom_operations（切源后真相源）
+    let ops = new_bom_operation_service(app.state.pool.clone())
+        .list_operations(&ctx, &mut conn, pcode).await.unwrap();
+    assert_eq!(rs.len(), ops.len(), "工单工序行数应与 bom_operations 一致");
+    for (r, op) in rs.iter().zip(ops.iter()) {
+        assert_eq!(r.step_no, op.step_order, "step_no 应对齐");
         assert!(!r.process_name.is_empty(), "工序名不应为空");
-        assert_eq!(r.is_outsourced, s.is_outsourced);
-        assert_eq!(r.is_inspection_point, s.is_inspection_point);
+        assert_eq!(r.is_outsourced, op.is_outsourced);
+        assert_eq!(r.is_inspection_point, op.is_inspection_point);
     }
 }

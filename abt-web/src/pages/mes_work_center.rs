@@ -1772,7 +1772,7 @@ impl ReleaseErrors {
     /// 顶部汇总 alert 文案（存在任一错误时）。
     fn summary(&self) -> Option<String> {
         if self.empty_routings {
-            return Some("工单尚无工序：该产品的 BOM 未关联工艺路线，请到「工艺路线管理」关联后重新创建工单".into());
+            return Some("该产品 BOM 尚未配置工序，请到 BOM 编辑页配置（或从工艺路线拷贝）后直接重新下达，无需重建工单".into());
         }
         let msgs: Vec<&String> = self
             .product_missing
@@ -1782,7 +1782,7 @@ impl ReleaseErrors {
         if msgs.is_empty() {
             return None;
         }
-        let mut combined = String::from("以下工序配置不完整（请在工艺路线模板补全产出品/单价后重新创建工单）：");
+        let mut combined = String::from("以下工序尚未定价，请在下方表格直接填写单价后点下达：");
         for m in msgs {
             combined.push_str("\n• ");
             combined.push_str(m);
@@ -2249,8 +2249,15 @@ fn render_release_routing_row(
             td class="py-1.5 px-2 text-fg" { (r.process_name) }
             td class=(if prod_err { "py-1.5 px-2 text-danger bg-danger-bg font-medium" } else { "py-1.5 px-2 text-fg-2" }) { (prod_name) }
             td class="py-1.5 px-2 text-fg-2" { (wc_name) }
-            td class=(if price_err { "py-1.5 px-2 text-right font-mono text-danger bg-danger-bg font-medium" } else { "py-1.5 px-2 text-right font-mono text-fg-2" }) {
-                (r.unit_price.map(fmt_qty).unwrap_or_else(|| "—".into()))
+            td class="py-1.5 px-2 text-right font-mono" {
+                input type="number" step="0.000001" name="unit_price"
+                    value=(r.unit_price.map(|d| d.to_string()).unwrap_or_default())
+                    placeholder="未定价"
+                    class=(format!("w-20 px-1.5 py-0.5 text-right border rounded-sm bg-white text-xs font-mono {}", if price_err { "border-danger" } else { "border-border-soft" }))
+                    hx-post=(WoStepPricePath { order_id: r.work_order_id, step_no: r.step_no }.to_string())
+                    hx-trigger="blur"
+                    hx-target="closest tr" hx-swap="outerHTML"
+                    title="此单价保存后对该产品后续所有工单生效（主数据·本产品通用）";
             }
             td class="py-1.5 px-2 text-center" {
                 @if r.is_outsourced {
@@ -2261,6 +2268,44 @@ fn render_release_routing_row(
             }
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StepPriceForm {
+    pub unit_price: String,
+}
+
+/// release drawer 内联填计件单价（per-step）：blur 触发，行自替换。
+/// 权限 BOM_STEP_PRICE（R-13：定价影响全员工资，独立闸门）。
+#[require_permission("BOM_STEP_PRICE", "update")]
+pub async fn set_step_price(
+    path: WoStepPricePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<StepPriceForm>,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let unit_price: rust_decimal::Decimal = form.unit_price.trim().parse()
+        .map_err(|_| abt_core::shared::types::DomainError::business_rule("单价格式错误"))?;
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+    state.work_order_service()
+        .set_work_order_step_price(&service_ctx, &mut tx, path.order_id, path.step_no, unit_price).await?;
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+    // 返回刷新的行（反映已填价）
+    let svc = state.production_batch_service();
+    let rs = svc.list_routings(&service_ctx, &mut conn, path.order_id).await?;
+    let r = rs.iter().find(|x| x.step_no == path.step_no)
+        .ok_or_else(|| abt_core::shared::types::DomainError::not_found("WorkOrderRouting"))?;
+    let wc_map: HashMap<i64, String> = state.work_center_service()
+        .list_active(&service_ctx, &mut conn).await.unwrap_or_default()
+        .into_iter().map(|w| (w.id, w.name)).collect();
+    let prod_ids: Vec<i64> = rs.iter().filter_map(|x| x.product_id).collect();
+    let prod_map: HashMap<i64, String> = if prod_ids.is_empty() { HashMap::new() } else {
+        state.product_service().get_by_ids(&service_ctx, &mut conn, prod_ids).await.unwrap_or_default()
+            .into_iter().map(|p| (p.product_id, p.pdt_name.clone())).collect()
+    };
+    Ok(Html(render_release_routing_row(r, &wc_map, &prod_map, None).into_string()))
 }
 
 /// 单条生产批次行（数量 input + 删除按钮）。.split-row 供 addSplitRow 克隆；至少保留 1 行。

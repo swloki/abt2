@@ -35,10 +35,13 @@ ON CONFLICT (product_code, step_order) DO NOTHING;
 -- M2(b): 回填历史工单快照 product_id 断裂
 --   migration 063（给 routing_steps 加 product_id）前生成的 work_order_routings 快照 product_id 永久 NULL，
 --   导致 OM 委外 / 工序级领料读不到产出品（现网 bug）。按 work_orders.routing_id + step_no 回填。
+--   注意：PostgreSQL 的 UPDATE...FROM 中，JOIN 的 ON 子句不能引用 UPDATE 目标表 wor，
+--   `rs.step_order = wor.step_no` 必须放到 WHERE（WHERE 可引用目标表列）。
 UPDATE work_order_routings wor
 SET product_id = rs.product_id
 FROM work_orders wo
-JOIN routing_steps rs ON rs.routing_id = wo.routing_id AND rs.step_order = wor.step_no
+JOIN routing_steps rs ON rs.routing_id = wo.routing_id
 WHERE wor.work_order_id = wo.id
+  AND rs.step_order = wor.step_no
   AND wor.product_id IS NULL
   AND rs.product_id IS NOT NULL;

@@ -545,6 +545,16 @@ fn routing_form_page(
                             onclick="addStep()"
                         { (icon::plus_icon("w-3.5 h-3.5")) "添加工序" }
                     }
+                    @if is_edit && bound_count > 0 {
+                        div class="mx-5 mb-3 p-2.5 rounded-sm bg-warn-bg text-warn text-xs flex items-start gap-2" {
+                            (icon::alert_triangle_icon("w-4 h-4 shrink-0 mt-0.5"))
+                            span {
+                                "该路线已关联 BOM 并可能存在产出覆盖，"
+                                strong { "删除或重排已有工序将被拒绝" }
+                                "（仅允许在末尾追加新工序）；如需调整已有工序，请先到详情页清除相关 BOM 的产出覆盖。"
+                            }
+                        }
+                    }
                     div class="overflow-x-auto" {
                         table class="data-table min-w-[760px]" {
                             thead {

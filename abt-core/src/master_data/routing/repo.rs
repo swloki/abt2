@@ -104,6 +104,16 @@ impl RoutingRepo {
     }
 
     #[allow(unused_assignments)]
+    /// 该 routing 被 BOM 产出覆盖层(`bom_routing_outputs`)引用的行数。
+    /// 用于 routing update 时的 step 重排护栏（有覆盖则禁止破坏性删除/重排，见 implt::update）。
+    pub async fn count_bom_outputs_by_routing(&self, executor: PgExecutor<'_>, routing_id: i64) -> Result<i64> {
+        let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM bom_routing_outputs WHERE routing_id = $1")
+            .bind(routing_id)
+            .fetch_one(executor)
+            .await?;
+        Ok(n)
+    }
+
     pub async fn query(&self, executor: PgExecutor<'_>, filter: &RoutingQuery, page: &PageParams) -> Result<PaginatedResult<Routing>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;

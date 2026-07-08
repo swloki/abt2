@@ -1,9 +1,13 @@
-//! e2e：routing 模板工序成本字段（阶段 1）—— handler 提交完整字段保存 + 缺单价校验。
+//! e2e：routing 模板工序字段 + 计件单价经覆盖层流入工单。
 //!
-//! 验证 routing_create 的 StepWeb 映射（unit_price/work_center_id/standard_time/is_outsourced）
-//! 到 RoutingStepInput 并落库，以及「产出品 + 单价非空」校验（BOM 人工成本依赖）。
+//! clean break 后产出品/计件价下沉到 per-BOM 覆盖层 bom_routing_outputs，
+//! routing 模板只存工艺结构（工序/工作中心/工时/委外/必经/备注）。
+//! 本文件验证：模板字段保存、空工序拒绝、load-recent 端点已移除、
+//! 以及覆盖层计件单价经 load_routings_from_template 流入工单工序。
 
 mod common;
+use abt_core::master_data::bom_routing_output::model::UpsertBomOutputReq;
+use abt_core::master_data::bom_routing_output::{new_bom_routing_output_service, BomRoutingOutputService};
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::routing::RoutingService;
 use abt_core::master_data::routing::model::{CreateRoutingReq, RoutingStepInput};
@@ -67,48 +71,8 @@ async fn routing_create_saves_labor_cost_fields() {
     println!("✅ routing#{rid} 工序成本字段保存齐全（unit_price=0.15, time=30, 委外）");
 }
 
-/// 缺计件单价（product_id 有）→ 校验拒绝（BOM 人工成本依据）。
-#[tokio::test]
-async fn routing_create_rejects_missing_unit_price() {
-    let app = common::TestApp::new().await;
-    let ts = chrono::Local::now().format("%H%M%S%6f").to_string();
-    // unit_price 空串 → None；product_id 有 → 过产出品校验，到单价校验
-    let steps_json = r#"[{"process_code":"E2E_PROC","is_required":true,"product_id":565,"unit_price":""}]"#;
-    let body = format!("name=e2e_reject_{ts}&description=&steps_json={}", urlenc(steps_json));
-    let resp = app.post_htmx("/admin/md/routings/new", &body).await;
-    assert!(
-        !resp.is_ok(),
-        "缺计件单价应被校验拒绝，实际 status={} body={}",
-        resp.status,
-        resp.body.chars().take(300).collect::<String>()
-    );
-    assert!(
-        resp.body.contains("计件单价"),
-        "错误消息应含「计件单价」，body: {}",
-        resp.body.chars().take(300).collect::<String>()
-    );
-    println!("✅ 缺计件单价被校验拦截：{}", resp.body.chars().take(120).collect::<String>());
-}
-
-/// 缺产出品（product_id null，单价有）→ 校验拒绝（BOM 人工成本与工序级领料依赖产出品）。
-#[tokio::test]
-async fn routing_create_rejects_missing_product_id() {
-    let app = common::TestApp::new().await;
-    let ts = chrono::Local::now().format("%H%M%S%6f").to_string();
-    let steps_json = r#"[{"process_code":"E2E_PROC","is_required":true,"product_id":null,"unit_price":"0.15"}]"#;
-    let body = format!("name=e2e_nopid_{ts}&description=&steps_json={}", urlenc(steps_json));
-    let resp = app.post_htmx("/admin/md/routings/new", &body).await;
-    assert!(
-        !resp.is_ok(),
-        "缺产出品应被校验拒绝，实际 status={}",
-        resp.status
-    );
-    assert!(
-        resp.body.contains("产出品"),
-        "错误消息应含「产出品」，body: {}",
-        resp.body.chars().take(200).collect::<String>()
-    );
-}
+// clean break：产出品/计件价校验已从 routing_create 移除（下沉到 per-BOM 覆盖层 bom_routing_outputs），
+// 「缺 unit_price / 缺 product_id 拒绝」的测试随之删除（routing 模板不再持有这两字段）。
 
 /// 空工序列表（steps_json=[]）→ 校验拒绝。
 #[tokio::test]
@@ -157,9 +121,23 @@ async fn routing_unit_price_carries_to_work_order_on_load() {
         }],
     }).await.unwrap();
 
-    // 2. 绑定 product → routing
+    // 2. 绑定 product → routing（先清除可能的历史绑定，避免「BOM 已关联其他 routing」唯一性冲突）
     let product = app.state.product_service().get(&ctx, &mut conn, 565).await.unwrap();
+    let _ = app.state.routing_service().delete_bom_routing(&ctx, &mut conn, product.product_code.clone()).await;
     app.state.routing_service().set_bom_routing(&ctx, &mut conn, product.product_code.clone(), routing_id).await.unwrap();
+
+    // 2b. upsert per-BOM 产出覆盖（clean break：计件单价在 bom_routing_outputs 覆盖层，不在模板）
+    new_bom_routing_output_service(app.state.pool.clone())
+        .upsert_output(&ctx, &mut conn, UpsertBomOutputReq {
+            product_code: product.product_code.clone(),
+            routing_id,
+            step_order: 1,
+            output_product_id: None,
+            unit_price: Some(Decimal::new(15, 2)),
+            work_center_id: None,
+        })
+        .await
+        .unwrap();
 
     // 3. 创建工单（565, Draft）
     let resp = app.post_htmx("/admin/mes/orders/create", "product_id=565&planned_qty=100&scheduled_start=2026-07-01&scheduled_end=2026-07-31").await;

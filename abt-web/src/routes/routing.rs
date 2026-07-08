@@ -65,6 +65,29 @@ pub struct RoutingBoundBomsPath {
     pub id: i64,
 }
 
+/// 详情页关联 BOM 的「产出/计件覆盖层」编辑分区（GET，drawer body 用）。
+/// 产出品/计件价已从 `routing_steps` 模板下沉到 per-BOM 覆盖层 `bom_routing_outputs`，
+/// 在此按 BOM（product_code）维护。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/routings/{id}/outputs")]
+pub struct RoutingOutputEditPath {
+    pub id: i64,
+}
+
+/// UPSERT 单道工序的产出覆盖（by product_code + step_order）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/routings/{id}/outputs/upsert")]
+pub struct RoutingOutputUpsertPath {
+    pub id: i64,
+}
+
+/// 删除单道工序的产出覆盖（回退到模板默认）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/routings/{id}/outputs/delete")]
+pub struct RoutingOutputDeletePath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -93,5 +116,17 @@ pub fn router() -> Router<AppState> {
         .route(
             RoutingBoundBomsPath::PATH,
             get(routing_create::get_routing_bound_boms),
+        )
+        .route(
+            RoutingOutputEditPath::PATH,
+            get(routing_detail::get_routing_output_edit),
+        )
+        .route(
+            RoutingOutputUpsertPath::PATH,
+            post(routing_detail::upsert_routing_output),
+        )
+        .route(
+            RoutingOutputDeletePath::PATH,
+            post(routing_detail::delete_routing_output),
         )
 }

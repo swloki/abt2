@@ -25,13 +25,13 @@ impl PickingRepo {
                 (doc_number, picking_type, status, source_type, source_id, partner_id,
                  from_warehouse_id, from_zone_id, from_bin_id,
                  to_warehouse_id, to_zone_id, to_bin_id,
-                 operator_id, scheduled_date, work_order_id, remark)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                 operator_id, scheduled_date, work_order_id, remark, shipping_requirements)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
             RETURNING id, doc_number, picking_type, status, source_type, source_id, partner_id,
                       from_warehouse_id, from_zone_id, from_bin_id,
                       to_warehouse_id, to_zone_id, to_bin_id,
                       operator_id, scheduled_date, done_at, pick_list_id, work_order_id, remark,
-                      created_at, updated_at, deleted_at
+                      shipping_requirements, created_at, updated_at, deleted_at
             "#,
         )
         .bind(doc_number)
@@ -50,6 +50,7 @@ impl PickingRepo {
         .bind(req.scheduled_date)
         .bind(req.work_order_id)
         .bind(req.remark.as_deref().unwrap_or(""))
+        .bind(req.shipping_requirements.as_deref().unwrap_or(""))
         .fetch_one(&mut *executor)
         .await?;
 
@@ -104,7 +105,7 @@ impl PickingRepo {
                    from_warehouse_id, from_zone_id, from_bin_id,
                    to_warehouse_id, to_zone_id, to_bin_id,
                    operator_id, scheduled_date, done_at, pick_list_id, work_order_id, remark,
-                   created_at, updated_at, deleted_at
+                   shipping_requirements, created_at, updated_at, deleted_at
             FROM stock_pickings
             WHERE id = $1 AND deleted_at IS NULL
             "#,
@@ -450,7 +451,7 @@ impl PickingRepo {
             "SELECT p.id, p.doc_number, p.picking_type, p.status, p.source_type, p.source_id, p.partner_id, \
              p.from_warehouse_id, p.from_zone_id, p.from_bin_id, \
              p.to_warehouse_id, p.to_zone_id, p.to_bin_id, \
-             p.operator_id, p.scheduled_date, p.done_at, p.pick_list_id, p.work_order_id, p.remark, \
+             p.operator_id, p.scheduled_date, p.done_at, p.pick_list_id, p.work_order_id, p.remark, p.shipping_requirements, \
              p.created_at, p.updated_at, p.deleted_at, \
              (SELECT COUNT(*) FROM stock_picking_items pi WHERE pi.picking_id = p.id) AS item_count \
              FROM stock_pickings p WHERE {where_sql} \

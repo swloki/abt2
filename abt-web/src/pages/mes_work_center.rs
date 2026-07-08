@@ -3490,6 +3490,7 @@ pub async fn batch_receipt(
         scheduled_date: Some(form.receipt_date),
         work_order_id: Some(batch.work_order_id),
         remark: form.remark,
+        shipping_requirements: None,
         items: vec![CreatePickingItemReq {
             product_id: order.product_id,
             batch_no: None,

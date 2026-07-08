@@ -359,6 +359,8 @@ pub async fn cancel_order(
 #[derive(Debug, serde::Deserialize)]
 pub struct RequestShipForm {
  pub items_json: String,
+ #[serde(default)]
+ pub shipping_requirements: String,
 }
 
 /// HTMX: 返回「申请发货」modal（append 到 body，含 is-open 直接显示）。
@@ -400,7 +402,7 @@ pub async fn request_shipment(
  }
  let mut tx = state.pool.begin().await
   .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- state.picking_service().request_from_order(&service_ctx, &mut tx, path.id, items).await?;
+ state.picking_service().request_from_order(&service_ctx, &mut tx, path.id, items, form.shipping_requirements).await?;
  tx.commit().await
   .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = OrderDetailPath { id: path.id }.to_string();
@@ -462,6 +464,13 @@ fn request_ship_modal_body(
                             }
                         }
                     }
+                }
+                div class="px-5 py-3 border-t border-border-soft" {
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" for="shipping-requirements" { "发货要求（选填）" }
+                    textarea name="shipping_requirements" id="shipping-requirements"
+                        maxlength="200" rows="2"
+                        placeholder="请输入发货要求，如指定快递或包装需求（选填，上限 200 字）"
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg focus:border-accent focus:shadow-[var(--shadow-focus)] resize-y min-h-[72px]" {};
                 }
                 input type="hidden" name="items_json" id="request-ship-items-json" value="[]" {};
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {

@@ -258,6 +258,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                         scheduled_date: Some(transfer_date),
                         work_order_id: None,
                         remark: None,
+                        shipping_requirements: None,
                         items: transfer_items,
                     },
                 )
@@ -785,6 +786,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                         scheduled_date: Some(transfer_date),
                         work_order_id: None,
                         remark: None,
+                        shipping_requirements: None,
                         items: in_transit_items,
                     },
                 )

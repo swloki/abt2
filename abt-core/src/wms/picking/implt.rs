@@ -334,6 +334,7 @@ impl PickingService for PickingServiceImpl {
             scheduled_date: Some(requisition_date),
             work_order_id: Some(work_order_id),
             remark: None,
+            shipping_requirements: None,
             items,
         };
 
@@ -423,6 +424,7 @@ impl PickingService for PickingServiceImpl {
             scheduled_date: Some(chrono::Local::now().date_naive()),
             work_order_id: Some(work_order_id),
             remark: None,
+            shipping_requirements: None,
             items,
         };
         let picking = PickingRepo::insert(&mut *db, &doc_number, &req, ctx.operator_id).await?;
@@ -482,6 +484,7 @@ impl PickingService for PickingServiceImpl {
             scheduled_date: Some(req.requisition_date),
             work_order_id: req.work_order_id,
             remark: req.remark.clone(),
+            shipping_requirements: None,
             items,
         };
         let picking = PickingRepo::insert(&mut *db, &doc_number, &picking_req, ctx.operator_id).await?;
@@ -953,6 +956,7 @@ impl PickingService for PickingServiceImpl {
             scheduled_date: req.expected_ship_date,
             work_order_id: None,
             remark: req.shipping_address.clone(),
+            shipping_requirements: None,
             items: item_reqs,
         };
         let picking = PickingRepo::insert(&mut *db, &doc_number, &picking_req, ctx.operator_id).await?;
@@ -983,6 +987,7 @@ impl PickingService for PickingServiceImpl {
         db: PgExecutor<'_>,
         order_id: i64,
         items: Vec<RequestShippingItemReq>,
+        shipping_requirements: String,
     ) -> Result<i64> {
         let so_svc = new_sales_order_service(self.pool.clone());
         let order = so_svc.find_by_id(ctx, db, order_id).await?;
@@ -1039,6 +1044,7 @@ impl PickingService for PickingServiceImpl {
             scheduled_date: None,
             work_order_id: None,
             remark: Some(order.delivery_address.clone()),
+            shipping_requirements: Some(shipping_requirements),
             items: item_reqs,
         };
         let picking = PickingRepo::insert(&mut *db, &doc_number, &picking_req, ctx.operator_id).await?;
@@ -1297,6 +1303,7 @@ impl PickingService for PickingServiceImpl {
             scheduled_date: req.expected_ship_date,
             work_order_id: None,
             remark: Some(remark),
+            shipping_requirements: None,
             items: item_reqs,
         };
         let picking = PickingRepo::insert(&mut *db, &doc_number, &picking_req, ctx.operator_id).await?;
@@ -1437,7 +1444,7 @@ impl PickingService for PickingServiceImpl {
             from_zone_id: None, from_bin_id: None,
             to_warehouse_id: first_wh, to_zone_id: None, to_bin_id: None,
             scheduled_date: None, work_order_id: None,
-            remark: req.remark.clone(), items: item_reqs,
+            remark: req.remark.clone(), shipping_requirements: None, items: item_reqs,
         };
         let picking = PickingRepo::insert(&mut *db, &doc_number, &picking_req, ctx.operator_id).await?;
 

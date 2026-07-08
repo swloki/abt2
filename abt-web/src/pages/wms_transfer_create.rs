@@ -142,6 +142,7 @@ pub async fn do_create_transfer(
         scheduled_date: Some(form.transfer_date),
         work_order_id: None,
         remark: form.remark.clone(),
+        shipping_requirements: None,
         items,
     };
 

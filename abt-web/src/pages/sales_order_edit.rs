@@ -42,6 +42,7 @@ struct ItemWeb {
  unit_cost: Option<String>,
  discount_rate: Option<String>,
  item_delivery_date: Option<String>,
+ remark: Option<String>,
 }
 
 // ── Handlers ──
@@ -119,6 +120,7 @@ pub async fn update_order(
  unit_cost: item.unit_cost.and_then(|s| s.parse().ok()),
  discount_rate: item.discount_rate.and_then(|s| s.parse().ok()),
  delivery_date: item.item_delivery_date.and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
+ remark: item.remark,
  }
  }).collect();
 
@@ -255,13 +257,12 @@ fn order_edit_page(
                                 th class="w-9" { "#" }
                                 th { "产品编码" }
                                 th { "产品名称" }
-                                th { "规格描述" }
                                 th class="w-14" { "单位" }
                                 th class="w-[90px]" { "数量" }
                                 th class="w-[110px]" { "单价 (¥)" }
-                                th style="width:76px" { "折扣%" }
                                 th class="w-[110px]" { "小计 (¥)" }
                                 th class="w-[110px]" { "交货日期" }
+                                th class="w-[160px]" { "备注" }
                                 th class="w-9" {}
                             }
                         }
@@ -271,17 +272,10 @@ fn order_edit_page(
                                     .get(&item.product_id)
                                     .cloned()
                                     .unwrap_or_default();
-                                tr {
+                                tr oninput="salesOrderCalcRow(this)" {
                                     td class="text-muted text-xs text-center" {}
                                     td class="font-mono tabular-nums" { (code) }
                                     td { (name) }
-                                    td {
-                                        input
-                                            class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent"
-                                            type="text"
-                                            name="description"
-                                            value=(&item.description) {}
-                                    }
                                     td {
                                         input
                                             class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent"
@@ -308,15 +302,7 @@ fn order_edit_page(
                                             value=(item.unit_price.to_string())
                                             placeholder="0.00" {}
                                     }
-                                    td {
-                                        input
-                                            class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
-                                            type="number"
-                                            step="any"
-                                            name="discount_rate"
-                                            value=(item.discount_rate.to_string()) {}
-                                    }
-                                    td class="text-right font-semibold text-fg whitespace-nowrap" {
+                                    td class="text-right font-semibold text-fg whitespace-nowrap line-total" {
                                         "—"
                                     }
                                     td {
@@ -329,6 +315,13 @@ fn order_edit_page(
                                                     .map(|d| d.format("%Y-%m-%d").to_string())
                                                     .unwrap_or_default()
                                             }) {}
+                                    }
+                                    td {
+                                        input
+                                            class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent"
+                                            type="text"
+                                            name="remark"
+                                            value=(&item.remark) {}
                                     }
                                     td {
                                         button
@@ -355,10 +348,6 @@ fn order_edit_page(
                     div class="flex gap-3" {
                         span class="text-sm text-muted" { "合计金额" }
                         span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
-                    }
-                    div class="flex gap-3" {
-                        span class="text-sm text-muted" { "折扣总额" }
-                        span class="text-lg font-bold text-fg" id="discount-value" { "- ¥ 0.00" }
                     }
                     div class="flex gap-3" {
                         span class="text-sm text-muted" { "订单总额" }

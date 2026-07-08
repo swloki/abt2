@@ -49,6 +49,7 @@ struct ItemWeb {
  unit_cost: Option<String>,
  discount_rate: Option<String>,
  item_delivery_date: Option<String>,
+ remark: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -206,6 +207,7 @@ pub async fn create_order(
  unit_cost: item.unit_cost.and_then(|s| s.parse().ok()),
  discount_rate: item.discount_rate.and_then(|s| s.parse().ok()),
  delivery_date: item.item_delivery_date.and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
+ remark: item.remark,
  }
  }).collect();
 
@@ -387,13 +389,12 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                                 th class="w-12" { "#" }
                                 th { "产品编码" }
                                 th { "产品名称" }
-                                th { "规格描述" }
                                 th class="w-20" { "单位" }
                                 th class="w-24" { "数量" }
                                 th class="w-28" { "单价 (¥)" }
-                                th class="w-20" { "折扣%" }
                                 th class="w-32" { "小计 (¥)" }
                                 th class="col-date" { "交货日期" }
+                                th class="w-[160px]" { "备注" }
                                 th class="w-16" {}
                             }
                         }
@@ -417,10 +418,6 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                     div class="flex gap-3" {
                         span class="text-sm text-muted" { "合计金额" }
                         span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
-                    }
-                    div class="flex gap-3" {
-                        span class="text-sm text-muted" { "折扣总额" }
-                        span class="text-lg font-bold text-fg" id="discount-value" { "- ¥ 0.00" }
                     }
                     div class="flex gap-3" {
                         span class="text-sm text-muted" { "订单总额" }
@@ -495,24 +492,12 @@ fn prefill_item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &
  let product_name = names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
  let product_code = codes.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
  let delivery = item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default();
- let discount = if item.discount_rate > rust_decimal::Decimal::ZERO {
- item.discount_rate.to_string()
- } else {
- String::new()
- };
 
  html! {
     tr oninput="salesOrderCalcRow(this)" {
         td class="text-muted text-xs text-center" {}
         td class="font-mono tabular-nums" { (product_code) }
         td { (product_name) }
-        td {
-            input
-                class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent"
-                type="text"
-                name="description"
-                value=(item.description.as_str()) {}
-        }
         td {
             input
                 class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent"
@@ -537,21 +522,20 @@ fn prefill_item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &
                 name="unit_price"
                 value=(item.unit_price) {}
         }
-        td {
-            input
-                class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
-                type="number"
-                step="any"
-                name="discount_rate"
-                value=(discount) {}
-        }
-        td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
+        td class="text-right font-semibold text-fg whitespace-nowrap line-total" { "—" }
         td {
             input
                 class="w-[110px] px-1.5 py-[5px] text-xs border border-border rounded-sm outline-none focus:border-accent"
                 type="date"
                 name="item_delivery_date"
                 value=(delivery) {}
+        }
+        td {
+            input
+                class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent"
+                type="text"
+                name="remark"
+                placeholder="备注" {}
         }
         td {
             button
@@ -572,12 +556,6 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
         td class="text-muted text-xs text-center" {}
         td class="font-mono tabular-nums" { (product.product_code) }
         td { (product.pdt_name) }
-        td {
-            input
-                class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent"
-                type="text"
-                name="description" {}
-        }
         td {
             input
                 class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent"
@@ -602,19 +580,19 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
                 name="unit_price"
                 placeholder="0.00" {}
         }
-        td {
-            input
-                class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
-                type="number"
-                step="any"
-                name="discount_rate" {}
-        }
-        td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
+        td class="text-right font-semibold text-fg whitespace-nowrap line-total" { "—" }
         td {
             input
                 class="w-[110px] px-1.5 py-[5px] text-xs border border-border rounded-sm outline-none focus:border-accent"
                 type="date"
                 name="item_delivery_date" {}
+        }
+        td {
+            input
+                class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent"
+                type="text"
+                name="remark"
+                placeholder="备注" {}
         }
         td {
             button

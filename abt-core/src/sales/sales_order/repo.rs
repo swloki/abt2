@@ -7,7 +7,7 @@ use crate::shared::types::{DataScope, PageParams, PaginatedResult};
 
 const ORDER_COLUMNS: &str = "id, doc_number, customer_id, contact_id, sales_rep_id, order_date, status, total_amount, total_cost, payment_terms, delivery_terms, delivery_address, remark, operator_id, profit_center_id, created_at, updated_at, deleted_at";
 
-const ITEM_COLUMNS: &str = "id, order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, shipped_qty, cancelled_qty, returned_qty, line_status, version, delivery_date";
+const ITEM_COLUMNS: &str = "id, order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, shipped_qty, cancelled_qty, returned_qty, line_status, version, delivery_date, remark";
 
 // ---------------------------------------------------------------------------
 // SalesOrderRepo
@@ -288,8 +288,8 @@ impl SalesOrderItemRepo {
     ) -> Result<()> {
         for item in items {
             sqlx::query(
-                r#"INSERT INTO sales_order_items (order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, cancelled_qty, line_status, version, delivery_date)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 1, 1, $11)"#,
+                r#"INSERT INTO sales_order_items (order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, cancelled_qty, line_status, version, delivery_date, remark)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 1, 1, $11, $12)"#,
             )
             .bind(order_id)
             .bind(item.line_no)
@@ -302,6 +302,7 @@ impl SalesOrderItemRepo {
             .bind(item.discount_rate)
             .bind(item.amount)
             .bind(item.delivery_date)
+            .bind(&item.remark)
             .execute(&mut *executor)
             .await?;
         }

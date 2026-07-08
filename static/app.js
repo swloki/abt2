@@ -283,6 +283,14 @@ document.addEventListener('exportDone', function (e) {
     window.location.href = e.detail.url;
 });
 
+// ── Issue #219: 确认发货成功后弹「出库成功」对话框 ──
+// 后端 direct_ship 成功响应以 hx-swap-oob 替换 #wc-ship-success-modal，并经
+// HX-Trigger-After-Settle 广播 openShipSuccess（swap 完对话框已在 DOM）。此处给它加 .is-open 弹出。
+document.addEventListener('openShipSuccess', function () {
+    var modal = document.getElementById('wc-ship-success-modal');
+    if (modal) modal.classList.add('is-open');
+});
+
 
 
 // ── HTMX: re-init for swapped content ──

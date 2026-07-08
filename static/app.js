@@ -321,7 +321,8 @@ window.lineItemCalc = function(tbodyId) {
     function calcRow(row) {
         var q = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
         var p = parseFloat(row.querySelector('[name="unit_price"]').value) || 0;
-        var d = parseFloat(row.querySelector('[name="discount_rate"]').value) || 0;
+        var dEl = row.querySelector('[name="discount_rate"]');
+        var d = dEl ? (parseFloat(dEl.value) || 0) : 0;
         var cell = row.querySelector('.line-total');
         if (cell) cell.textContent = (q * p * (1 - d / 100)).toFixed(2);
         recalcTotals();
@@ -333,15 +334,19 @@ window.lineItemCalc = function(tbodyId) {
         tbody.querySelectorAll('tr').forEach(function (row) {
             var q = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
             var p = parseFloat(row.querySelector('[name="unit_price"]').value) || 0;
-            var d = parseFloat(row.querySelector('[name="discount_rate"]').value) || 0;
+            var dEl = row.querySelector('[name="discount_rate"]');
+            var d = dEl ? (parseFloat(dEl.value) || 0) : 0;
             subtotal += q * p;
             disc += q * p * (d / 100);
             var cell = row.querySelector('.line-total');
             if (cell) cell.textContent = (q * p * (1 - d / 100)).toFixed(2);
         });
-        document.querySelector('#subtotal-value').textContent = '¥ ' + subtotal.toFixed(2);
-        document.querySelector('#discount-value').textContent = '- ¥ ' + disc.toFixed(2);
-        document.querySelector('#grand-value').textContent = '¥ ' + (subtotal - disc).toFixed(2);
+        var subEl = document.querySelector('#subtotal-value');
+        if (subEl) subEl.textContent = '¥ ' + subtotal.toFixed(2);
+        var discEl = document.querySelector('#discount-value');
+        if (discEl) discEl.textContent = '- ¥ ' + disc.toFixed(2);
+        var grandEl = document.querySelector('#grand-value');
+        if (grandEl) grandEl.textContent = '¥ ' + (subtotal - disc).toFixed(2);
     }
     function collectItems() {
         var tbody = document.querySelector(tbodyId);

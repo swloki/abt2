@@ -278,6 +278,7 @@ pub struct SalesOrderItem {
     pub line_status: SalesOrderLineStatus,
     pub version: i32,
     pub delivery_date: Option<NaiveDate>,
+    pub remark: String,
 }
 
 impl SalesOrderItem {
@@ -316,6 +317,7 @@ pub struct CreateSalesOrderItemReq {
     pub unit_cost: Option<Decimal>,
     pub discount_rate: Option<Decimal>,
     pub delivery_date: Option<NaiveDate>,
+    pub remark: Option<String>,
 }
 
 /// 更新订单头请求（不含明细）
@@ -368,6 +370,7 @@ pub struct SalesOrderItemInput {
     pub discount_rate: Decimal,
     pub amount: Decimal,
     pub delivery_date: Option<NaiveDate>,
+    pub remark: String,
 }
 
 /// wms 出库后回写订单行的数量增量（累加语义，供 SalesOrderService::record_shipment 调用）

@@ -77,6 +77,7 @@ impl SalesOrderServiceImpl {
                     discount_rate: item.discount_rate.unwrap_or(Decimal::ZERO),
                     amount: amount.round_dp(4),
                     delivery_date: item.delivery_date,
+                    remark: item.remark.clone().unwrap_or_default(),
                 }
             })
             .collect()
@@ -214,6 +215,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 unit_cost: Some(qi.unit_cost),
                 discount_rate: Some(qi.discount_rate),
                 delivery_date: qi.delivery_date,
+                remark: None,
             })
             .collect();
 

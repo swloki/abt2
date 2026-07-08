@@ -212,6 +212,7 @@ classDiagram
         +line_status: SalesOrderLineStatus
         +version: i32
         +delivery_date: Option~Date~
+        +remark: String
     }
 
     class ShippingRequest {
@@ -575,6 +576,7 @@ classDiagram
           &nbsp;&nbsp;line_status: SalesOrderLineStatus <span style="color:#888;">// 行级状态</span><br>
           &nbsp;&nbsp;version: i32 <span style="color:#888;">// 乐观锁</span><br>
           &nbsp;&nbsp;delivery_date: Date?<br>
+          &nbsp;&nbsp;remark: String <span style="color:#888;">// 明细备注</span><br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SalesOrderStatus</span> {<br>
           &nbsp;&nbsp;DRAFT, CONFIRMED<br>

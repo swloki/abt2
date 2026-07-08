@@ -271,6 +271,7 @@ pub async fn print_order(
                 "已发数量": fmt_qty(it.shipped_qty),
                 "未交数量": fmt_qty(it.open_qty()),
                 "行状态": line_status_text,
+                "备注": it.remark.clone(),
             })
         })
         .collect();
@@ -1119,13 +1120,14 @@ fn order_detail_page(
                             th class="text-right text-[13px]" { "小计" }
                             th { "行状态" }
                             th { "交货日期" }
+                            th { "备注" }
                         }
                     }
                     tbody {
                         @for item in items { (item_row(item, product_names, product_codes)) }
                         @if items.is_empty() {
                             tr {
-                                td colspan="12" class="text-center p-8 text-muted" { "暂无明细" }
+                                td colspan="13" class="text-center p-8 text-muted" { "暂无明细" }
                             }
                         }
                     }
@@ -1205,6 +1207,7 @@ fn item_row(
             }
         }
         td class="font-mono tabular-nums" { (delivery) }
+        td class="text-muted text-xs" { (item.remark.as_str()) }
     }
 }
 }

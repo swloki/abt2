@@ -70,19 +70,7 @@ pub async fn get_routing_detail(
  None
  };
 
- // 工序产出品 / 工作中心名称映射（详情表格展示用）
- let pids: Vec<i64> = detail.steps.iter().filter_map(|s| s.product_id).collect();
- let product_map: HashMap<i64, String> = if pids.is_empty() {
- HashMap::new()
- } else {
- state.product_service()
- .get_by_ids(&service_ctx, &mut conn, pids)
- .await
- .unwrap_or_default()
- .into_iter()
- .map(|p| (p.product_id, p.pdt_name))
- .collect()
- };
+ // 工作中心名称映射（详情表格展示用）
  let wc_map: HashMap<i64, String> = new_work_center_service(state.pool.clone())
  .list_active(&service_ctx, &mut conn)
  .await
@@ -91,7 +79,7 @@ pub async fn get_routing_detail(
  .map(|wc| (wc.id, wc.name))
  .collect();
 
- let content = routing_detail_page(&detail, &boms, &qp.keyword, &creator_name, &product_map, &wc_map);
+ let content = routing_detail_page(&detail, &boms, &qp.keyword, &creator_name, &wc_map);
  let detail_path_str = RoutingDetailPath { id: path.id }.to_string();
  let page_html = admin_page(
  is_htmx,
@@ -186,7 +174,6 @@ fn routing_detail_page(
  boms: &abt_core::shared::types::PaginatedResult<BomRouting>,
  keyword: &Option<String>,
  creator_name: &Option<String>,
- product_map: &HashMap<i64, String>,
  wc_map: &HashMap<i64, String>,
 ) -> Markup {
  let routing = &detail.routing;
@@ -329,9 +316,7 @@ fn routing_detail_page(
                         tr {
                             th class="w-[60px]" { "序号" }
                             th { "工序名称" }
-                            th class="w-[180px]" { "产出品" }
                             th class="w-[140px]" { "工作中心" }
-                            th class="w-[100px] text-right" { "计件单价" }
                             th class="w-[90px] text-right" { "标准工时" }
                             th class="w-[60px] text-center" { "委外" }
                             th class="w-[70px] text-center" { "必经" }
@@ -343,9 +328,7 @@ fn routing_detail_page(
                             tr {
                                 td class="font-mono tabular-nums" { (step.step_order) }
                                 td { (step.process_name.as_deref().unwrap_or(&step.process_code)) }
-                                td class="text-fg-2" { (map_name(step.product_id, product_map)) }
                                 td class="text-fg-2" { (map_name(step.work_center_id, wc_map)) }
-                                td class="text-right font-mono tabular-nums text-fg-2" { (fmt_opt_decimal(step.unit_price)) }
                                 td class="text-right font-mono tabular-nums text-fg-2" { (fmt_opt_decimal(step.standard_time)) }
                                 td class="text-center" {
                                     @if step.is_outsourced {

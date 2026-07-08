@@ -578,9 +578,12 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
 
     async fn load_routings_from_template(
         &self, ctx: &ServiceContext, db: PgExecutor<'_>,
-        work_order_id: i64, routing_id: i64,
+        work_order_id: i64, routing_id: i64, product_code: String,
     ) -> Result<usize> {
         use crate::master_data::routing::{new_routing_service, service::RoutingService};
+        use crate::master_data::bom_routing_output::{
+            new_bom_routing_output_service, service::BomRoutingOutputService, BomRoutingOutput,
+        };
         // 复用调用方传入的连接：WorkOrderService::create / release 在各自事务内调用（同事务原子），
         // post_apply_from_routing 由 handler 自包事务。不再内部 acquire/begin/commit。
         let wo = new_work_order_service(self.pool.clone())
@@ -589,9 +592,14 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             return Err(DomainError::business_rule("工单当前状态不允许加载工艺路径"));
         }
         let planned_qty = wo.planned_qty;
-        // 1) 获取工艺路径模板步骤
+        // 1) 获取工艺路径模板步骤 + per-BOM 产出覆盖
+        //    产出品/计件价从覆盖层取（routing 解耦）；工作中心覆盖优先、回退模板默认。
         let detail = new_routing_service(self.pool.clone())
             .get_detail(ctx, db, routing_id).await?;
+        let outputs = new_bom_routing_output_service(self.pool.clone())
+            .find_outputs_by_product(ctx, db, product_code).await?;
+        let out_map: std::collections::HashMap<i32, &BomRoutingOutput> =
+            outputs.iter().map(|o| (o.step_order, o)).collect();
         // 2) 删除已有工序（跳过已报工的），同时记录被锁定的 step_no
         let mine = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, work_order_id).await?;
         let mut deleted = 0usize;
@@ -605,11 +613,17 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 deleted += 1;
             }
         }
-        // 3) 插入模板步骤（跳过与被锁定 step_no 冲突的）
+        // 3) 插入模板步骤（跳过与被锁定 step_no 冲突的）；产出品/计件价/工作中心从覆盖层取
         let mut inserted = 0usize;
         for step in &detail.steps {
             if locked_step_nos.contains(&step.step_order) { continue; }
             let process_name = step.process_name.as_deref().unwrap_or(&step.process_code);
+            let out = out_map.get(&step.step_order);
+            // 产出品 / 计件价：从 per-BOM 覆盖层取（routing 解耦后唯一源）
+            let product_id = out.and_then(|o| o.output_product_id);
+            let unit_price = out.and_then(|o| o.unit_price);
+            // 工作中心：覆盖层优先，回退模板（工作中心是可共享工艺属性，保留在模板）
+            let work_center_id = out.and_then(|o| o.work_center_id).or(step.work_center_id);
             sqlx::query(
                 r#"INSERT INTO work_order_routings
                    (work_order_id, step_no, process_name, work_center_id, standard_time, standard_cost,
@@ -617,10 +631,10 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)"#,
             )
             .bind(work_order_id).bind(step.step_order).bind(process_name)
-            .bind(step.work_center_id).bind(step.standard_time).bind(step.standard_cost)
-            .bind(step.unit_price).bind(step.allowed_loss_rate)
+            .bind(work_center_id).bind(step.standard_time).bind(step.standard_cost)
+            .bind(unit_price).bind(step.allowed_loss_rate)
             .bind(planned_qty).bind(step.is_outsourced).bind(step.is_inspection_point)
-            .bind(step.product_id)
+            .bind(product_id)
             .execute(&mut *db).await?;
             inserted += 1;
         }

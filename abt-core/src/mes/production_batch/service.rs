@@ -71,10 +71,11 @@ pub trait ProductionBatchService: Send + Sync {
         work_order_id: i64,
     ) -> Result<Vec<WorkOrderRouting>>;
 
-    /// 从工艺路径模板加载工序步骤到工单（删除未报工旧行 → 插入模板步骤）。返回插入行数
+    /// 从工艺路径模板加载工序步骤到工单（删除未报工旧行 → 插入模板步骤）。返回插入行数。
+    /// `product_code` 用于取 per-BOM 产出覆盖（产出品/计件价从覆盖层取，工作中心覆盖优先回退模板）。
     async fn load_routings_from_template(
         &self, ctx: &ServiceContext, db: PgExecutor<'_>,
-        work_order_id: i64, routing_id: i64,
+        work_order_id: i64, routing_id: i64, product_code: String,
     ) -> Result<usize>;
 
     async fn delete_routing(

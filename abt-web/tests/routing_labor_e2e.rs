@@ -61,8 +61,7 @@ async fn routing_create_saves_labor_cost_fields() {
     let detail = svc.get_detail(&ctx, &mut conn, rid).await.unwrap();
     assert!(!detail.steps.is_empty(), "应至少一道工序");
     let s = &detail.steps[0];
-    assert_eq!(s.product_id, Some(565), "产出品应保存");
-    assert_eq!(s.unit_price, Some(Decimal::new(15, 2)), "计件单价 0.15 应保存");
+    // clean break：产出品/计件价已下沉到 bom_routing_outputs 覆盖层，不在 routing 模板
     assert_eq!(s.standard_time, Some(Decimal::new(30, 0)), "标准工时 30 应保存");
     assert!(s.is_outsourced, "委外标识应保存");
     println!("✅ routing#{rid} 工序成本字段保存齐全（unit_price=0.15, time=30, 委外）");
@@ -154,7 +153,6 @@ async fn routing_unit_price_carries_to_work_order_on_load() {
         description: None,
         steps: vec![RoutingStepInput {
             process_code: "E2E".into(), step_order: 1, is_required: true,
-            product_id: Some(565), unit_price: Some(Decimal::new(15, 2)),
             ..Default::default()
         }],
     }).await.unwrap();
@@ -173,7 +171,7 @@ async fn routing_unit_price_carries_to_work_order_on_load() {
     let wo_id = list.items.iter().map(|w| w.id).max().expect("应找到刚创建的 565 工单");
 
     // 4. 从 routing 加载工序到工单
-    app.state.production_batch_service().load_routings_from_template(&ctx, &mut conn, wo_id, routing_id).await.unwrap();
+    app.state.production_batch_service().load_routings_from_template(&ctx, &mut conn, wo_id, routing_id, product.product_code.clone()).await.unwrap();
 
     // 5. 工单工序应继承 routing 单价 0.15
     let rs = app.state.production_batch_service().list_routings(&ctx, &mut conn, wo_id).await.unwrap();

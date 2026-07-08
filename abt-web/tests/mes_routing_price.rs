@@ -14,6 +14,7 @@ use abt_core::mes::production_batch::{
     CreateBatchReq, ProductionBatchService, StepConfirmationReq,
 };
 use abt_core::mes::enums::ShiftType;
+use abt_core::master_data::product::ProductService;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::shared::types::context::ServiceContext;
 use chrono::NaiveDate;
@@ -76,12 +77,12 @@ async fn seed_routings(app: &common::TestApp, wo_id: i64, product_id: i64, qty: 
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     let product = app.state.product_service().get(&ctx, &mut conn, product_id).await.unwrap();
-    let detail = app.state.routing_service().get_bom_routing(&ctx, &mut conn, product.product_code).await.unwrap();
+    let detail = app.state.routing_service().get_bom_routing(&ctx, &mut conn, product.product_code.clone()).await.unwrap();
     let batch_svc = app.state.production_batch_service();
     let planned = qty.parse::<Decimal>().unwrap_or(Decimal::from(100));
     match detail {
         Some(d) => {
-            batch_svc.load_routings_from_template(&ctx, &mut conn, wo_id, d.routing.id).await.unwrap();
+            batch_svc.load_routings_from_template(&ctx, &mut conn, wo_id, d.routing.id, product.product_code.clone()).await.unwrap();
         }
         None => {
             sqlx::query(
@@ -274,7 +275,8 @@ async fn load_routings_from_template_replaces_steps() {
     let wo = app.state.work_order_service().find_by_id(&ctx, &mut conn, wo_id).await.unwrap();
     let routing_id = wo.routing_id.expect("工单应有关联的工艺路径");
     // 加载模板步骤
-    let n = svc.load_routings_from_template(&ctx, &mut conn, wo_id, routing_id).await.unwrap();
+    let pcode = app.state.product_service().get(&ctx, &mut conn, wo.product_id).await.unwrap().product_code;
+    let n = svc.load_routings_from_template(&ctx, &mut conn, wo_id, routing_id, pcode).await.unwrap();
     assert!(n > 0, "应至少插入 1 行，实际 {n}");
     // 验证加载后的工序行
     let rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();

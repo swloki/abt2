@@ -65,7 +65,7 @@ impl WorkOrderServiceImpl {
         {
             let routing_id = detail.routing.id;
             new_production_batch_service(self.pool.clone())
-                .load_routings_from_template(ctx, db, work_order_id, routing_id)
+                .load_routings_from_template(ctx, db, work_order_id, routing_id, product.product_code.clone())
                 .await?;
             WorkOrderRepo::update_routing_id(&mut *db, work_order_id, routing_id)
                 .await

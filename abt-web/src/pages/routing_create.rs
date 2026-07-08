@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
@@ -6,16 +6,14 @@ use axum_extra::routing::TypedPath;
 use maud::{Markup, html, PreEscaped};
 use serde::Deserialize;
 
-use abt_core::master_data::bom::BomQueryService;
 use abt_core::master_data::labor_process_dict::LaborProcessDictService;
 use abt_core::master_data::labor_process_dict::model::LaborProcessDictQuery;
-use abt_core::master_data::product::ProductService;
 use abt_core::master_data::routing::RoutingService;
 use abt_core::master_data::work_center::WorkCenterService;
 use abt_core::master_data::routing::model::{
     BomRouting, CreateRoutingReq, RoutingDetail, RoutingStep, RoutingStepInput, UpdateRoutingReq,
 };
-use abt_core::shared::types::{DomainError, PageParams, PaginatedResult, PgExecutor};
+use abt_core::shared::types::{DomainError, PageParams, PaginatedResult};
 use abt_macros::require_permission;
 
 use crate::components::icon;
@@ -24,7 +22,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::routing::{
     RoutingBoundBomsPath, RoutingCopyPath, RoutingCreatePath, RoutingDetailPath, RoutingEditPath,
-    RoutingListPath, RoutingOutputSearchPath,
+    RoutingListPath,
 };
 use crate::utils::RequestContext;
 
@@ -32,254 +30,115 @@ use crate::utils::RequestContext;
 
 #[derive(Debug, Deserialize)]
 pub struct RoutingCreateForm {
- pub name: String,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub description: Option<String>,
- pub steps_json: String,
- /// 新建/复制时关联的主产品 code（同时建立 bom_routings 关联；产出品候选集由此产品 BOM 派生）。Issue #212
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub bind_product_code: Option<String>,
+    pub name: String,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub description: Option<String>,
+    pub steps_json: String,
+    /// 新建/复制时关联的主产品 code（同时建立 bom_routings 关联）。产出品/计件价已下沉到
+    /// per-BOM 覆盖层（bom_routing_outputs），在 routing 详情页按 BOM 维护，不在模板编辑。
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub bind_product_code: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct StepWeb {
- process_code: String,
- is_required: bool,
- remark: Option<String>,
- // steps_json 是 JSON（integer/null），用 serde default 直接解析；empty_as_none 只接 string 会报「expected string」
- #[serde(default)]
- product_id: Option<i64>,
- #[serde(default)]
- work_center_id: Option<i64>,
- #[serde(default)]
- unit_price: Option<String>,
- #[serde(default)]
- standard_time: Option<String>,
- #[serde(default)]
- is_outsourced: bool,
+    process_code: String,
+    is_required: bool,
+    remark: Option<String>,
+    #[serde(default)]
+    work_center_id: Option<i64>,
+    #[serde(default)]
+    standard_time: Option<String>,
+    #[serde(default)]
+    is_outsourced: bool,
 }
 
 // ── Form mode ──
 
 #[derive(Clone, Copy, PartialEq)]
 enum FormMode {
- New,
- Edit,
- Copy,
+    New,
+    Edit,
+    Copy,
 }
 
 /// JS 端步骤行回填结构（字段名与注入的 JS `steps` 数组对齐，供编辑/复制预填）
 #[derive(serde::Serialize)]
 struct JsStep {
- process_code: String,
- is_required: bool,
- remark: String,
- product_id: String,
- product_name: String,
- work_center_id: String,
- unit_price: String,
- standard_time: String,
- is_outsourced: bool,
+    process_code: String,
+    is_required: bool,
+    remark: String,
+    work_center_id: String,
+    standard_time: String,
+    is_outsourced: bool,
 }
 
 impl JsStep {
- fn from_step(s: &RoutingStep) -> Self {
- Self {
- process_code: s.process_code.clone(),
- is_required: s.is_required,
- remark: s.remark.clone().unwrap_or_default(),
- product_id: s.product_id.map(|id| id.to_string()).unwrap_or_default(),
- product_name: s.product_name.clone().unwrap_or_default(),
- work_center_id: s.work_center_id.map(|id| id.to_string()).unwrap_or_default(),
- unit_price: s.unit_price.map(|d| d.to_string()).unwrap_or_default(),
- standard_time: s.standard_time.map(|d| d.to_string()).unwrap_or_default(),
- is_outsourced: s.is_outsourced,
- }
- }
+    fn from_step(s: &RoutingStep) -> Self {
+        Self {
+            process_code: s.process_code.clone(),
+            is_required: s.is_required,
+            remark: s.remark.clone().unwrap_or_default(),
+            work_center_id: s.work_center_id.map(|id| id.to_string()).unwrap_or_default(),
+            standard_time: s.standard_time.map(|d| d.to_string()).unwrap_or_default(),
+            is_outsourced: s.is_outsourced,
+        }
+    }
 }
 
-/// 解析 steps_json → RoutingStepInput，含产出品/计件单价校验（create 与 update 共用）。
-///
-/// `allowed` = 关联产品 BOM 非叶子节点 product_id 集合（产出品候选集，Issue #212）。
-/// 非空时校验每道工序产出品 ∈ allowed；为空（如关联产品无已发布 BOM）则跳过归属校验，
-/// 仅前端 picker 限定，避免无 BOM 新产品无法配工序。
-fn parse_steps(form: &RoutingCreateForm, allowed: &HashSet<i64>) -> crate::errors::Result<Vec<RoutingStepInput>> {
- let web_steps: Vec<StepWeb> = serde_json::from_str(&form.steps_json)
- .map_err(|e| DomainError::validation(format!("无效工序数据: {e}")))?;
+/// 解析 steps_json → RoutingStepInput（工艺模板只含可共享的工艺属性：工序/工作中心/工时/委外/必经/备注）。
+/// 产出品与计件单价已下沉到 per-BOM 覆盖层 bom_routing_outputs，不在此校验。
+fn parse_steps(form: &RoutingCreateForm) -> crate::errors::Result<Vec<RoutingStepInput>> {
+    let web_steps: Vec<StepWeb> = serde_json::from_str(&form.steps_json)
+        .map_err(|e| DomainError::validation(format!("无效工序数据: {e}")))?;
 
- if web_steps.is_empty() {
- return Err(DomainError::validation("至少需要一道工序步骤").into());
- }
+    if web_steps.is_empty() {
+        return Err(DomainError::validation("至少需要一道工序步骤").into());
+    }
 
- let steps: Vec<RoutingStepInput> = web_steps
- .into_iter()
- .enumerate()
- .map(|(i, s)| RoutingStepInput {
- process_code: s.process_code,
- step_order: (i + 1) as i32,
- is_required: s.is_required,
- remark: s.remark.filter(|r| !r.trim().is_empty()),
- product_id: s.product_id,
- work_center_id: s.work_center_id,
- unit_price: s.unit_price.and_then(|v| v.trim().parse::<rust_decimal::Decimal>().ok()),
- standard_time: s.standard_time.and_then(|v| v.trim().parse::<rust_decimal::Decimal>().ok()),
- is_outsourced: s.is_outsourced,
- ..Default::default()
- })
- .collect();
- // BOM 人工成本依赖 routing 模板的产出品 + 计件单价，提交前校验非空
- for (i, s) in steps.iter().enumerate() {
- if s.product_id.is_none() {
- return Err(DomainError::validation(format!("工序 {} 未配置产出品（BOM 人工成本与工序级领料依赖）", i + 1)).into());
- }
- // Issue #212: 产出品必须 ∈ 关联产品 BOM 非叶子节点（成品/半成品），防绕过前端 picker
- if let Some(pid) = s.product_id {
- if !allowed.is_empty() && !allowed.contains(&pid) {
- return Err(DomainError::validation(format!(
- "工序 {} 的产出品不在关联产品 BOM 物料项内（仅可选关联 BOM 的成品/半成品）", i + 1)).into());
- }
- }
- if s.unit_price.is_none_or(|p| p <= rust_decimal::Decimal::ZERO) {
- return Err(DomainError::validation(format!("工序 {} 未配置计件单价（BOM 人工成本依据）", i + 1)).into());
- }
- }
+    let steps: Vec<RoutingStepInput> = web_steps
+        .into_iter()
+        .enumerate()
+        .map(|(i, s)| RoutingStepInput {
+            process_code: s.process_code,
+            step_order: (i + 1) as i32,
+            is_required: s.is_required,
+            remark: s.remark.filter(|r| !r.trim().is_empty()),
+            work_center_id: s.work_center_id,
+            standard_time: s.standard_time.and_then(|v| v.trim().parse::<rust_decimal::Decimal>().ok()),
+            is_outsourced: s.is_outsourced,
+            ..Default::default()
+        })
+        .collect();
 
- Ok(steps)
+    for (i, s) in steps.iter().enumerate() {
+        if s.process_code.trim().is_empty() {
+            return Err(DomainError::validation(format!("工序 {} 未选择工序名称", i + 1)).into());
+        }
+    }
+
+    Ok(steps)
 }
 
-/// 加载工序步骤下拉数据（工序字典 / 产出品 / 工作中心），create/edit/copy 共用
+/// 加载工序步骤下拉数据（工序字典 / 工作中心），create/edit/copy 共用
 async fn load_step_options(
- state: &crate::state::AppState,
- service_ctx: &abt_core::shared::types::ServiceContext,
- db: abt_core::shared::types::PgExecutor<'_>,
+    state: &crate::state::AppState,
+    service_ctx: &abt_core::shared::types::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
 ) -> crate::errors::Result<(
- Vec<abt_core::master_data::labor_process_dict::model::LaborProcessDict>,
- Vec<abt_core::master_data::product::model::Product>,
- Vec<abt_core::master_data::work_center::model::WorkCenter>,
+    Vec<abt_core::master_data::labor_process_dict::model::LaborProcessDict>,
+    Vec<abt_core::master_data::work_center::model::WorkCenter>,
 )> {
- let processes = state
- .labor_process_dict_service()
- .list(service_ctx, db, LaborProcessDictQuery::default(), PageParams::new(1, 500))
- .await?
- .items;
- let products = state
- .product_service()
- .list(
- service_ctx,
- db,
- abt_core::master_data::product::model::ProductQuery {
- name: None,
- code: None,
- status: None,
- owner_department_id: None,
- category_id: None,
- },
- PageParams::new(1, 500),
- )
- .await?
- .items;
- let work_centers = abt_core::master_data::work_center::new_work_center_service(state.pool.clone())
- .list_active(service_ctx, db)
- .await
- .unwrap_or_default();
- Ok((processes, products, work_centers))
-}
-
-/// 计算工序产出品候选集 = 代表产品 BOM 非叶子节点 product_id 集合（Issue #212）。
-///
-/// 多 BOM 关联时只取**第一个关联 BOM**（代表产品）：routing 工序产出品以代表产品 BOM 为准，
-/// 其他关联 BOM 仅共享工序结构（不再取并集，避免候选过多 / 似重复）。
-/// - `routing_id`（编辑模式）：取该 routing 第一个关联 BOM
-/// - `bind_product_code`（新建/复制模式）：取该产品 BOM
-/// 均无则返回空集（`parse_steps` 对空集跳过归属校验，仅靠前端限定）。
-async fn compute_output_candidates(
- state: &crate::state::AppState,
- service_ctx: &abt_core::shared::types::ServiceContext,
- db: PgExecutor<'_>,
- routing_id: Option<i64>,
- bind_product_code: Option<&str>,
-) -> HashSet<i64> {
- let code: Option<String> = if let Some(rid) = routing_id {
- state.routing_service()
- .paginate_boms_by_routing(service_ctx, db, rid, None, PageParams::new(1, 1))
- .await.ok().and_then(|p| p.items.into_iter().next()).map(|b| b.product_code)
- } else {
- bind_product_code.filter(|s| !s.trim().is_empty()).map(|s| s.to_string())
- };
- let Some(code) = code else { return HashSet::new() };
- state.bom_query_service()
- .list_non_leaf_product_ids_by_product_codes(service_ctx, db, &[code])
- .await.unwrap_or_default()
- .into_iter().collect()
-}
-
-// ── 产出品候选搜索端点（Issue #212）──
-
-#[derive(Debug, Deserialize)]
-pub struct RoutingOutputSearchParams {
- pub routing_id: Option<i64>,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub product_code: Option<String>,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub name: Option<String>,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub code: Option<String>,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub target_id: Option<String>,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub display_id: Option<String>,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub modal_id: Option<String>,
-}
-
-/// 工序产出品专用搜索：候选集限定为关联产品 BOM 的非叶子节点（成品/半成品）。Issue #212。
-///
-/// 复用 `product_picker_results` 渲染；候选集可能很大（如 routing#1 = 1776 个），
-/// 由后端按 `routing_id`/`product_code` 自算 + 名称/编码过滤，避免前端传超长 bom_product_ids 串。
-#[require_permission("ROUTING", "read")]
-pub async fn get_routing_output_search(
- ctx: RequestContext,
- Query(params): Query<RoutingOutputSearchParams>,
-) -> Result<Html<String>> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
- // 多 BOM 关联时只取第一个关联 BOM（代表产品）的非叶子节点（Issue #212：不再取并集）
- let candidate_ids: Vec<i64> = {
- let code: Option<String> = if let Some(rid) = params.routing_id {
- state.routing_service()
- .paginate_boms_by_routing(&service_ctx, &mut conn, rid, None, PageParams::new(1, 1))
- .await.ok().and_then(|p| p.items.into_iter().next()).map(|b| b.product_code)
- } else {
- params.product_code.as_ref().filter(|s| !s.is_empty()).cloned()
- };
- if let Some(c) = code {
- state.bom_query_service()
- .list_non_leaf_product_ids_by_product_codes(&service_ctx, &mut conn, &[c])
- .await.unwrap_or_default()
- } else {
- Vec::new()
- }
- };
- let products = if candidate_ids.is_empty() {
- Vec::new()
- } else {
- state.product_service()
- .get_by_ids(&service_ctx, &mut conn, candidate_ids)
- .await.unwrap_or_default()
- .into_iter()
- .filter(|p| {
- let nm = params.name.as_ref().map_or(true, |n| p.pdt_name.contains(n.as_str()));
- let cm = params.code.as_ref().map_or(true, |c| p.product_code.contains(c.as_str()));
- nm && cm
- })
- .collect()
- };
- let target = params.target_id.as_deref().unwrap_or("step-product-id-0");
- let display = params.display_id.as_deref().unwrap_or("step-product-display-0");
- let modal = params.modal_id.as_deref().unwrap_or("routing-output-modal");
- Ok(Html(
- crate::components::product_picker::product_picker_results(&products, target, display, modal)
- .into_string(),
- ))
+    let processes = state
+        .labor_process_dict_service()
+        .list(service_ctx, db, LaborProcessDictQuery::default(), PageParams::new(1, 500))
+        .await?
+        .items;
+    let work_centers = abt_core::master_data::work_center::new_work_center_service(state.pool.clone())
+        .list_active(service_ctx, db)
+        .await
+        .unwrap_or_default();
+    Ok((processes, work_centers))
 }
 
 #[derive(Debug, Deserialize)]
@@ -288,7 +147,7 @@ pub struct BoundBomPageParams {
     pub page: Option<u32>,
 }
 
-/// Issue #212：编辑页关联 BOM drawer 分页端点（每页 10 条，返回 `#bound-boms-list` 片段）。
+/// 编辑页关联 BOM drawer 分页端点（每页 10 条，返回 `#bound-boms-list` 片段）。
 #[require_permission("ROUTING", "read")]
 pub async fn get_routing_bound_boms(
     path: RoutingBoundBomsPath,
@@ -306,266 +165,182 @@ pub async fn get_routing_bound_boms(
 
 #[require_permission("ROUTING", "create")]
 pub async fn get_routing_create(
- _path: RoutingCreatePath,
- ctx: RequestContext,
+    _path: RoutingCreatePath,
+    ctx: RequestContext,
 ) -> Result<Html<String>> {
- let is_htmx = ctx.is_htmx();
- let nav_filter = ctx.nav_filter().await;
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- claims,
- ..
- } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
 
- let (processes, products, work_centers) = load_step_options(&state, &service_ctx, &mut conn).await?;
- let content = routing_form_page(
- &processes, &products, &work_centers, None, FormMode::New,
- // Issue #212：新建无 routing_id，产出品候选由用户在基本信息区选关联产品后动态拉取
- None, None, "", 0,
- );
- let page_html = admin_page(
- is_htmx,
- "新建工艺路线",
- &claims,
- "production",
- RoutingCreatePath::PATH,
- "主数据管理",
- Some("新建工艺路线"),
- content, &nav_filter, );
+    let (processes, work_centers) = load_step_options(&state, &service_ctx, &mut conn).await?;
+    let content = routing_form_page(
+        &processes, &work_centers, None, FormMode::New, None, None, "", 0,
+    );
+    let page_html = admin_page(
+        is_htmx,
+        "新建工艺路线",
+        &claims,
+        "production",
+        RoutingCreatePath::PATH,
+        "主数据管理",
+        Some("新建工艺路线"),
+        content, &nav_filter, );
 
- Ok(Html(page_html.into_string()))
+    Ok(Html(page_html.into_string()))
 }
 
 #[require_permission("ROUTING", "update")]
 pub async fn get_routing_edit(
- path: RoutingEditPath,
- ctx: RequestContext,
+    path: RoutingEditPath,
+    ctx: RequestContext,
 ) -> Result<Html<String>> {
- let is_htmx = ctx.is_htmx();
- let nav_filter = ctx.nav_filter().await;
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- claims,
- ..
- } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
 
- let detail = state.routing_service().get_detail(&service_ctx, &mut conn, path.id).await?;
- let (processes, products, work_centers) = load_step_options(&state, &service_ctx, &mut conn).await?;
- // Issue #212：编辑模式产出品候选 = 该 routing 所有关联 BOM 非叶子节点并集（picker 按 routing_id 动态拉取）
- // 关联 BOM 取首页（10 条）+ 总数：first 用于基本信息区展示，count 用于判断是否渲染更多 drawer
- let bound_page = state.routing_service()
- .paginate_boms_by_routing(&service_ctx, &mut conn, path.id, None, PageParams::new(1, 10))
- .await?;
- let first_bound_name: String = bound_page.items.first()
- .map(|b| b.product_name.clone().filter(|s| !s.is_empty()).unwrap_or_else(|| b.product_code.clone()))
- .unwrap_or_default();
- let bound_count = bound_page.total as usize;
- let edit_path_str = RoutingEditPath { id: path.id }.to_string();
- let content = routing_form_page(
- &processes, &products, &work_centers, Some(&detail), FormMode::Edit,
- Some(path.id), None, &first_bound_name, bound_count,
- );
- let page_html = admin_page(
- is_htmx,
- "编辑工艺路线",
- &claims,
- "production",
- &edit_path_str,
- "主数据管理",
- Some("编辑工艺路线"),
- content, &nav_filter, );
+    let detail = state.routing_service().get_detail(&service_ctx, &mut conn, path.id).await?;
+    let (processes, work_centers) = load_step_options(&state, &service_ctx, &mut conn).await?;
+    // 关联 BOM 取首页（10 条）+ 总数：first 用于基本信息区展示，count 用于判断是否渲染更多 drawer
+    let bound_page = state.routing_service()
+        .paginate_boms_by_routing(&service_ctx, &mut conn, path.id, None, PageParams::new(1, 10))
+        .await?;
+    let first_bound_name: String = bound_page.items.first()
+        .map(|b| b.product_name.clone().filter(|s| !s.is_empty()).unwrap_or_else(|| b.product_code.clone()))
+        .unwrap_or_default();
+    let bound_count = bound_page.total as usize;
+    let edit_path_str = RoutingEditPath { id: path.id }.to_string();
+    let content = routing_form_page(
+        &processes, &work_centers, Some(&detail), FormMode::Edit,
+        Some(path.id), None, &first_bound_name, bound_count,
+    );
+    let page_html = admin_page(
+        is_htmx,
+        "编辑工艺路线",
+        &claims,
+        "production",
+        &edit_path_str,
+        "主数据管理",
+        Some("编辑工艺路线"),
+        content, &nav_filter, );
 
- Ok(Html(page_html.into_string()))
+    Ok(Html(page_html.into_string()))
 }
 
 #[require_permission("ROUTING", "create")]
 pub async fn get_routing_copy(
- path: RoutingCopyPath,
- ctx: RequestContext,
+    path: RoutingCopyPath,
+    ctx: RequestContext,
 ) -> Result<Html<String>> {
- let is_htmx = ctx.is_htmx();
- let nav_filter = ctx.nav_filter().await;
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- claims,
- ..
- } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
 
- let detail = state.routing_service().get_detail(&service_ctx, &mut conn, path.id).await?;
- let (processes, products, work_centers) = load_step_options(&state, &service_ctx, &mut conn).await?;
- // Issue #212：复制模式新 routing 尚未创建，关联产品由用户在基本信息区选（同新建）
- let content = routing_form_page(
- &processes, &products, &work_centers, Some(&detail), FormMode::Copy,
- None, None, "", 0,
- );
- let page_html = admin_page(
- is_htmx,
- "复制工艺路线",
- &claims,
- "production",
- RoutingCreatePath::PATH,
- "主数据管理",
- Some("复制工艺路线"),
- content, &nav_filter, );
+    let detail = state.routing_service().get_detail(&service_ctx, &mut conn, path.id).await?;
+    let (processes, work_centers) = load_step_options(&state, &service_ctx, &mut conn).await?;
+    let content = routing_form_page(
+        &processes, &work_centers, Some(&detail), FormMode::Copy, None, None, "", 0,
+    );
+    let page_html = admin_page(
+        is_htmx,
+        "复制工艺路线",
+        &claims,
+        "production",
+        RoutingCreatePath::PATH,
+        "主数据管理",
+        Some("复制工艺路线"),
+        content, &nav_filter, );
 
- Ok(Html(page_html.into_string()))
+    Ok(Html(page_html.into_string()))
 }
 
 #[require_permission("ROUTING", "create")]
 pub async fn post_routing_create(
- _path: RoutingCreatePath,
- ctx: RequestContext,
- axum::Form(form): axum::Form<RoutingCreateForm>,
+    _path: RoutingCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<RoutingCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext { state, service_ctx, .. } = ctx;
 
- if form.name.trim().is_empty() {
- return Err(DomainError::validation("路线名称不能为空").into());
- }
+    if form.name.trim().is_empty() {
+        return Err(DomainError::validation("路线名称不能为空").into());
+    }
 
- // Issue #212：产出品候选集 = 关联产品 BOM 非叶子节点；提交前校验产出品 ∈ 候选集
- let allowed = compute_output_candidates(&state, &service_ctx, &mut conn, None, form.bind_product_code.as_deref()).await;
- let steps = parse_steps(&form, &allowed)?;
+    let steps = parse_steps(&form)?;
 
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
- let create_req = CreateRoutingReq {
- name: form.name.trim().to_string(),
- description: form.description.filter(|d| !d.trim().is_empty()),
- steps,
- };
+    let create_req = CreateRoutingReq {
+        name: form.name.trim().to_string(),
+        description: form.description.filter(|d| !d.trim().is_empty()),
+        steps,
+    };
 
- let svc = state.routing_service();
- let id = svc.create(&service_ctx, &mut tx, create_req).await?;
- // Issue #212：新建时同步建立 BOM 关联（产出品过滤源）；失败（如已关联其他 routing）抛错 → 事务回滚
- if let Some(pc) = form.bind_product_code.as_ref().filter(|s| !s.trim().is_empty()) {
- svc.set_bom_routing(&service_ctx, &mut tx, pc.trim().to_string(), id).await?;
- }
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let svc = state.routing_service();
+    let id = svc.create(&service_ctx, &mut tx, create_req).await?;
+    // 新建时同步建立 BOM 关联；失败（如已关联其他 routing）抛错 → 事务回滚
+    if let Some(pc) = form.bind_product_code.as_ref().filter(|s| !s.trim().is_empty()) {
+        svc.set_bom_routing(&service_ctx, &mut tx, pc.trim().to_string(), id).await?;
+    }
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
- let redirect = RoutingDetailPath { id }.to_string();
- Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    let redirect = RoutingDetailPath { id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 #[require_permission("ROUTING", "update")]
 pub async fn post_routing_update(
- path: RoutingEditPath,
- ctx: RequestContext,
- axum::Form(form): axum::Form<RoutingCreateForm>,
+    path: RoutingEditPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<RoutingCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext { state, service_ctx, .. } = ctx;
 
- if form.name.trim().is_empty() {
- return Err(DomainError::validation("路线名称不能为空").into());
- }
+    if form.name.trim().is_empty() {
+        return Err(DomainError::validation("路线名称不能为空").into());
+    }
 
- // Issue #212：编辑模式产出品候选 = 该 routing 所有关联 BOM 非叶子节点并集；校验产出品 ∈ 候选集
- let allowed = compute_output_candidates(&state, &service_ctx, &mut conn, Some(path.id), None).await;
- let steps = parse_steps(&form, &allowed)?;
+    let steps = parse_steps(&form)?;
 
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
- let req = UpdateRoutingReq {
- name: Some(form.name.trim().to_string()),
- description: form.description.filter(|d| !d.trim().is_empty()),
- steps: Some(steps),
- };
+    let req = UpdateRoutingReq {
+        name: Some(form.name.trim().to_string()),
+        description: form.description.filter(|d| !d.trim().is_empty()),
+        steps: Some(steps),
+    };
 
- state.routing_service().update(&service_ctx, &mut tx, path.id, req).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    state.routing_service().update(&service_ctx, &mut tx, path.id, req).await?;
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
- let redirect = RoutingDetailPath { id: path.id }.to_string();
- Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    let redirect = RoutingDetailPath { id: path.id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-/// Issue #212：工序产出品专用 picker modal。
-///
-/// 与通用 `product_picker_modal_deferred` 的区别：搜索端点为 `RoutingOutputSearchPath`
-/// （候选集 = 关联产品 BOM 非叶子节点，后端按 `routing_id`/`product_code` 自算 + 名称/编码过滤，
-/// 避免前端传超长 `bom_product_ids` 串——routing#1 候选集达 1776 个）。
-///
-/// 多行共用一个 modal：`target_id`/`display_id` 由 `openProductPicker(idx)` 动态写入 hidden input，
-/// 搜索 bar 的 `hx-include=".routing-output-search-bar"` 携带上下文与动态 id。
-///
-/// `routing_id`（编辑模式）与 `product_code`（新建/复制模式）二选一渲染为 hidden —— 不渲染的那个
-/// 字段不在表单内，`hx-include` 不会带上，handler `RoutingOutputSearchParams` 收到 `None`，据此走对应分支。
-fn routing_output_picker_modal(routing_id: Option<i64>, product_code: &str) -> Markup {
- use crate::components::overlay::modal_shell;
- let search_path = RoutingOutputSearchPath::PATH;
- let close_hs = "on click remove .is-open from #routing-product-modal";
- modal_shell("routing-product-modal", "z-[1100]", html! {
- div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
- // ── Header ──
- div class="px-6 py-5 border-b border-border-soft flex items-center gap-3 shrink-0" {
- h2 class="text-lg font-semibold m-0" { "选择产出品" }
- span class="text-xs text-muted" { "（仅关联 BOM 的成品/半成品）" }
- button
- class="ml-auto bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
- _=(close_hs)
- { "×" }
- }
- // ── Body ──
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- // ── Search Bar（含 hidden 上下文，hx-include=".routing-output-search-bar" 一并带上）──
- div class="routing-output-search-bar flex gap-4 mb-4 pb-4 border-b border-border-soft" {
- @if let Some(rid) = routing_id {
- input type="hidden" name="routing_id" value=(rid) {};
- } @else {
- input type="hidden" name="product_code" id="output-ctx-product-code" value=(product_code) {};
- }
- input type="hidden" name="target_id" id="output-target-id" {};
- input type="hidden" name="display_id" id="output-display-id" {};
- input type="hidden" name="modal_id" value="routing-product-modal" {};
- div class="flex-1 flex flex-col gap-1" {
- label class="text-xs font-medium text-fg-2" { "产品名称" }
- input
- class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
- type="text" name="name" placeholder="输入产品名称…"
- hx-get=(search_path)
- hx-trigger="keyup changed delay:300ms"
- hx-sync="this:replace"
- hx-target="#routing-output-results"
- hx-swap="innerHTML"
- hx-include=".routing-output-search-bar" {};
- }
- div class="flex-1 flex flex-col gap-1" {
- label class="text-xs font-medium text-fg-2" { "产品编码" }
- input
- class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
- type="text" name="code" placeholder="输入产品编码…"
- hx-get=(search_path)
- hx-trigger="keyup changed delay:300ms"
- hx-sync="this:replace"
- hx-target="#routing-output-results"
- hx-swap="innerHTML"
- hx-include=".routing-output-search-bar" {};
- }
- }
- // ── Results（deferred：不带 intersect once，首次加载由 openProductPicker htmx.ajax 拉取）──
- div id="routing-output-results" class="max-h-[400px] overflow-y-auto" {
- div class="flex items-center justify-center py-8 text-muted text-sm" { "加载中…" }
- }
- }
- }
- })
-}
-
-/// Issue #212：编辑模式关联 BOM 列表 drawer（基本信息区"更多"按钮就地展开，不跳详情页）。
-///
-/// 列表区 `#bound-boms-list` 由 htmx `load` 拉取首页（`/{id}/bound-boms?page=1`），
-/// 翻页走 pagination 组件（每页 10 条）。背景点击 / Esc / × 按钮均可关。
+/// 编辑模式关联 BOM 列表 drawer（基本信息区"更多"按钮就地展开，不跳详情页）。
 fn bound_boms_drawer(routing_id: i64) -> Markup {
     let bound_boms_path = RoutingBoundBomsPath { id: routing_id }.to_string();
     html! {
@@ -576,7 +351,7 @@ fn bound_boms_drawer(routing_id: i64) -> Markup {
             div class="drawer-panel bg-bg h-full w-[480px] max-w-[92vw] shadow-lg flex flex-col" {
                 div class="flex items-center gap-3 px-5 py-4 border-b border-border-soft shrink-0" {
                     span class="text-sm font-semibold text-fg" { "关联 BOM" }
-                    span class="text-muted text-xs font-normal" { "产出品候选来自这些 BOM" }
+                    span class="text-muted text-xs font-normal" { "产出品/计件价按 BOM 维护" }
                     button type="button"
                         class="ml-auto text-muted hover:text-fg text-xl leading-none bg-transparent border-none cursor-pointer"
                         _="on click remove .open from closest .drawer-overlay"
@@ -597,7 +372,7 @@ fn bound_boms_drawer(routing_id: i64) -> Markup {
     }
 }
 
-/// Issue #212：drawer 关联 BOM 列表片段（`#bound-boms-list`）：当前页 10 行 + pagination 控件。
+/// drawer 关联 BOM 列表片段（`#bound-boms-list`）：当前页 10 行 + pagination 控件。
 fn bound_boms_list_fragment(routing_id: i64, boms: &PaginatedResult<BomRouting>) -> Markup {
     let path = RoutingBoundBomsPath { id: routing_id }.to_string();
     html! {
@@ -617,247 +392,210 @@ fn bound_boms_list_fragment(routing_id: i64, boms: &PaginatedResult<BomRouting>)
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn routing_form_page(
- processes: &[abt_core::master_data::labor_process_dict::model::LaborProcessDict],
- products: &[abt_core::master_data::product::model::Product],
- work_centers: &[abt_core::master_data::work_center::model::WorkCenter],
- existing: Option<&RoutingDetail>,
- mode: FormMode,
- // Issue #212：产出品候选上下文
- routing_id: Option<i64>,
- bind_product_code: Option<String>,
- first_bound_name: &str,
- bound_count: usize,
+    processes: &[abt_core::master_data::labor_process_dict::model::LaborProcessDict],
+    work_centers: &[abt_core::master_data::work_center::model::WorkCenter],
+    existing: Option<&RoutingDetail>,
+    mode: FormMode,
+    routing_id: Option<i64>,
+    bind_product_code: Option<String>,
+    first_bound_name: &str,
+    bound_count: usize,
 ) -> Markup {
- let process_map: HashMap<&str, &str> = processes
- .iter()
- .map(|p| (p.code.as_str(), p.name.as_str()))
- .collect();
+    let process_map: HashMap<&str, &str> = processes
+        .iter()
+        .map(|p| (p.code.as_str(), p.name.as_str()))
+        .collect();
 
- let process_map_json = serde_json::to_string(&process_map).unwrap_or_else(|_| "{}".into());
+    let process_map_json = serde_json::to_string(&process_map).unwrap_or_else(|_| "{}".into());
 
- // 产出品映射（product_id → name，注入 JS 渲染下拉）
- let product_map: HashMap<String, String> = products
- .iter()
- .map(|p| (p.product_id.to_string(), p.pdt_name.clone()))
- .collect();
- let product_map_json = serde_json::to_string(&product_map).unwrap_or_else(|_| "{}".into());
+    // 工作中心映射（id → name，注入 JS 渲染下拉）
+    let work_center_map: HashMap<String, String> = work_centers
+        .iter()
+        .map(|wc| (wc.id.to_string(), wc.name.clone()))
+        .collect();
+    let work_center_map_json = serde_json::to_string(&work_center_map).unwrap_or_else(|_| "{}".into());
 
- // 工作中心映射（id → name，注入 JS 渲染下拉）
- let work_center_map: HashMap<String, String> = work_centers
- .iter()
- .map(|wc| (wc.id.to_string(), wc.name.clone()))
- .collect();
- let work_center_map_json = serde_json::to_string(&work_center_map).unwrap_or_else(|_| "{}".into());
+    let is_edit = mode == FormMode::Edit;
+    // 关联产品名回显由通用 picker 选中后 JS 填充，模板渲染初始为"未选择"
+    let bind_product_name = String::new();
 
- // Issue #212：产出品候选上下文（编辑模式用 routing_id；新建/复制用 bind_product_code）
- let is_edit = mode == FormMode::Edit;
- let output_routing_id: Option<i64> = if is_edit { routing_id } else { None };
- let output_product_code: String = if !is_edit {
- bind_product_code.clone().unwrap_or_default()
- } else {
- String::new()
- };
- // 关联产品名回填（新建/复制：初始通常为空，用户选后 JS 填）
- let bind_product_name: String = bind_product_code
- .as_deref()
- .and_then(|c| products.iter().find(|p| p.product_code == c).map(|p| p.pdt_name.as_str()))
- .unwrap_or("")
- .to_string();
- // Issue #212：产出品专用搜索端点（注入 JS）
- let output_search_path: &str = RoutingOutputSearchPath::PATH;
+    // 回填字段（编辑/复制模式预填；新建模式为空 + code 自动生成）
+    let name_value: String = match (existing, mode) {
+        (Some(d), FormMode::Copy) => format!("{}-副本", d.routing.name),
+        (Some(d), _) => d.routing.name.clone(),
+        (None, _) => String::new(),
+    };
+    let code_value: String = match existing {
+        Some(d) => d.routing.code.clone(),
+        None => "自动生成".to_string(),
+    };
+    let description_value = existing
+        .and_then(|d| d.routing.description.clone())
+        .unwrap_or_default();
+    // 工序步骤：编辑/复制回填现有步骤，新建给一行空步骤
+    let steps_json = match existing {
+        Some(d) => serde_json::to_string(&d.steps.iter().map(JsStep::from_step).collect::<Vec<_>>())
+            .unwrap_or_else(|_| "[]".into()),
+        None => serde_json::to_string(&[JsStep {
+            process_code: String::new(),
+            is_required: true,
+            remark: String::new(),
+            work_center_id: String::new(),
+            standard_time: String::new(),
+            is_outsourced: false,
+        }])
+        .unwrap_or_else(|_| "[]".into()),
+    };
+    let title: &str = match mode {
+        FormMode::New => "新建工艺路线",
+        FormMode::Edit => "编辑工艺路线",
+        FormMode::Copy => "复制工艺路线",
+    };
+    // 编辑提交到 /routings/{id}/edit（update）；新建/复制提交到 /routings/new（create）
+    let post_url: String = match (existing, mode) {
+        (Some(d), FormMode::Edit) => RoutingEditPath { id: d.routing.id }.to_string(),
+        _ => RoutingCreatePath::PATH.to_string(),
+    };
 
- // 回填字段（编辑/复制模式预填；新建模式为空 + code 自动生成）
- let name_value: String = match (existing, mode) {
- (Some(d), FormMode::Copy) => format!("{}-副本", d.routing.name),
- (Some(d), _) => d.routing.name.clone(),
- (None, _) => String::new(),
- };
- let code_value: String = match existing {
- Some(d) => d.routing.code.clone(),
- None => "自动生成".to_string(),
- };
- let description_value = existing
- .and_then(|d| d.routing.description.clone())
- .unwrap_or_default();
- // 工序步骤：编辑/复制回填现有步骤，新建给一行空步骤
- let steps_json = match existing {
- Some(d) => serde_json::to_string(&d.steps.iter().map(JsStep::from_step).collect::<Vec<_>>())
- .unwrap_or_else(|_| "[]".into()),
- None => serde_json::to_string(&[JsStep {
- process_code: String::new(),
- is_required: true,
- remark: String::new(),
- product_id: String::new(),
- product_name: String::new(),
- work_center_id: String::new(),
- unit_price: String::new(),
- standard_time: String::new(),
- is_outsourced: false,
- }])
- .unwrap_or_else(|_| "[]".into()),
- };
- let title: &str = match mode {
- FormMode::New => "新建工艺路线",
- FormMode::Edit => "编辑工艺路线",
- FormMode::Copy => "复制工艺路线",
- };
- // 编辑提交到 /routings/{id}/edit（update）；新建/复制提交到 /routings/new（create）
- let post_url: String = match (existing, mode) {
- (Some(d), FormMode::Edit) => RoutingEditPath { id: d.routing.id }.to_string(),
- _ => RoutingCreatePath::PATH.to_string(),
- };
+    html! {
+        div id="routing-app" {
+            // ── Page Header ──
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", RoutingListPath::PATH))
+                { (icon::arrow_left_icon("w-4 h-4")) "返回工艺路线列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { (title) }
+            }
 
- html! {
-    div id="routing-app" {
-        // ── Page Header ──
-        div class="flex items-center justify-between mb-6" {
-            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-                href=(format!("{}?restore=true", RoutingListPath::PATH))
-            { (icon::arrow_left_icon("w-4 h-4")) "返回工艺路线列表" }
-            h1 class="text-xl font-bold text-fg tracking-tight" { (title) }
-        }
-
-        form
-            id="routing-form"
-            hx-post=(post_url)
-            hx-swap="none"
-            onsubmit="syncFromDom(); document.querySelector('#routing-form input[name=steps_json]').value = getStepsJson()"
-        {
-            input type="hidden" name="steps_json";
-            // ── Section: 基本信息 ──
-            div class="data-card mb-4" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                { "基本信息" }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
-                    div class="form-field" {
-                        label {
-                            "路线名称 "
-                            span class="text-danger" { "*" }
-                        }
-                        input type="text" name="name" required placeholder="请输入路线名称" value=(name_value) {}
-                    }
-                    div class="form-field" {
-                        label { "路线编码" }
-                        input type="text" value=(code_value) disabled class="!bg-surface !text-muted cursor-not-allowed" {}
-                    }
-                    // Issue #212：关联产品（产出品过滤源）
-                    div class="form-field" {
-                        @if is_edit {
-                            label { "关联 BOM" }
-                            @if bound_count == 0 {
-                                div class="text-sm text-muted mt-1" { "未关联 BOM" }
-                            } @else {
-                                div class="flex items-center gap-2 text-sm text-fg-2 mt-1" {
-                                    span class="truncate" { (first_bound_name) }
-                                    @if bound_count > 1 {
-                                        span class="text-muted text-xs whitespace-nowrap" { (format!("等 {} 个", bound_count)) }
-                                        button type="button"
-                                            class="text-xs text-accent hover:underline cursor-pointer bg-transparent border-none whitespace-nowrap p-0"
-                                            _="on click add .open to #bound-boms-drawer"
-                                        { "更多" }
-                                    }
-                                }
-                            }
-                        } @else {
+            form
+                id="routing-form"
+                hx-post=(post_url)
+                hx-swap="none"
+                onsubmit="syncFromDom(); document.querySelector('#routing-form input[name=steps_json]').value = getStepsJson()"
+            {
+                input type="hidden" name="steps_json";
+                // ── Section: 基本信息 ──
+                div class="data-card mb-4" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { "基本信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                        div class="form-field" {
                             label {
-                                "关联产品（BOM） "
+                                "路线名称 "
                                 span class="text-danger" { "*" }
                             }
-                            input type="hidden" name="bind_product_code" id="bind-product-code"
-                                value=(bind_product_code.as_deref().unwrap_or("")) {};
-                            div class="flex items-center gap-1 mt-1" {
-                                span id="bind-product-display"
-                                    class=(format!(
-                                        "flex-1 text-sm truncate px-2 py-[5px] border border-border rounded-sm {}",
-                                        if bind_product_name.is_empty() { "text-muted" } else { "text-fg" }
-                                    ))
-                                { (if bind_product_name.is_empty() { "未选择" } else { bind_product_name.as_str() }) }
-                                button type="button" onclick="openBindProductPicker()"
-                                    class="shrink-0 text-xs text-accent px-2 py-[3px] border border-border rounded-sm cursor-pointer hover:bg-accent-bg whitespace-nowrap"
-                                { "选择" }
-                            }
-                            p class="text-muted text-xs mt-1" { "工序产出品将从该产品 BOM 的成品/半成品中选取" }
+                            input type="text" name="name" required placeholder="请输入路线名称" value=(name_value) {}
                         }
-                    }
-                    div class="form-field field-full" {
-                        label { "描述" }
-                        textarea
-                            name="description"
-                            placeholder="请输入描述信息…"
-                            class="w-full resize-y min-h-[80px]" { (description_value) }
-                    }
-                }
-            }
-            // ── Section: 工序步骤 ──
-            div class="data-card p-0 overflow-hidden mb-4" {
-                div class="p-5 pb-3 flex justify-between items-center" {
-                    span class="flex items-center gap-2 text-sm font-semibold text-fg m-0 p-0" {
-                        "工序步骤"
-                    }
-                    button
-                        type="button"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
-                        onclick="addStep()"
-                    { (icon::plus_icon("w-3.5 h-3.5")) "添加工序" }
-                }
-                div class="overflow-x-auto" {
-                    table class="data-table min-w-[960px]" {
-                        thead {
-                            tr {
-                                th class="w-[50px] text-center" { "排序" }
-                                th class="w-[200px]" { "工序名称" }
-                                th class="w-[200px]" { "产出品" }
-                                th class="w-[140px]" { "工作中心" }
-                                th class="w-[100px]" { "计件单价" }
-                                th class="w-[90px]" { "标准工时" }
-                                th class="w-[50px] text-center" { "委外" }
-                                th class="w-[50px] text-center" { "必经" }
-                                th class="w-[200px]" { "备注" }
-                                th class="w-[50px]" {}
+                        div class="form-field" {
+                            label { "路线编码" }
+                            input type="text" value=(code_value) disabled class="!bg-surface !text-muted cursor-not-allowed" {}
+                        }
+                        div class="form-field" {
+                            @if is_edit {
+                                label { "关联 BOM" }
+                                @if bound_count == 0 {
+                                    div class="text-sm text-muted mt-1" { "未关联 BOM" }
+                                } @else {
+                                    div class="flex items-center gap-2 text-sm text-fg-2 mt-1" {
+                                        span class="truncate" { (first_bound_name) }
+                                        @if bound_count > 1 {
+                                            span class="text-muted text-xs whitespace-nowrap" { (format!("等 {} 个", bound_count)) }
+                                            button type="button"
+                                                class="text-xs text-accent hover:underline cursor-pointer bg-transparent border-none whitespace-nowrap p-0"
+                                                _="on click add .open to #bound-boms-drawer"
+                                            { "更多" }
+                                        }
+                                    }
+                                }
+                            } @else {
+                                label { "关联产品（BOM）" }
+                                input type="hidden" name="bind_product_code" id="bind-product-code"
+                                    value=(bind_product_code.as_deref().unwrap_or("")) {};
+                                div class="flex items-center gap-1 mt-1" {
+                                    span id="bind-product-display"
+                                        class="flex-1 text-sm truncate px-2 py-[5px] border border-border rounded-sm text-muted"
+                                    { "未选择" }
+                                    button type="button" onclick="openBindProductPicker()"
+                                        class="shrink-0 text-xs text-accent px-2 py-[3px] border border-border rounded-sm cursor-pointer hover:bg-accent-bg whitespace-nowrap"
+                                    { "选择" }
+                                }
+                                p class="text-muted text-xs mt-1" { "建立 BOM 关联后，产出品/计件价在该 routing 详情页按 BOM 维护" }
                             }
                         }
-                        tbody id="routing-steps-body" {}
+                        div class="form-field field-full" {
+                            label { "描述" }
+                            textarea
+                                name="description"
+                                placeholder="请输入描述信息…"
+                                class="w-full resize-y min-h-[80px]" { (description_value) }
+                        }
                     }
                 }
-                div class="p-3 flex items-center gap-2" {
-                    button
-                        type="button"
-                        class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
-                        onclick="addStep()"
-                    { (icon::plus_icon("w-3.5 h-3.5")) "添加工序" }
+                // ── Section: 工序步骤 ──
+                div class="data-card p-0 overflow-hidden mb-4" {
+                    div class="p-5 pb-3 flex justify-between items-center" {
+                        span class="flex items-center gap-2 text-sm font-semibold text-fg m-0 p-0" {
+                            "工序步骤"
+                        }
+                        button
+                            type="button"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
+                            onclick="addStep()"
+                        { (icon::plus_icon("w-3.5 h-3.5")) "添加工序" }
+                    }
+                    div class="overflow-x-auto" {
+                        table class="data-table min-w-[760px]" {
+                            thead {
+                                tr {
+                                    th class="w-[50px] text-center" { "排序" }
+                                    th class="w-[220px]" { "工序名称" }
+                                    th class="w-[160px]" { "工作中心" }
+                                    th class="w-[110px]" { "标准工时" }
+                                    th class="w-[50px] text-center" { "委外" }
+                                    th class="w-[50px] text-center" { "必经" }
+                                    th class="w-[200px]" { "备注" }
+                                    th class="w-[50px]" {}
+                                }
+                            }
+                            tbody id="routing-steps-body" {}
+                        }
+                    }
+                    div class="p-3 flex items-center gap-2" {
+                        button
+                            type="button"
+                            class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
+                            onclick="addStep()"
+                        { (icon::plus_icon("w-3.5 h-3.5")) "添加工序" }
+                    }
                 }
-            }
-            // ── Action Bar ──
-            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
-                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    href=(format!("{}?restore=true", RoutingListPath::PATH))
-                { "取消" }
-                button
-                    type="submit"
-                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                { "保存路线" }
+                // ── Action Bar ──
+                div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href=(format!("{}?restore=true", RoutingListPath::PATH))
+                    { "取消" }
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { "保存路线" }
+                }
             }
         }
-    }
-    // Issue #212：编辑模式关联 BOM 列表 drawer（多个时点"更多"就地展开，不跳详情页）
-    @if is_edit && bound_count > 1 {
-        (bound_boms_drawer(output_routing_id.unwrap_or(0)))
-    }
-    // Issue #212：产出品专用 picker（候选集 = 关联 BOM 非叶子节点，后端按 routing_id/product_code 过滤）
-    (routing_output_picker_modal(output_routing_id, &output_product_code))
-    // 关联产品 picker（基本信息区，全量产品搜索，新建/复制用）
-    (crate::components::product_picker::product_picker_modal(
-        "bind-product-modal", "bind-product-code", "bind-product-display",
-    ))
-    // TODO: Rewrite routingForm() to a proper vanilla JS module with DOM-based state reading
-    script {
-        ({
-            PreEscaped(
-                format!(
-                    r#"
+        // 编辑模式关联 BOM 列表 drawer（多个时点"更多"就地展开）
+        @if is_edit && bound_count > 1 {
+            (bound_boms_drawer(routing_id.unwrap_or(0)))
+        }
+        // 关联产品 picker（基本信息区，全量产品搜索，新建/复制用）
+        (crate::components::product_picker::product_picker_modal(
+            "bind-product-modal", "bind-product-code", "bind-product-display",
+        ))
+        script {
+            ({
+                PreEscaped(
+                    format!(
+                        r#"
 const processMap = {process_map_json};
-const productMap = {product_map_json};
 const workCenterMap = {work_center_map_json};
 let steps = {steps_json};
 
@@ -870,9 +608,7 @@ function getStepsJson() {{
  step_order: i + 1,
  is_required: s.is_required,
  remark: s.remark || null,
- product_id: s.product_id && s.product_id !== '' ? Number(s.product_id) : null,
  work_center_id: s.work_center_id && s.work_center_id !== '' ? Number(s.work_center_id) : null,
- unit_price: s.unit_price || null,
  standard_time: s.standard_time || null,
  is_outsourced: !!s.is_outsourced,
  }}))
@@ -880,7 +616,7 @@ function getStepsJson() {{
 }}
 
 function addStep() {{
- steps.push({{ process_code: '', is_required: true, remark: '', product_id: '', product_name: '', work_center_id: '', unit_price: '', standard_time: '', is_outsourced: false }});
+ steps.push({{ process_code: '', is_required: true, remark: '', work_center_id: '', standard_time: '', is_outsourced: false }});
  syncFromDom();
  renderSteps();
 }}
@@ -899,16 +635,13 @@ function syncFromDom() {{
  const selects = row.querySelectorAll('select');
  const checkboxes = row.querySelectorAll('input[type="checkbox"]');
  const inputs = row.querySelectorAll('input[type="number"], input[type="text"]:not(.cat-search)');
- const productInput = row.querySelector('.step-product-id');
  const opHidden = row.querySelector('.cat-select input[type=hidden]');
  if (opHidden) steps[idx].process_code = opHidden.value;
  if (selects[0]) steps[idx].work_center_id = selects[0].value;
- if (productInput) steps[idx].product_id = productInput.value;
  if (checkboxes[0]) steps[idx].is_outsourced = checkboxes[0].checked;
  if (checkboxes[1]) steps[idx].is_required = checkboxes[1].checked;
- if (inputs[0]) steps[idx].unit_price = inputs[0].value;
- if (inputs[1]) steps[idx].standard_time = inputs[1].value;
- if (inputs[2]) steps[idx].remark = inputs[2].value;
+ if (inputs[0]) steps[idx].standard_time = inputs[0].value;
+ if (inputs[1]) steps[idx].remark = inputs[1].value;
  }});
 }}
 
@@ -928,11 +661,8 @@ function renderSteps() {{
  }}
  let chk_req = step.is_required ? ' checked' : '';
  let chk_out = step.is_outsourced ? ' checked' : '';
- let up = step.unit_price || '';
  let st = step.standard_time || '';
  let rem = step.remark || '';
- // 产出品名优先取选中时缓存的 product_name（picker 搜索结果直达），回退 productMap（编辑回填的前 N 个）
- let pname = step.product_name || (step.product_id && productMap[step.product_id]) || '';
  html += '<tr>' +
  '<td class="text-muted text-xs text-center">' + (idx + 1) + '</td>' +
  '<td>' +
@@ -940,7 +670,7 @@ function renderSteps() {{
  '<input type="hidden" class="step-process-code" value="' + (step.process_code || '') + '" onchange="onStepChange(' + idx + ')">' +
  '<button type="button" class="cat-trigger w-full flex items-center justify-between gap-2 px-2 py-[5px] border border-border rounded-sm text-[13px] bg-white text-fg cursor-pointer hover:border-[rgba(37,99,235,0.3)]" onclick="toggleOpCombo(this)">' +
  '<span class="cat-label truncate flex-1 text-left ' + (step.process_code ? '' : 'text-muted') + '">' + opLabel + '</span>' +
- '<svg class="w-3.5 h-3.5 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"></path></svg>' +
+ '<svg class="w-3.5 h-3.5 text-muted shrink-0" viewBox="0 0 24 24 fill="none" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"></path></svg>' +
  '</button>' +
  '<div class="cat-backdrop fixed inset-0 z-[999]" style="display:none" onclick="closeOpCombo(this)"></div>' +
  '<div class="cat-dropdown fixed z-[1000] w-80 bg-white border border-border rounded-sm shadow-[var(--shadow-card)]" style="display:none">' +
@@ -951,15 +681,7 @@ function renderSteps() {{
  '</div>' +
  '</div>' +
  '</td>' +
- '<td>' +
- '<input type="hidden" id="step-product-id-' + idx + '" class="step-product-id" value="' + (step.product_id || '') + '">' +
- '<div class="flex items-center gap-1">' +
- '<span id="step-product-display-' + idx + '" class="flex-1 text-[13px] truncate ' + (pname ? '' : 'text-muted') + '">' + (pname || '未选择') + '</span>' +
- '<button type="button" onclick="openProductPicker(' + idx + ')" class="shrink-0 text-xs text-accent px-2 py-[3px] border border-border rounded-sm cursor-pointer hover:bg-accent-bg whitespace-nowrap">' + (pname ? '更换' : '选择') + '</button>' +
- '</div>' +
- '</td>' +
  '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + wcopts + '</select></td>' +
- '<td><input type="number" step="any" onchange="onStepChange(' + idx + ')" value="' + up + '" placeholder="0.00" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border font-mono text-right"></td>' +
  '<td><input type="number" step="any" onchange="onStepChange(' + idx + ')" value="' + st + '" placeholder="0.00" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border font-mono text-right"></td>' +
  '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer w-[18px] h-[18px] accent-accent"' + chk_out + '></td>' +
  '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer w-[18px] h-[18px] accent-accent"' + chk_req + '></td>' +
@@ -970,7 +692,7 @@ function renderSteps() {{
  document.querySelector('#routing-steps-body').innerHTML = html;
 }}
 
-// 工序搜索下拉开关：fixed 定位（步骤表在 overflow-hidden 卡片内，absolute 会被裁）
+// 工序搜索下拉开关
 function toggleOpCombo(trigger) {{
  const wrapper = trigger.closest('.cat-select');
  const dropdown = wrapper.querySelector('.cat-dropdown');
@@ -980,11 +702,9 @@ function toggleOpCombo(trigger) {{
  dropdown.style.left = r.left + 'px';
  dropdown.style.top = (r.bottom + 4) + 'px';
  dropdown.style.display = 'block';
- // 向下溢出视口则向上展开
  if (r.bottom + 304 > window.innerHeight && r.top > 324) {{
  dropdown.style.top = (r.top - dropdown.offsetHeight - 4) + 'px';
  }}
- // 向右溢出视口则右对齐
  if (r.left + 320 > window.innerWidth) {{
  dropdown.style.left = Math.max(8, window.innerWidth - 328) + 'px';
  }}
@@ -1009,36 +729,9 @@ function onStepChange(idx) {{
  renderSteps();
 }}
 
-// Issue #212：产出品搜索端点（候选集后端按 routing_id/product_code 过滤）
-const outputSearchPath = "{output_search_path}";
-// 产出品选择（步骤行共用弹窗，openProductPicker 动态指向当前行）
-let editingProductIdx = null;
-function openProductPicker(idx) {{
- editingBindProduct = false;
- editingProductIdx = idx;
- const modal = document.getElementById('routing-product-modal');
- // 上下文：编辑模式用 routing_id，新建/复制用 product_code（hidden 二选一渲染）
- const ridInput = modal.querySelector('input[name=routing_id]');
- const pcInput = modal.querySelector('input[name=product_code]');
- const rid = ridInput ? ridInput.value : '';
- const pc = pcInput ? pcInput.value : '';
- if (!rid && !pc) {{
- alert('请先在基本信息区选择关联产品');
- editingProductIdx = null;
- return;
- }}
- modal.querySelector('input[name=target_id]').value = 'step-product-id-' + idx;
- modal.querySelector('input[name=display_id]').value = 'step-product-display-' + idx;
- modal.querySelectorAll('.product-search-input').forEach(i => i.value = '');
- const values = {{ target_id: 'step-product-id-' + idx, display_id: 'step-product-display-' + idx, modal_id: 'routing-product-modal', name: '', code: '' }};
- if (rid) values.routing_id = rid; else values.product_code = pc;
- modal.classList.add('is-open');
- htmx.ajax('GET', outputSearchPath, {{ target: '#routing-output-results', swap: 'innerHTML', values: values }});
-}}
 // 关联产品选择（新建/复制：基本信息区，全量产品搜索 → 建立 BomRouting 关联）
 let editingBindProduct = false;
 function openBindProductPicker() {{
- editingProductIdx = null;
  editingBindProduct = true;
  const modal = document.getElementById('bind-product-modal');
  modal.querySelectorAll('.product-search-input').forEach(i => i.value = '');
@@ -1048,38 +741,24 @@ function openBindProductPicker() {{
  values: {{ target_id: 'bind-product-code', display_id: 'bind-product-display', modal_id: 'bind-product-modal', name: '', code: '' }}
  }});
 }}
-// productSelected 统一监听：区分产出品（editingProductIdx）与关联产品（editingBindProduct）
 document.body.addEventListener('productSelected', (e) => {{
- if (editingProductIdx !== null) {{
- syncFromDom();
- // 产品名由事件 detail 携带（picker 搜索结果直达，绕过仅含前 N 个产品的 productMap）
- steps[editingProductIdx].product_name = (e.detail && e.detail.productName) || '';
- editingProductIdx = null;
- renderSteps();
- }} else if (editingBindProduct) {{
+ if (editingBindProduct) {{
  const code = (e.detail && e.detail.productCode) || '';
  const name = (e.detail && e.detail.productName) || '';
  document.querySelector('#bind-product-code').value = code;
  const disp = document.querySelector('#bind-product-display');
  disp.textContent = name || '未选择';
  disp.classList.remove('text-muted'); disp.classList.add('text-fg');
- // 同步产出品 picker 上下文（product_code hidden）
- const pcHidden = document.querySelector('#output-ctx-product-code');
- if (pcHidden) pcHidden.value = code;
- // 清空已有产出品（旧产出品可能不在新关联 BOM 内，提示重选）
- syncFromDom();
- steps.forEach(s => {{ s.product_id = ''; s.product_name = ''; }});
- renderSteps();
  editingBindProduct = false;
  }}
 }});
 
-// 页面加载渲染初始工序行（含工作中心/单价/工时/委外）
+// 页面加载渲染初始工序行
 renderSteps();
 "#,
-                ),
-            )
-        })
+                    ),
+                )
+            })
+        }
     }
-}
 }

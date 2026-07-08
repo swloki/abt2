@@ -65,15 +65,6 @@ pub struct RoutingBoundBomsPath {
     pub id: i64,
 }
 
-/// 工序产出品专用搜索端点（Issue #212）。
-///
-/// 单独前缀 `/admin/md/routing-output-search`（单数 + 连字符），避免与
-/// `/admin/md/routings/{id}` 动态段同层混用导致 axum matchit 静默 404
-/// （见 memory `reference-axum-matchit-route-conflict.md`）。
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/routing-output-search")]
-pub struct RoutingOutputSearchPath;
-
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -102,9 +93,5 @@ pub fn router() -> Router<AppState> {
         .route(
             RoutingBoundBomsPath::PATH,
             get(routing_create::get_routing_bound_boms),
-        )
-        .route(
-            RoutingOutputSearchPath::PATH,
-            get(routing_create::get_routing_output_search),
         )
 }

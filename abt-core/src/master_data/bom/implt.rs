@@ -778,6 +778,9 @@ impl BomCostServiceImpl {
     ) -> Result<Option<Vec<LaborCostItem>>> {
         use crate::master_data::routing::{new_routing_service, RoutingService};
         use crate::master_data::work_center::{new_work_center_service, WorkCenterService};
+        use crate::master_data::bom_routing_output::{
+            new_bom_routing_output_service, BomRoutingOutputService, BomRoutingOutput,
+        };
 
         let routing_svc = new_routing_service(self.pool.clone());
         let detail = match routing_svc.get_bom_routing(ctx, db, product_code.to_string()).await? {
@@ -790,10 +793,22 @@ impl BomCostServiceImpl {
         }
 
         let wc_svc = new_work_center_service(self.pool.clone());
+        // per-BOM 产出覆盖：计件价从覆盖层取（routing 解耦后唯一源），工作中心覆盖优先回退模板
+        let outputs = new_bom_routing_output_service(self.pool.clone())
+            .find_outputs_by_product(ctx, db, product_code.to_string())
+            .await?;
+        let out_map: std::collections::HashMap<i32, &BomRoutingOutput> =
+            outputs.iter().map(|o| (o.step_order, o)).collect();
         let mut items = Vec::with_capacity(detail.steps.len());
 
         for step in &detail.steps {
-            let work_center_name = if let Some(wc_id) = step.work_center_id {
+            let out = out_map.get(&step.step_order);
+            let unit_price = out
+                .and_then(|o| o.unit_price)
+                .unwrap_or(rust_decimal::Decimal::ZERO);
+            // 工作中心：覆盖层优先，回退模板（工作中心是可共享工艺属性，保留在模板）
+            let work_center_id = out.and_then(|o| o.work_center_id).or(step.work_center_id);
+            let work_center_name = if let Some(wc_id) = work_center_id {
                 wc_svc.get(ctx, db, wc_id).await.ok().map(|wc| wc.name)
             } else {
                 None
@@ -802,11 +817,11 @@ impl BomCostServiceImpl {
             items.push(LaborCostItem {
                 id: step.id,
                 name: step.process_name.clone().unwrap_or_else(|| step.process_code.clone()),
-                unit_price: step.unit_price.unwrap_or(rust_decimal::Decimal::ZERO),
+                unit_price,
                 quantity: rust_decimal::Decimal::ONE,
                 sort_order: step.step_order,
                 remark: step.remark.clone().unwrap_or_default(),
-                work_center_id: step.work_center_id,
+                work_center_id,
                 work_center_name,
                 standard_time: step.standard_time,
                 is_outsourced: step.is_outsourced,

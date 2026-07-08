@@ -9,6 +9,8 @@ pub mod labor_process_dict;
 pub mod routing;
 pub mod bom_labor_process;
 pub mod bom_routing_output;
+pub mod bom_operation;
+pub mod bom_step_price;
 pub mod work_center;
 pub mod work_calendar;
 pub mod print_template;

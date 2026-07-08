@@ -61,7 +61,6 @@ classDiagram
         ReadyToShip
         PartiallyShipped
         Shipped
-        Completed
         Cancelled
     }
 
@@ -853,7 +852,6 @@ classDiagram
               <span style="color:#98c379;">Draft</span> → <span style="color:#56b6c2;">Confirmed</span> <span style="color:#888;">| confirm() + 预留 + 履行计划 + 需求事件</span><br>
               <span style="color:#56b6c2;">Confirmed</span> → <span style="color:#c678dd;">ReadyToShip</span> <span style="color:#888;">| recalc_header_status() 全行 Allocated（库存已补足、未发货）</span><br>
               <span style="color:#c678dd;">ReadyToShip</span> → <span style="color:#e5c07b;">PartiallyShipped</span> / <span style="color:#6bc76b;">Shipped</span> <span style="color:#888;">| SR.ship() + recalc_header_status()</span><br>
-              <span style="color:#6bc76b;">Shipped</span> → <span style="color:#6bc76b;">Completed</span> <span style="color:#888;">| complete() open_qty = 0 防御 cancelled_qty</span><br>
               <span style="color:#98c379;">Draft</span> / <span style="color:#56b6c2;">Confirmed</span> / <span style="color:#c678dd;">ReadyToShip</span> → <span style="color:#e06c75;">Cancelled</span> <span style="color:#888;">| cancel()</span>
             </div>
 

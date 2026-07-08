@@ -38,7 +38,6 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
  SalesOrderStatus::ReadyToShip => ("待发货", "status-ready"),
  SalesOrderStatus::PartiallyShipped => ("部分发货", "status-progress"),
  SalesOrderStatus::Shipped => ("已发货", "status-shipped"),
- SalesOrderStatus::Completed => ("已完成", "status-completed"),
  SalesOrderStatus::Cancelled => ("已取消", "status-cancelled"),
  SalesOrderStatus::ShippingRequested => ("已申请发货", "status-ready"),
  }
@@ -234,7 +233,6 @@ pub async fn print_order(
         SalesOrderStatus::ReadyToShip => "待发货",
         SalesOrderStatus::PartiallyShipped => "部分发货",
         SalesOrderStatus::Shipped => "已发货",
-        SalesOrderStatus::Completed => "已完成",
         SalesOrderStatus::Cancelled => "已取消",
         SalesOrderStatus::ShippingRequested => "已申请发货",
     };
@@ -312,24 +310,6 @@ pub async fn confirm_order(
  let mut tx = state.pool.begin().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  svc.confirm(&service_ctx, &mut tx, path.id).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-
- let redirect = OrderDetailPath { id: path.id }.to_string();
- Ok(([("HX-Redirect", redirect)], Html(String::new())))
-}
-
-#[require_permission("SALES_ORDER", "update")]
-pub async fn complete_order(
- path: CompleteOrderPath,
- ctx: RequestContext,
-) -> Result<impl IntoResponse> {
- let RequestContext { state, service_ctx, .. } = ctx;
- let svc = state.sales_order_service();
-
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- svc.complete(&service_ctx, &mut tx, path.id).await?;
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
@@ -508,7 +488,6 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
  ("待发货", SalesOrderStatus::ReadyToShip),
  ("部分发货", SalesOrderStatus::PartiallyShipped),
  ("已发货", SalesOrderStatus::Shipped),
- ("已完成", SalesOrderStatus::Completed),
  ];
  let current_idx = steps.iter().position(|(_, s)| *s == current).unwrap_or(0);
  let is_cancelled = current == SalesOrderStatus::Cancelled;

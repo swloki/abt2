@@ -613,56 +613,6 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
-    async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
-        let existing = self
-            .repo
-            .find_by_id(db, id)
-            .await?
-            .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
-
-        if existing.status != SalesOrderStatus::Shipped {
-            return Err(DomainError::business_rule("Only Shipped orders can be completed"));
-        }
-
-        let items = self
-            .item_repo
-            .find_by_order_id(db, id)
-            .await?;
-
-        for item in &items {
-            if item.open_qty() > Decimal::ZERO {
-                return Err(DomainError::business_rule(format!(
-                    "Item {} has open qty {} (not fully shipped/cancelled)",
-                    item.line_no, item.open_qty()
-                )));
-            }
-        }
-
-        new_state_machine_service(self.pool.clone())
-            .transition(ctx, db, "SalesOrderStatus", id, "Completed", None)
-            .await?;
-
-        self.repo
-            .update_status(db, id, SalesOrderStatus::Completed)
-            .await?;
-
-        new_audit_log_service(self.pool.clone())
-            .record(
-                    ctx,
-                    db,
-                    RecordAuditLogReq {
-                        entity_type: "SalesOrder",
-                        entity_id: id,
-                        action: AuditAction::Transition,
-                        changes: Some(serde_json::json!({ "from": existing.status.as_str(), "to": "Completed" })),
-                        context: None,
-                    },
-                )
-            .await?;
-
-        Ok(())
-    }
-
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo

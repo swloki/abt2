@@ -1761,6 +1761,10 @@ async fn render_work_center_page(
             (domain_markup)
             // 共享 drawer overlay（各域 GET ?drawer=&id= 把 body 填入 #wc-drawer-body）
             (wc_drawer_shell())
+            // Issue #219：确认发货（direct_ship）成功后自动打印发货单的页面级隐藏 iframe。
+            // drawer_form 在 direct_ship afterRequest 成功时 set 其 src → print_shipping 响应
+            // 自带 window.print() 弹出预览。常驻 DOM（display:none iframe 仍会加载并触发打印）。
+            iframe id="wc-ship-print-frame" class="hidden" {}
             // 各 domain 创建 drawer（新建按钮 hx-get 填 body；submit 保 tab）
             (render_drawer_overlay("wc-cycle-count-create-overlay", "wc-cycle-count-create-drawer-body", "新建盘点单", "w-[900px] max-w-[94vw]"))
             (render_drawer_overlay("wc-requisition-create-overlay", "wc-requisition-create-drawer-body", "新建领料单", "w-[1000px] max-w-[94vw]"))
@@ -2565,6 +2569,21 @@ fn drawer_form(
     footer_label: &str,
 ) -> Markup {
     let footer = drawer_footer(footer_label);
+    // Issue #219：direct_ship（确认发货）成功后自动触发打印发货单——关 drawer 同时 set
+    // 页面级隐藏 iframe #wc-ship-print-frame 的 src，print_shipping 响应自带 window.print()
+    // 弹出打印预览。复用 print_dropdown 的 set-src 机制（components/print_dropdown.rs）。
+    let after_request_hs = if action == "direct_ship" {
+        let print_url = ShippingPrintPath { id }.to_string();
+        format!(
+            "on 'htmx:afterRequest'[detail.xhr.status<400 and detail.elt is me] \
+             remove .open from #wc-drawer-overlay then \
+             set #wc-ship-print-frame's src to '{print_url}'"
+        )
+    } else {
+        "on 'htmx:afterRequest'[detail.xhr.status<400 and detail.elt is me] \
+         remove .open from #wc-drawer-overlay"
+            .to_string()
+    };
     html! {
        div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
             div class="font-bold text-base text-fg" { (title) }
@@ -2581,7 +2600,7 @@ fn drawer_form(
             hx-swap="outerHTML"
             hx-confirm=(confirm)
             onsubmit=(onsubmit)
-            _="on 'htmx:afterRequest'[detail.xhr.status<400 and detail.elt is me] remove .open from #wc-drawer-overlay"
+            _=(after_request_hs)
             class="flex-1 flex flex-col overflow-hidden" {
             input type="hidden" name="action" value=(action);
             input type="hidden" name="id" value=(id);

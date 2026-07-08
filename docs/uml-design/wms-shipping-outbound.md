@@ -195,7 +195,8 @@ async fn handle(ctx, db, event: ShipmentShipped) {
 
 **实现**（migration `074` + 代码）：
 - **新状态 `SalesOrderStatus::ShippingRequested = 8`**：销售一键申请后推进到此态。`recalc_header_status` 叠加判定——`calc_header_status` 出 Confirmed/ReadyToShip 时，若该订单有活跃发货单（Confirmed/Picking）且未全 Shipped → ShippingRequested（业务意图优先于「库存已补足」中间态）。
-- **`ShippingRequestService::request_from_order(order_id, items: Vec<RequestShippingItemReq>)`**：订单详情页弹窗调用，各行 `warehouse_id=None`（销售不选仓库），发货单跳过 Draft → 直接 Confirmed（进 work-center 待发货队列），回写订单 ShippingRequested。允许 ShippingRequested 状态重复申请（追加数量）。
+- **`ShippingRequestService::request_from_order(order_id, items: Vec<RequestShippingItemReq>, shipping_requirements: String)`**：订单详情页弹窗调用，各行 `warehouse_id=None`（销售不选仓库），发货单跳过 Draft → 直接 Confirmed（进 work-center 待发货队列），回写订单 ShippingRequested。允许 ShippingRequested 状态重复申请（追加数量）。`shipping_requirements` 为销售填写的发货要求（Issue #218），落到 `stock_pickings.shipping_requirements`。
+- **`stock_pickings.shipping_requirements TEXT NOT NULL DEFAULT ''`（migration 094，Issue #218）**：销售在申请发货弹窗填写的发货要求（指定快递 / 防震包装等，textarea 上限 200 字），供仓库/物流参考；发货详情页与出库单打印变量（`{{发货要求}}`）展示。其他作业类型（领料/调拨/入库）该列恒为 `''`。
 - **`shipping_request_items.warehouse_id` / `pick_list_items.warehouse_id` 改可空**（migration 074 DROP NOT NULL）：销售申请不带仓库，仓库拣货时手选。
 - **拣货 drawer 加仓库+库位 select**（`wms_work_center.rs`）：仓库在拣货时决定从哪个仓库/库位出；`PickItemInput` 加 `warehouse_id`，`update_picked` 回填 `pick_list_items.warehouse_id/bin_id`。
 - **`ship()` 扣库存改从 `PickListItem` 取 warehouse_id/bin_id**（不再用发货明细的 None）：`outbound_item_id → (warehouse_id, bin_id)` 映射，拣货未录仓库时报「拣货未录入仓库，无法出库」兜底。

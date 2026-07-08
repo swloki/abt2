@@ -311,6 +311,7 @@ pub async fn print_shipping(
         "订单总金额": order_total.to_string(),
         "大写金额": "",
         "备注": shipping.remark,
+        "发货要求": shipping.shipping_requirements,
         "单据状态": status_text,
         "明细": detail_items,
         "公司名称": "江门市艾伯特照明科技有限公司",
@@ -536,6 +537,16 @@ fn shipping_detail_page(
         }))
         // ── 库存事务 disclosure（懒加载）──
         (doc_disclosure_lazy("d-txn", "库存事务", "本单库存流水", &ShippingFragmentPath { id: s.id, block: "transactions".to_string() }.to_string()))
+        // ── 发货要求（销售在申请发货时填写）──
+        @if !s.shipping_requirements.is_empty() {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6"
+            {
+                div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                    "发货要求"
+                }
+                p class="text-muted whitespace-pre-wrap" { (s.shipping_requirements.as_str()) }
+            }
+        }
         // ── Remarks ──
         @if !s.remark.is_empty() {
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6"

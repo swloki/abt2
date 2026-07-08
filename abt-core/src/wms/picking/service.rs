@@ -163,13 +163,15 @@ pub trait PickingService: Send + Sync {
         req: CreateFromOrderReq,
     ) -> Result<i64>;
 
-    /// 一键申请发货（订单详情页弹窗）：跳 Draft → 直接 Confirmed，回写 SO ShippingRequested
+    /// 一键申请发货（订单详情页弹窗）：跳 Draft → 直接 Confirmed，回写 SO ShippingRequested。
+    /// shipping_requirements 为销售填写的发货要求，落到发货单 stock_pickings.shipping_requirements。
     async fn request_from_order(
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
         order_id: i64,
         items: Vec<RequestShippingItemReq>,
+        shipping_requirements: String,
     ) -> Result<i64>;
 
     /// 直接发货（Confirmed → Done）：选仓 + SalesShipment 流水 + 释放预留 + 回写 SO Shipped + 事件。

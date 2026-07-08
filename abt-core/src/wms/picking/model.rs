@@ -29,6 +29,8 @@ pub struct StockPicking {
     /// 关联工单（领料/生产入库用）
     pub work_order_id: Option<i64>,
     pub remark: String,
+    /// 发货要求（销售在申请发货时填写，供仓库/物流参考）
+    pub shipping_requirements: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
@@ -75,6 +77,8 @@ pub struct CreatePickingReq {
     pub scheduled_date: Option<NaiveDate>,
     pub work_order_id: Option<i64>,
     pub remark: Option<String>,
+    /// 发货要求（申请发货专用；None → 存 ''）。其他作业类型（领料/调拨/入库）填 None。
+    pub shipping_requirements: Option<String>,
     pub items: Vec<CreatePickingItemReq>,
 }
 

@@ -703,12 +703,13 @@ fn render_picking_items_drawer_body(
                     }
                     tbody {
                         @for it in items {
+                            @let name = names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—");
                             tr class="border-b border-border-soft last:border-b-0" {
                                 td class="py-2 px-3 font-mono text-fg" {
                                     (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
                                 }
                                 td class="py-2 px-3 text-fg" {
-                                    (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+                                    span class="block max-w-[260px] truncate" title=(name) { (name) }
                                 }
                                 td class="py-2 px-3 text-fg-2" {
                                     (specs.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))

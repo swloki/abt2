@@ -1219,6 +1219,81 @@ struct PoItemWeb {
     tax_rate_id: Option<String>,
 }
 
+/// 解析 drawer 表单为 update 请求 + 明细行。
+/// update_po / confirm_po / submit_po 复用——确保 Draft 状态下「直接确认 / 提交审批」
+/// 会先持久化 drawer 内编辑（含补单价），避免「填了单价未保存直接确认」被校验拦截（Issue #221）。
+fn parse_po_drawer_form(
+    form: &PoDrawerForm,
+    existing: &PurchaseOrder,
+) -> Result<(UpdatePurchaseOrderRequest, Vec<CreateOrderItemRequest>), DomainError> {
+    if form.supplier_id == 0 {
+        return Err(DomainError::validation("请选择供应商"));
+    }
+    let expected_delivery_date = form
+        .expected_delivery_date
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                .map_err(|e| DomainError::validation(format!("无效交货日期: {e}")))
+        })
+        .transpose()?;
+    let web_items: Vec<PoItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效明细数据: {e}")))?;
+    if web_items.is_empty() {
+        return Err(DomainError::validation("请至少保留一个明细行"));
+    }
+    let items: Vec<CreateOrderItemRequest> = web_items
+        .into_iter()
+        .enumerate()
+        .map(|(idx, it)| {
+            let quantity: rust_decimal::Decimal = it
+                .quantity
+                .parse()
+                .map_err(|_| DomainError::validation(format!("第 {} 行无效数量", idx + 1)))?;
+            let unit_price: rust_decimal::Decimal = it
+                .unit_price
+                .parse()
+                .map_err(|_| DomainError::validation(format!("第 {} 行无效单价", idx + 1)))?;
+            let item_delivery = it
+                .item_delivery_date
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+            Ok(CreateOrderItemRequest {
+                product_id: it.product_id.parse().unwrap_or(0),
+                line_no: (idx as i32) + 1,
+                description: it.description.unwrap_or_default(),
+                quantity,
+                unit_price,
+                quotation_item_id: None,
+                expected_delivery_date: item_delivery,
+                discount_pct: it
+                    .discount_pct
+                    .as_deref()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(rust_decimal::Decimal::ZERO),
+                tax_rate_id: it
+                    .tax_rate_id
+                    .as_deref()
+                    .and_then(|s| s.parse().ok())
+                    .filter(|&v: &i64| v > 0),
+            })
+        })
+        .collect::<Result<Vec<_>, DomainError>>()?;
+    let req = UpdatePurchaseOrderRequest {
+        supplier_id: form.supplier_id,
+        expected_delivery_date,
+        payment_terms: form.payment_terms.clone(),
+        delivery_address: form.delivery_address.clone(),
+        remark: form.remark.clone().unwrap_or_default(),
+        currency_code: existing.currency_code.clone(),
+        currency_rate: existing.currency_rate,
+        discount_amount: existing.discount_amount,
+    };
+    Ok((req, items))
+}
+
 // ── 从零新建 PO drawer（复用 purchase_order_create::po_create_page，drawer 模式）──
 
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -1440,7 +1515,7 @@ pub async fn get_misc_detail_drawer(
     ))
 }
 
-/// Draft PO 编辑保存（复用 purchase_order_edit::update_po 的解析逻辑，但广播 poChanged 而非 HX-Redirect）。
+/// Draft PO 编辑保存（解析逻辑见 parse_po_drawer_form，广播 poChanged）。
 #[require_permission("PURCHASE_ORDER", "update")]
 pub async fn update_po(
     path: PcPoUpdatePath,
@@ -1458,71 +1533,7 @@ pub async fn update_po(
     if existing.status != PurchaseOrderStatus::Draft {
         return Err(DomainError::business_rule("仅草稿状态的订单可以编辑").into());
     }
-    if form.supplier_id == 0 {
-        return Err(DomainError::validation("请选择供应商").into());
-    }
-    let expected_delivery_date = form
-        .expected_delivery_date
-        .as_deref()
-        .filter(|s| !s.is_empty())
-        .map(|s| {
-            chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
-                .map_err(|e| DomainError::validation(format!("无效交货日期: {e}")))
-        })
-        .transpose()?;
-    let web_items: Vec<PoItemWeb> = serde_json::from_str(&form.items_json)
-        .map_err(|e| DomainError::validation(format!("无效明细数据: {e}")))?;
-    if web_items.is_empty() {
-        return Err(DomainError::validation("请至少保留一个明细行").into());
-    }
-    let items: Vec<CreateOrderItemRequest> = web_items
-        .into_iter()
-        .enumerate()
-        .map(|(idx, it)| {
-            let quantity: rust_decimal::Decimal = it
-                .quantity
-                .parse()
-                .map_err(|_| DomainError::validation(format!("第 {} 行无效数量", idx + 1)))?;
-            let unit_price: rust_decimal::Decimal = it
-                .unit_price
-                .parse()
-                .map_err(|_| DomainError::validation(format!("第 {} 行无效单价", idx + 1)))?;
-            let item_delivery = it
-                .item_delivery_date
-                .as_deref()
-                .filter(|s| !s.is_empty())
-                .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
-            Ok(CreateOrderItemRequest {
-                product_id: it.product_id.parse().unwrap_or(0),
-                line_no: (idx as i32) + 1,
-                description: it.description.unwrap_or_default(),
-                quantity,
-                unit_price,
-                quotation_item_id: None,
-                expected_delivery_date: item_delivery,
-                discount_pct: it
-                    .discount_pct
-                    .as_deref()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(rust_decimal::Decimal::ZERO),
-                tax_rate_id: it
-                    .tax_rate_id
-                    .as_deref()
-                    .and_then(|s| s.parse().ok())
-                    .filter(|&v: &i64| v > 0),
-            })
-        })
-        .collect::<Result<Vec<_>, DomainError>>()?;
-    let req = UpdatePurchaseOrderRequest {
-        supplier_id: form.supplier_id,
-        expected_delivery_date,
-        payment_terms: form.payment_terms,
-        delivery_address: form.delivery_address,
-        remark: form.remark.unwrap_or_default(),
-        currency_code: existing.currency_code.clone(),
-        currency_rate: existing.currency_rate,
-        discount_amount: existing.discount_amount,
-    };
+    let (req, items) = parse_po_drawer_form(&form, &existing)?;
     svc.update(&service_ctx, &mut tx, path.id, req, items).await?;
     tx.commit()
         .await
@@ -1532,17 +1543,26 @@ pub async fn update_po(
 }
 
 #[require_permission("PURCHASE_ORDER", "update")]
-pub async fn submit_po(path: PcPoSubmitPath, ctx: RequestContext) -> Result<impl IntoResponse> {
+pub async fn submit_po(
+    path: PcPoSubmitPath,
+    ctx: RequestContext,
+    Form(form): Form<PoDrawerForm>,
+) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
+    let svc = state.purchase_order_service();
     let mut tx = state
         .pool
         .begin()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    state
-        .purchase_order_service()
-        .submit(&service_ctx, &mut tx, path.id, None)
-        .await?;
+    let existing = svc.get(&service_ctx, &mut tx, path.id).await?;
+    if existing.status != PurchaseOrderStatus::Draft {
+        return Err(DomainError::business_rule("仅草稿状态的订单可以提交").into());
+    }
+    // 先保存 drawer 内编辑（含补单价），再提交审批——Issue #221。
+    let (req, items) = parse_po_drawer_form(&form, &existing)?;
+    svc.update(&service_ctx, &mut tx, path.id, req, items).await?;
+    svc.submit(&service_ctx, &mut tx, path.id, None).await?;
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -1551,17 +1571,26 @@ pub async fn submit_po(path: PcPoSubmitPath, ctx: RequestContext) -> Result<impl
 }
 
 #[require_permission("PURCHASE_ORDER", "update")]
-pub async fn confirm_po(path: PcPoConfirmPath, ctx: RequestContext) -> Result<impl IntoResponse> {
+pub async fn confirm_po(
+    path: PcPoConfirmPath,
+    ctx: RequestContext,
+    Form(form): Form<PoDrawerForm>,
+) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
+    let svc = state.purchase_order_service();
     let mut tx = state
         .pool
         .begin()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    state
-        .purchase_order_service()
-        .confirm(&service_ctx, &mut tx, path.id, None)
-        .await?;
+    let existing = svc.get(&service_ctx, &mut tx, path.id).await?;
+    if existing.status != PurchaseOrderStatus::Draft {
+        return Err(DomainError::business_rule("仅草稿状态的订单可以确认").into());
+    }
+    // 先保存 drawer 内编辑（含补单价），再确认——避免「填了单价未保存直接确认」被校验拦截（Issue #221）。
+    let (req, items) = parse_po_drawer_form(&form, &existing)?;
+    svc.update(&service_ctx, &mut tx, path.id, req, items).await?;
+    svc.confirm(&service_ctx, &mut tx, path.id, None).await?;
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -1631,7 +1660,8 @@ fn render_po_detail_drawer_body(
         form id="pc-po-drawer-form"
             hx-post=(PcPoUpdatePath { id: order.id }.to_string())
             hx-swap="none"
-            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #po-detail-overlay then call showToast('订单已保存')" {
+            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #po-detail-overlay then call showToast(#po-action's value) then set #po-action's value to ''" {
+            input type="hidden" id="po-action" {};
             input type="hidden" id="pc-po-items-json" name="items_json" value="[]" {};
             input type="hidden" name="supplier_id" value=(order.supplier_id) {};
             (po_drawer_info_grid(order, supplier_name, operator_name, is_draft))
@@ -1880,19 +1910,18 @@ fn po_drawer_actions(order: &PurchaseOrder) -> Markup {
                     _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #po-detail-overlay then call showToast('订单已取消')" {
                     "取消订单"
                 }
-                button type="button" class=(ghost)
-                    hx-post=(PcPoConfirmPath { id: order.id }.to_string()) hx-swap="none"
-                    hx-confirm="直接确认此订单？"
-                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #po-detail-overlay then call showToast('订单已确认')" {
+                button type="submit" class=(ghost)
+                    formaction=(PcPoConfirmPath { id: order.id }.to_string())
+                    _="on click set #po-action's value to '订单已确认' then call confirm('直接确认此订单？') then if not it then halt the event" {
                     "直接确认"
                 }
-                button type="button" class=(ghost)
-                    hx-post=(PcPoSubmitPath { id: order.id }.to_string()) hx-swap="none"
-                    hx-confirm="提交审批？"
-                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #po-detail-overlay then call showToast('已提交审批')" {
+                button type="submit" class=(ghost)
+                    formaction=(PcPoSubmitPath { id: order.id }.to_string())
+                    _="on click set #po-action's value to '已提交审批' then call confirm('提交审批？') then if not it then halt the event" {
                     "提交审批"
                 }
-                button type="submit" class=(primary) { "保存修改" }
+                button type="submit" class=(primary)
+                    _="on click set #po-action's value to '订单已保存'" { "保存修改" }
             } @else if order.status == PurchaseOrderStatus::PendingApproval {
                 button type="button" class=(ghost)
                     hx-post=(PcOrderRejectPath { id: order.id }.to_string()) hx-swap="none"

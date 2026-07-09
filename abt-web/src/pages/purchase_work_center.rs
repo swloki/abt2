@@ -979,6 +979,15 @@ fn render_convert_po_body(
     supplier_names: &HashMap<i64, String>,
     errors: Option<&HashMap<&str, String>>,
 ) -> Markup {
+    // 无可转需求时只给提示，不渲染可提交的 form——避免提交空 demand_ids 报错
+    if demands.is_empty() {
+        return html! {
+            div class="p-6 m-1 text-center" {
+                div class="text-warn text-sm font-medium mb-1.5" { "该物料暂无可转的采购需求" }
+                div class="text-muted text-xs leading-relaxed" { "可能已全部转单或处理，请关闭后重试。" }
+            }
+        };
+    }
     let demand_ids: Vec<String> = demands.iter().map(|d| d.id.to_string()).collect();
     let demand_ids_str = demand_ids.join(",");
     let product_name = demands
@@ -1081,6 +1090,15 @@ fn render_batch_convert_body(
     demands: &[DemandSummary],
     errors: Option<&HashMap<&str, String>>,
 ) -> Markup {
+    // 无可转需求时只给提示，不渲染可提交的 form——避免提交空 demand_ids 报错
+    if demands.is_empty() {
+        return html! {
+            div class="p-6 m-1 text-center" {
+                div class="text-warn text-sm font-medium mb-1.5" { "暂无可转的采购需求" }
+                div class="text-muted text-xs leading-relaxed" { "所选需求可能已处理，请关闭后重新选择。" }
+            }
+        };
+    }
     let demand_ids: Vec<String> = demands.iter().map(|d| d.id.to_string()).collect();
     let demand_ids_str = demand_ids.join(",");
     let product_count = demands

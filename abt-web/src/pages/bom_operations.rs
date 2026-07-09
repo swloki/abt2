@@ -30,6 +30,8 @@ use abt_core::master_data::labor_process_dict::{
     model::{LaborProcessDict, LaborProcessDictQuery},
 };
 use abt_core::master_data::product::{ProductService, model::Product};
+use abt_core::master_data::routing::RoutingService;
+use abt_core::master_data::routing::model::{Routing, RoutingQuery};
 use abt_core::master_data::work_center::{WorkCenterService, model::WorkCenter};
 use abt_core::shared::types::{DomainError, PageParams, PgPoolConn};
 
@@ -227,6 +229,12 @@ pub async fn get_operation_page(path: BomOperationsPath, ctx: RequestContext) ->
         .items;
     let work_centers = load_active_work_centers(&state, &service_ctx, &mut conn).await;
     let nl_products = load_non_leaf_products(&state, &service_ctx, &mut conn, &product_code).await;
+    let routings = state
+        .routing_service()
+        .list(&service_ctx, &mut conn, RoutingQuery { keyword: None, bom_keyword: None }, PageParams::new(1, 200))
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
 
     let current_path = BomOperationsPath { id: path.id }.to_string();
     let content = operation_page_content(
@@ -237,6 +245,7 @@ pub async fn get_operation_page(path: BomOperationsPath, ctx: RequestContext) ->
         &processes,
         &work_centers,
         &nl_products,
+        &routings,
     );
 
     let page_html = admin_page(
@@ -422,9 +431,11 @@ fn operation_page_content(
     processes: &[LaborProcessDict],
     work_centers: &[WorkCenter],
     nl_products: &[Product],
+    routings: &[Routing],
 ) -> Markup {
     let inspect_cnt = operations.iter().filter(|o| o.is_inspection_point).count();
     let outsource_cnt = operations.iter().filter(|o| o.is_outsourced).count();
+    let has_ops = !operations.is_empty();
     html! {
         // ── 面包屑 + 跳转 ──
         div class="flex items-center justify-between mb-4 flex-wrap gap-2" {
@@ -447,9 +458,48 @@ fn operation_page_content(
             div class="mt-1.5 text-xs text-warn bg-warn-50 border border-warn-200 rounded-sm px-3 py-1.5 inline-block" {
                 "工序按产品维护：该产品所有 BOM 版本（Draft / Published）共享同一套工序。"
             }
-            @if !operations.is_empty() {
+            @if has_ops {
                 div class="mt-2 text-xs text-muted" {
                     "共 " (operations.len()) " 道 · 检验点 " (inspect_cnt) " · 委外 " (outsource_cnt)
+                }
+            }
+        }
+        // ── 从工艺路线加载 ──
+        @if !routings.is_empty() {
+            div class="mb-4 flex items-center gap-2.5 flex-wrap" {
+                span class="text-xs text-muted whitespace-nowrap" { "从工艺路线加载：" }
+                form class="flex items-center gap-2 flex-wrap"
+                    hx-post=(BomOperationApplyPath { id: bom_id }.to_string())
+                    hx-swap="none" {
+                    select name="routing_id" class="px-2 py-1.5 text-xs border border-border rounded-sm bg-white text-fg min-w-[220px] hover:border-accent focus:border-accent" {
+                        option value="" { "— 选择工艺路线 —" }
+                        @for r in routings {
+                            option value=(r.id) { (r.code) " · " (r.name) }
+                        }
+                    }
+                    @if has_ops {
+                        button type="submit"
+                            class="inline-flex items-center gap-1 py-1.5 px-3 text-xs font-medium rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            hx-confirm="该产品已有工序，加载将覆盖现有工序，是否继续？"
+                            hx-disabled-elt="this" {
+                            "加载工序"
+                        }
+                    } @else {
+                        button type="submit"
+                            class="inline-flex items-center gap-1 py-1.5 px-3 text-xs font-medium rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            hx-disabled-elt="this" {
+                            "加载工序"
+                        }
+                    }
+                    @if has_ops {
+                        label class="inline-flex items-center gap-1 text-xs text-muted cursor-pointer" {
+                            input type="checkbox" name="force" value="true" class="accent-accent" {};
+                            "覆盖现有工序"
+                        }
+                    }
+                }
+                div class="text-xs text-muted" {
+                    "拷贝后与模板解耦，后续修改模板不影响本 BOM。"
                 }
             }
         }
@@ -548,7 +598,7 @@ fn operation_row(
             td class="px-2 py-2 text-muted font-mono" { (step) }
             // 工序（change → 刷新整行，带默认值联动）
             td class="px-2 py-2" {
-                select name="process_code" class="w-full px-1.5 py-1 border border-transparent rounded-sm bg-transparent text-fg text-[13px] hover:border-border focus:border-accent focus:bg-bg cursor-pointer"
+                select name="process_code" class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg text-[13px] hover:border-border focus:border-accent focus:bg-bg cursor-pointer"
                     hx-post=(post.clone()) hx-target=(target.clone()) hx-swap="outerHTML" hx-include=(target.clone())
                     hx-trigger="change" {
                     option value="" selected[op.process_code.is_empty()] { "— 选择 —" }
@@ -559,7 +609,7 @@ fn operation_row(
             }
             // 工作中心（change → 静默保存）
             td class="px-2 py-2" {
-                select name="work_center_id" class="w-full px-1.5 py-1 border border-transparent rounded-sm bg-transparent text-fg-2 text-[13px] hover:border-border focus:border-accent focus:bg-bg cursor-pointer"
+                select name="work_center_id" class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg-2 text-[13px] hover:border-border focus:border-accent focus:bg-bg cursor-pointer"
                     hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="change" {
                     option value="" selected[op.work_center_id.is_none()] { "—" }
                     @for w in work_centers {
@@ -569,7 +619,7 @@ fn operation_row(
             }
             // 产出品（change → 静默保存；检测工序选"无产出"）
             td class="px-2 py-2" {
-                select name="output_product_id" class="w-full px-1.5 py-1 border border-transparent rounded-sm bg-transparent text-fg-2 text-[13px] hover:border-border focus:border-accent focus:bg-bg cursor-pointer"
+                select name="output_product_id" class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg-2 text-[13px] hover:border-border focus:border-accent focus:bg-bg cursor-pointer"
                     hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="change" {
                     option value="" selected[op.output_product_id.is_none()] { "— 无产出 —" }
                     @for p in nl_products {
@@ -583,41 +633,38 @@ fn operation_row(
             td class="px-2 py-2" {
                 input type="number" step="0.000001" name="standard_time"
                     value=(fmt_dec(op.standard_time))
-                    class="w-full px-1.5 py-1 border border-transparent rounded-sm bg-transparent text-fg text-[13px] text-right hover:border-border focus:border-accent focus:bg-bg"
+                    class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg text-[13px] text-right focus:border-accent focus:bg-bg"
                     hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="blur changed" {}
             }
             // 损耗（blur changed → 静默保存）
             td class="px-2 py-2" {
                 input type="number" step="0.000001" name="allowed_loss_rate"
                     value=(fmt_dec(if op.allowed_loss_rate == Decimal::ZERO { None } else { Some(op.allowed_loss_rate) }))
-                    class="w-full px-1.5 py-1 border border-transparent rounded-sm bg-transparent text-fg text-[13px] text-right hover:border-border focus:border-accent focus:bg-bg"
+                    class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg text-[13px] text-right focus:border-accent focus:bg-bg"
                     hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="blur changed" {}
             }
             // 标准成本（blur changed → 静默保存）
             td class="px-2 py-2" {
                 input type="number" step="0.000001" name="standard_cost"
                     value=(fmt_dec(op.standard_cost))
-                    class="w-full px-1.5 py-1 border border-transparent rounded-sm bg-transparent text-fg text-[13px] text-right hover:border-border focus:border-accent focus:bg-bg"
+                    class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg text-[13px] text-right focus:border-accent focus:bg-bg"
                     hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="blur changed" {}
             }
             // 备注（blur changed → 静默保存）
             td class="px-2 py-2" {
                 input type="text" name="remark"
                     value=(op.remark.as_deref().unwrap_or(""))
-                    class="w-full px-1.5 py-1 border border-transparent rounded-sm bg-transparent text-fg-2 text-[13px] hover:border-border focus:border-accent focus:bg-bg"
+                    class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg-2 text-[13px] focus:border-accent focus:bg-bg"
                     hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="blur changed" {}
             }
-            // 属性（change → 静默保存；checkbox value="true" 便于 serde bool）
+            // 属性：仅「委外」可勾选（change → 静默保存）；
+            // 检验点去掉 UI 编辑，用 hidden 保留原值，避免编辑他字段时被 hx-include 覆盖成 false
             td class="px-2 py-2 text-center whitespace-nowrap" {
-                label class="inline-flex items-center gap-1 text-xs text-fg-2 cursor-pointer mr-2" {
+                input type="hidden" name="is_inspection_point" value=(if op.is_inspection_point { "true" } else { "false" }) {};
+                label class="inline-flex items-center gap-1 text-xs text-fg-2 cursor-pointer" {
                     input type="checkbox" value="true" name="is_outsourced" checked[op.is_outsourced] class="accent-accent"
                         hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="change" {};
                     "委外"
-                }
-                label class="inline-flex items-center gap-1 text-xs text-fg-2 cursor-pointer" {
-                    input type="checkbox" value="true" name="is_inspection_point" checked[op.is_inspection_point] class="accent-accent"
-                        hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="change" {};
-                    "检验"
                 }
             }
             // 删除（广播 bomOpChanged → #ops-table 刷新）

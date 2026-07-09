@@ -12,6 +12,16 @@ use crate::state::AppState;
 #[typed_path("/admin/wms/ledger")]
 pub struct LedgerPath;
 
+/// 行内展开：按需加载某个作业单据的明细行（Issue #225）。
+/// 返回单个 `<tr class="row-detail">`，由前端 `hx-swap="afterend"` 注入到该单据行之后。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/ledger/{id}/items")]
+pub struct LedgerItemRowsPath {
+    pub id: i64,
+}
+
 pub fn router() -> Router<AppState> {
-    Router::new().route(LedgerPath::PATH, get(wms_ledger::get_ledger_list))
+    Router::new()
+        .route(LedgerPath::PATH, get(wms_ledger::get_ledger_list))
+        .route(LedgerItemRowsPath::PATH, get(wms_ledger::get_ledger_items))
 }

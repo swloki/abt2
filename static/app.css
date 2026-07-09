@@ -950,6 +950,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .font-normal{--un-font-weight:var(--fontWeight-normal);font-weight:var(--fontWeight-normal);}
 .tab{-moz-tab-size:4;-o-tab-size:4;tab-size:4;}
 .m-0{margin:calc(var(--spacing) * 0);}
+.m-1{margin:calc(var(--spacing) * 1);}
 .-mx-2{margin-inline:calc(var(--spacing) * -2);}
 .-mx-6{margin-inline:calc(var(--spacing) * -6);}
 .mx-1{margin-inline:calc(var(--spacing) * 1);}
@@ -1637,6 +1638,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .w-\[7px\]{width:7px;}
 .w-\[800px\]{width:800px;}
 .w-\[80px\]{width:80px;}
+.w-\[820px\]{width:820px;}
 .w-\[860px\]{width:860px;}
 .w-\[900px\]{width:900px;}
 .w-\[90px\]{width:90px;}

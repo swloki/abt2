@@ -137,8 +137,15 @@ impl PurchaseOrderRepo {
         scope: (DataScope, i64, Option<i64>),
     ) -> Result<(Vec<PurchaseOrder>, u64)> {
         let (data_scope, operator_id, _department_id) = scope;
+        // 状态过滤归一化：statuses（多值，优先）或 status（单值）→ Option<Vec<i16>>，
+        // 统一用 `status = ANY($2::int2[])`。单值变 1 元素数组，与原 `status = $2` 等价（向后兼容）。
+        let status_vals: Option<Vec<i16>> = match (q.statuses.as_ref(), q.status) {
+            (Some(ss), _) if !ss.is_empty() => Some(ss.iter().map(|s| s.as_i16()).collect()),
+            (_, Some(s)) => Some(vec![s.as_i16()]),
+            _ => None,
+        };
         // purchase_orders 无 department_id，Department 降级为 SelfOnly
-        // 占位符布局：$1 supplier_id, $2 status, $3 order_date_start, $4 order_date_end,
+        // 占位符布局：$1 supplier_id, $2 status[](int2[]), $3 order_date_start, $4 order_date_end,
         //             $5 doc_number, $6 product_code
         // count 追加 scope $7；data 追加 LIMIT $7 OFFSET $8 + scope $9
         let count_scope = if matches!(data_scope, DataScope::All) {
@@ -154,7 +161,7 @@ impl PurchaseOrderRepo {
         let where_clause = format!(
             "WHERE deleted_at IS NULL
               AND ($1::bigint IS NULL OR supplier_id = $1)
-              AND ($2::smallint IS NULL OR status = $2)
+              AND ($2::int2[] IS NULL OR status = ANY($2))
               AND ($3::date IS NULL OR order_date >= $3)
               AND ($4::date IS NULL OR order_date <= $4)
               AND ($5::text IS NULL OR doc_number ILIKE '%' || $5 || '%')
@@ -170,7 +177,7 @@ impl PurchaseOrderRepo {
             format!("SELECT COUNT(*) AS cnt FROM purchase_orders {where_clause} {count_scope}");
         let mut count_query = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.supplier_id)
-            .bind(q.status)
+            .bind(&status_vals)
             .bind(q.order_date_start)
             .bind(q.order_date_end)
             .bind(q.doc_number.as_deref())
@@ -198,7 +205,7 @@ impl PurchaseOrderRepo {
         );
         let mut data_query = sqlx::query_as::<_, PurchaseOrder>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.supplier_id)
-            .bind(q.status)
+            .bind(&status_vals)
             .bind(q.order_date_start)
             .bind(q.order_date_end)
             .bind(q.doc_number.as_deref())

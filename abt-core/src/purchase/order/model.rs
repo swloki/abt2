@@ -69,6 +69,8 @@ pub struct PurchaseOrderItem {
 pub struct PurchaseOrderQuery {
     pub supplier_id: Option<i64>,
     pub status: Option<PurchaseOrderStatus>,
+    /// 多状态 OR 查询（优先于 `status`）。采购作业中心「在途订单」= [Confirmed, PartiallyReceived]。
+    pub statuses: Option<Vec<PurchaseOrderStatus>>,
     pub order_date_start: Option<NaiveDate>,
     pub order_date_end: Option<NaiveDate>,
     /// 单号模糊匹配（ILIKE '%kw%'）

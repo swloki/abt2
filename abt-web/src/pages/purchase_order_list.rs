@@ -56,9 +56,21 @@ fn build_filter(params: &POQueryParams) -> PurchaseOrderQuery {
  .as_deref()
  .map(parse_date_range)
  .unwrap_or((None, None));
+ // 筛选值 2 = 「在途订单」= Confirmed(未到货) ∪ PartiallyReceived(部分到货)；其余按单状态
+ let (status, statuses) = match params.status {
+  Some(2) => (
+   None,
+   Some(vec![
+    PurchaseOrderStatus::Confirmed,
+    PurchaseOrderStatus::PartiallyReceived,
+   ]),
+  ),
+  other => (other.and_then(PurchaseOrderStatus::from_i16), None),
+ };
  PurchaseOrderQuery {
  supplier_id: params.supplier_id,
- status: params.status.and_then(PurchaseOrderStatus::from_i16),
+ status,
+ statuses,
  order_date_start,
  order_date_end,
  ..Default::default()
@@ -114,7 +126,7 @@ async fn resolve_buyer_names<S: UserService>(
 fn status_label(s: PurchaseOrderStatus) -> (&'static str, &'static str) {
  match s {
  PurchaseOrderStatus::Draft => ("草稿", "status-draft"),
- PurchaseOrderStatus::Confirmed => ("已确认", "status-confirmed"),
+ PurchaseOrderStatus::Confirmed => ("在途", "status-confirmed"),
  PurchaseOrderStatus::PartiallyReceived => ("部分收货", "status-partial"),
  PurchaseOrderStatus::Received => ("已收货", "status-success"),
  PurchaseOrderStatus::Closed => ("已关闭", "status-cancelled"),
@@ -225,8 +237,7 @@ fn po_table_fragment(
  let tabs = &[
  TabItem { value: String::new(), label: "全部", count: Some(total_count) },
  TabItem { value: "1".into(), label: "草稿", count: None },
- TabItem { value: "2".into(), label: "已确认", count: None },
- TabItem { value: "3".into(), label: "部分收货", count: None },
+ TabItem { value: "2".into(), label: "在途订单", count: None },
  TabItem { value: "4".into(), label: "已收货", count: None },
  TabItem { value: "5".into(), label: "已关闭", count: None },
  TabItem { value: "6".into(), label: "已取消", count: None },

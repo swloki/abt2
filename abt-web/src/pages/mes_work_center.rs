@@ -2354,13 +2354,9 @@ pub async fn release_order(
             // 报工强依赖工序，无工序下达会形成无法报工的死状态。
             errors.empty_routings = true;
         } else {
-            // #124：每道工序必须配置产出品 + 计件单价（工序级领料依赖产出品）
+            // 计件单价校验（报工 confirm_routing_step 硬依赖 unit_price）；
+            // 产出品可选——检测工序无产出，不领料（output=None → 空领料自然跳过，学 Odoo）
             for r in &routings {
-                if r.product_id.is_none() {
-                    errors
-                        .product_missing
-                        .insert(r.id, format!("工序 {}「{}」未配置产出品", r.step_no, r.process_name));
-                }
                 if r.unit_price.is_none() || r.unit_price == Some(Decimal::ZERO) {
                     errors
                         .price_missing
@@ -2551,10 +2547,9 @@ async fn load_batch_drawer_html(
     let mut step_avails: HashMap<i64, abt_core::mes::work_order::MaterialAvailability> =
         HashMap::new();
     for r in &routings {
-        if r.product_id.is_some()
-            && let Ok(avail) = wo_svc
-                .compute_step_availability(service_ctx, conn, batch.work_order_id, r.id, Some(batch.id))
-                .await
+        if let Ok(avail) = wo_svc
+            .compute_step_availability(service_ctx, conn, batch.work_order_id, r.id, Some(batch.id))
+            .await
         {
             step_avails.insert(r.id, avail);
         }
@@ -2722,6 +2717,9 @@ fn render_batch_matrix_row(
     let is_current = r.step_no == active_step;
     let is_completed = r.step_no < batch.current_step;
     let has_req = req_routing_ids.contains(&r.id);
+    // 无产出工序（检测/检验）→ 无消耗物料 → 视同已领料，不显示领料按钮（学 OFBiz 按有无消耗决定按钮）
+    let has_output = r.product_id.is_some();
+    let ready = has_req || !has_output;
     let is_pending = matches!(batch.status, BatchStatus::Pending);
     let is_inprogress = matches!(batch.status, BatchStatus::InProgress);
     let kitted = shortage_n == 0;
@@ -2750,15 +2748,15 @@ fn render_batch_matrix_row(
                 @if is_completed {
                     span class="text-success font-medium" { "✅ 已完成" }
                 } @else if is_current && is_pending {
-                    @if has_req {
-                        // 已领料 + Pending → 收料（=开工），成功后刷新 drawer body
+                    @if ready {
+                        // 已领料（或无产出工序）+ Pending → 收料（=开工），成功后刷新 drawer body
                         form hx-post=(WcBatchReceivePath { batch_id: batch.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
                             button type="submit"
                                 class="text-xs px-2 py-1 rounded-sm bg-accent text-accent-on border-none cursor-pointer hover:opacity-90 transition-all font-medium"
                                 hx-confirm="确认收料开工？" { "收料" }
                         }
-                    } @else if kitted {
-                        // 未领料 + 齐套 → 领料，成功后刷新 drawer body（动作位变收料）
+                    } @else if has_output && kitted {
+                        // 有产出 + 未领料 + 齐套 → 领料，成功后刷新 drawer body（动作位变收料）
                         form hx-post=(WcBatchReqPath { batch_id: batch.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
                             input type="hidden" name="routing_id" value=(r.id);
                             button type="submit"
@@ -2770,16 +2768,16 @@ fn render_batch_matrix_row(
                         span class="text-xs text-muted cursor-not-allowed" title="欠料，无法领料" { "领料" }
                     }
                 } @else if is_current && is_inprogress {
-                    @if has_req {
-                        // 已领料 + InProgress → 报工
+                    @if ready {
+                        // 已领料（或无产出工序）+ InProgress → 报工
                         button class="text-xs px-2 py-1 rounded-sm bg-accent text-accent-on border-none cursor-pointer hover:opacity-90 transition-all font-medium"
                             hx-get=(WcBatchReportModalPath { batch_id: batch.id, step_no: r.step_no }.to_string())
                             hx-target="#batch-report-modal-slot" hx-swap="innerHTML"
                             _="on click halt the event" {
                             "报工"
                         }
-                    } @else if kitted {
-                        // 开工后补领料
+                    } @else if has_output && kitted {
+                        // 有产出 + 开工后补领料
                         form hx-post=(WcBatchReqPath { batch_id: batch.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
                             input type="hidden" name="routing_id" value=(r.id);
                             button type="submit"

@@ -359,9 +359,14 @@ impl PickingService for PickingServiceImpl {
             .into_iter()
             .find(|r| r.id == routing_id)
             .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
-        let output_product_id = routing.product_id.ok_or_else(|| {
-            DomainError::BusinessRule("该工序未配置产出品，无法工序级领料".into())
-        })?;
+        // 无产出工序（检测/检验）→ 无消耗物料 → 不生成领料单（学 Odoo 空 move no-op）
+        let output_product_id = match routing.product_id {
+            Some(pid) => pid,
+            None => {
+                tracing::info!(work_order_id, routing_id, "no output product, skip routing-level picking");
+                return Ok(0);
+            }
+        };
 
         // 2. 工单成品 → 成品已发布 BOM
         let wo = new_work_order_service(self.pool.clone())

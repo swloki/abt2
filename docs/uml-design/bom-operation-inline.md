@@ -7,6 +7,13 @@
 >
 > 评审产出：phase 2 设计稿（用户决策）+ phase 3 四角色评审（ERP 架构师 / Rust 后端 / 制造业业务顾问 / ABT 前端），blocker / major 级 findings 已在相关章节吸收或于 §10 列为开放问题。
 
+> **2026-07 落地补充（工序编辑独立页 + 工序字典默认值 + MES 放宽无产出工序）**：
+> - **工序编辑独立页 `/admin/md/boms/{id}/operations`**：工序（`bom_operations`，per-product_code）从 BOM 编辑页迁到独立全屏页，采用方案 A 表格内联编辑 + SortableJS 拖拽排序。落点变更：§9 部署 A「BOM 编辑器（工序 CRUD + 上下移 + 拷贝）」→ 独立 `abt-web/src/pages/bom_operations.rs`；BOM 编辑页工序区改只读入口卡片（`管理工序 →` 跳转）。§8 退役清单 bom_detail 计件单价链接（review R-17 落点扑空）改指新页。
+> - **工序字典加默认值字段**（migration `100`）：`labor_process_dict` 加 `default_work_center_id` / `default_standard_time`，选工序时自动带出默认工作中心/工时。（曾设计 `process_category` 做类别联动，后弃用——产出品可选 + 检验点/委外独立勾选已够，与三家 ERP 一致；migration `101` DROP 该列。）
+> - **MES 放宽支持「无产出工序」（检测/检验不领料）**：参考三家 ERP（Odoo 最干净——无关联=空领料=自然跳过），放宽 ABT 原三处阻断：① 下达校验去「每道工序必须产出品」（保留计件单价校验）；② 工序级领料 `output=None → Ok(0)` 不生成领料单（`picking/implt.rs`）；③ 齐套 `output=None → 空 Available`（`work_order/implt.rs`）；④ 批次矩阵 UI `has_output` 判断，无产出工序不渲染领料按钮、直接收料/报工（`mes_work_center.rs render_batch_matrix_row`，学 OFBiz）。数据模型本就 Option 无需 schema 改；报工/开工/倒冲/IPQC/计件单价全 None-safe。
+> - **路由变更**（`abt-web/src/routes/bom.rs`）：`BomOperationsPath` GET 从异步 card 片段 → `is_htmx` 分流独立整页；新增 `BomOperationReorderPath`（拖拽批量重排，调 `BomOperationService::replace_operations`）；退役 `BomOperationEditPath`（modal 编辑）/ `BomOperationMovePath`（上下移按钮，拖拽替代）。review R-25/R-26（bom_edit 5 浮层堆叠）前提失效。
+> - **交互范式**：表格内联编辑——工序下拉 change → outerHTML 刷新整行（带默认值）；其余字段 change/blur → `hx-swap="none"` 静默保存（`hx-include="#op-row-{step}"` 收集整行）。复用 BOM 分类下拉 `change→hx-post` 范式（`bom_edit.rs:570-592`）的表格化扩展。
+
 ---
 
 ## 1. 背景与目标

@@ -14,9 +14,7 @@ use abt_macros::require_permission;
 use crate::components::icon;
 use crate::components::overlay::drawer_shell;
 use crate::layout::page::admin_page;
-use crate::routes::bom::{BomCostDrawerPath, BomCostTempPricePath, BomCostClearTempPath, BomDeletePath, BomDetailPath, BomEditPath, BomLaborCostDrawerPath, BomListPath, BomPublishPath};
-use crate::routes::routing::RoutingListPath;
-use axum_extra::routing::TypedPath;
+use crate::routes::bom::{BomCostDrawerPath, BomCostTempPricePath, BomCostClearTempPath, BomDeletePath, BomDetailPath, BomEditPath, BomLaborCostDrawerPath, BomListPath, BomOperationsPath, BomPublishPath};
 use crate::utils::RequestContext;
 
 #[derive(Deserialize)]
@@ -1004,7 +1002,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                 }
                 @if has_any_zero_price {
                     a class="text-[11px] text-accent ml-2 underline hover:text-accent-hover"
-                        href=(RoutingListPath::PATH) { "去工艺路径配置计件单价 →" }
+                        href=(BomOperationsPath { id: report.bom_id }.to_string()) { "管理工序 →" }
                 }
             }
         }

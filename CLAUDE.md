@@ -10,7 +10,7 @@
 - **不要用 `cargo run` 启动服务**，服务已在运行中。验证代码正确性主要用 `cargo clippy`
 - **代码导航**：优先使用 `lsp`（definition / references / hover / type_definition），禁止用文本搜索代替 LSP 查找定义和引用
 - **禁止截图**：模型暂不支持图片输入，禁止使用 `agent-browser screenshot` / `screenshot --full` 等截图命令进行验证。页面验证改用 `snapshot -i`（无障碍树文本）+ `get text @eN`（元素文本）
-- **浏览器测试**：使用 `agent-browser --session <分支名>`（按当前 git 分支名作 session 隔离，避免多 tab 串；如分支 `feat/fms-work-center` → `--session fms-work-center`）。禁止 `agent-browser close` / `close --all`（不要关闭浏览器）
+- **浏览器测试**：使用 `agent-browser --session <WEB_PORT>`（用服务端口作 session 名，默认 `8000`，从 `.env` 的 `WEB_PORT` 读，如 `--session 8000`）。端口数有限 → session 天然封顶，避免按分支名开 session 导致 Chrome 进程无限积累（曾积到 18 个拖慢冷启动）。禁止 `agent-browser close` / `close --all`（不要关闭浏览器）；僵死 session（close 报 os error 10060 超时）直接 PowerShell `Stop-Process` 对应 daemon pid 清理
 - **技能先行**：使用 agent-browser 前必须先用 Skill 工具加载 `agent-browser` 技能（snapshot-and-ref 工作流、交互、表单、并行会话等），禁止凭记忆直接调用命令
 
  **前端开发**

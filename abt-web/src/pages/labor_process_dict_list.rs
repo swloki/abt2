@@ -2,10 +2,13 @@ use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
+use rust_decimal::Decimal;
 use serde::Deserialize;
 
 use abt_core::master_data::labor_process_dict::model::*;
 use abt_core::master_data::labor_process_dict::LaborProcessDictService;
+use abt_core::master_data::work_center::WorkCenterService;
+use abt_core::master_data::work_center::model::WorkCenter;
 use abt_core::shared::types::{DomainError, PageParams};
 
 use crate::components::icon;
@@ -36,6 +39,10 @@ pub struct ProcessDictCreateForm {
  pub description: Option<String>,
  #[serde(default)]
  pub sort_order: Option<i32>,
+ #[serde(default, deserialize_with = "empty_as_none")]
+ pub default_work_center_id: Option<i64>,
+ #[serde(default, deserialize_with = "empty_as_none")]
+ pub default_standard_time: Option<Decimal>,
 }
 
 // ── Handlers ──
@@ -89,10 +96,11 @@ pub async fn get_process_dict_create(
 ) -> crate::errors::Result<Html<String>> {
  let is_htmx = ctx.is_htmx();
  let nav_filter = ctx.nav_filter().await;
- let RequestContext { claims, .. } = ctx;
+ let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+ let work_centers = state.work_center_service().list_active(&service_ctx, &mut conn).await.unwrap_or_default();
 
 
- let content = process_dict_form_page(None);
+ let content = process_dict_form_page(None, &work_centers);
  let page_html = admin_page(
  is_htmx,
  "新建工序",
@@ -129,6 +137,8 @@ pub async fn post_process_dict_create(
  name: form.name.trim().to_string(),
  description: form.description.filter(|d| !d.trim().is_empty()),
  sort_order: form.sort_order.unwrap_or(0),
+ default_work_center_id: form.default_work_center_id,
+ default_standard_time: form.default_standard_time,
  };
 
  let svc = state.labor_process_dict_service();
@@ -151,7 +161,8 @@ pub async fn get_process_dict_edit(
  let nav_filter = ctx.nav_filter().await;
  let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
  let pd = state.labor_process_dict_service().get(&service_ctx, &mut conn, path.id).await?;
- let content = process_dict_form_page(Some(&pd));
+ let work_centers = state.work_center_service().list_active(&service_ctx, &mut conn).await.unwrap_or_default();
+ let content = process_dict_form_page(Some(&pd), &work_centers);
  let edit_path_str = ProcessDictEditPath { id: path.id }.to_string();
  let page_html = admin_page(
  is_htmx,
@@ -189,6 +200,8 @@ pub async fn post_process_dict_update(
  name: Some(form.name.trim().to_string()),
  description: form.description.filter(|d| !d.trim().is_empty()),
  sort_order: form.sort_order,
+ default_work_center_id: form.default_work_center_id,
+ default_standard_time: form.default_standard_time,
  };
 
  state.labor_process_dict_service().update(&service_ctx, &mut tx, path.id, req).await?;
@@ -392,7 +405,7 @@ fn process_dict_row(item: &LaborProcessDict, can_edit: bool, can_delete: bool) -
 }
 }
 
-fn process_dict_form_page(existing: Option<&LaborProcessDict>) -> Markup {
+fn process_dict_form_page(existing: Option<&LaborProcessDict>, work_centers: &[WorkCenter]) -> Markup {
  let title = if existing.is_some() { "编辑工序" } else { "新建工序" };
  let action = match existing {
  Some(pd) => ProcessDictEditPath { id: pd.id }.to_string(),
@@ -402,6 +415,8 @@ fn process_dict_form_page(existing: Option<&LaborProcessDict>) -> Markup {
  let code_value = existing.map(|p| p.code.as_str()).unwrap_or("自动生成");
  let sort_value = existing.map(|p| p.sort_order).unwrap_or(0);
  let description_value = existing.and_then(|p| p.description.clone()).unwrap_or_default();
+ let wc_value = existing.and_then(|p| p.default_work_center_id);
+ let time_value = existing.and_then(|p| p.default_standard_time);
 
  html! {
     div {
@@ -445,6 +460,37 @@ fn process_dict_form_page(existing: Option<&LaborProcessDict>) -> Markup {
                             name="description"
                             placeholder="请输入描述信息…"
                             class="w-full resize-y min-h-[80px]" { (description_value) }
+                    }
+                }
+            }
+            // ── Section: 工序默认值（选该工序时自动带出）──
+            div class="data-card mb-4" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "工序默认值（自动带出）" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label { "默认工作中心" }
+                        select name="default_work_center_id" {
+                            option value="" selected[wc_value.is_none()] { "— 无 —" }
+                            @for w in work_centers {
+                                option value=(w.id) selected[wc_value == Some(w.id)] { (w.name) }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "默认标准工时（分钟）" }
+                        input
+                            type="number"
+                            step="0.000001"
+                            name="default_standard_time"
+                            value=(time_value.map(|v| v.to_string()).unwrap_or_default())
+                            placeholder="选该工序时自动带出" {}
+                    }
+                    div class="form-field field-full" {
+                        p class="text-xs text-muted leading-relaxed" {
+                            "提示：在 BOM 工序页选此工序时，自动带出默认工作中心 / 工时；"
+                            "「检验」类自动无产出并勾选检验点，「外协」类自动勾选委外。"
+                        }
                     }
                 }
             }

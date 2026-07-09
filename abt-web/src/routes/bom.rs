@@ -3,7 +3,7 @@ use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::pages::{bom_list, bom_create, bom_detail, bom_edit};
+use crate::pages::{bom_list, bom_create, bom_detail, bom_edit, bom_operations};
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -109,22 +109,14 @@ pub struct BomOperationsPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/boms/{id}/operations/edit/{step_order}")]
-pub struct BomOperationEditPath {
+#[typed_path("/admin/md/boms/{id}/operations/reorder")]
+pub struct BomOperationReorderPath {
     pub id: i64,
-    pub step_order: i32,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/boms/{id}/operations/delete/{step_order}")]
 pub struct BomOperationDeletePath {
-    pub id: i64,
-    pub step_order: i32,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/boms/{id}/operations/move/{step_order}")]
-pub struct BomOperationMovePath {
     pub id: i64,
     pub step_order: i32,
 }
@@ -155,9 +147,8 @@ pub fn router() -> Router<AppState> {
         .route(BomLaborCostDrawerPath::PATH, get(bom_detail::get_labor_cost_drawer))
         .route(BomCostTempPricePath::PATH, post(bom_detail::save_temp_price))
         .route(BomCostClearTempPath::PATH, delete(bom_detail::clear_temp_prices))
-        .route(BomOperationsPath::PATH, get(bom_edit::get_bom_operations).post(bom_edit::upsert_bom_operation))
-        .route(BomOperationEditPath::PATH, get(bom_edit::get_bom_operation_edit))
-        .route(BomOperationDeletePath::PATH, post(bom_edit::delete_bom_operation))
-        .route(BomOperationMovePath::PATH, post(bom_edit::move_bom_operation))
-        .route(BomOperationApplyPath::PATH, post(bom_edit::apply_routing_to_bom))
+        .route(BomOperationsPath::PATH, get(bom_operations::get_operation_page).post(bom_operations::upsert_bom_operation))
+        .route(BomOperationDeletePath::PATH, post(bom_operations::delete_bom_operation))
+        .route(BomOperationReorderPath::PATH, post(bom_operations::reorder_bom_operation))
+        .route(BomOperationApplyPath::PATH, post(bom_operations::apply_routing_to_bom))
 }

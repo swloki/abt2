@@ -15,6 +15,7 @@ use abt_core::wms::picking::{PickingFilter, PickingService, StockPicking, StockP
 use abt_core::wms::warehouse::{WarehouseFilter, WarehouseService};
 
 use crate::components::icon;
+use crate::components::overlay::drawer_shell;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_oob, TabItem};
 use crate::errors::Result;
@@ -167,29 +168,27 @@ pub async fn get_ledger_list(
     Ok(Html(page_html.into_string()))
 }
 
-/// 行内展开：按需加载某个作业单据的明细行（Issue #225）。
-/// 返回单个 `<tr class="row-detail">`，前端 `hx-swap="afterend"` 注入到该单据行之后。
-/// 失败时渲染同结构「加载失败」行（带同 id，收起可正常移除），避免裸文本泄进表格。
+/// 单据明细 drawer body：点单号触发，返回填充 `#ledger-detail-body` 的片段
+/// （单据头摘要 + 明细表）。outbound 不走此入口（其单号跳发货详情页）。
 #[require_permission("INVENTORY", "read")]
 pub async fn get_ledger_items(
     path: LedgerItemRowsPath,
-    Query(q): Query<LedgerQuery>,
     ctx: RequestContext,
 ) -> Result<Html<String>> {
-    let colspan = picking_colspan(q.type_slug());
     let RequestContext {
         mut conn,
         state,
         service_ctx,
         ..
     } = ctx;
+    let picking_svc = state.picking_service();
 
-    let html = match state
-        .picking_service()
-        .list_items(&service_ctx, &mut conn, path.id)
-        .await
-    {
-        Ok(items) => {
+    let html = match picking_svc.get(&service_ctx, &mut conn, path.id).await {
+        Ok(picking) => {
+            let items = picking_svc
+                .list_items(&service_ctx, &mut conn, path.id)
+                .await
+                .unwrap_or_default();
             let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
             let (codes, names, specs, units) = if product_ids.is_empty() {
                 (
@@ -223,10 +222,10 @@ pub async fn get_ledger_items(
                         .collect(),
                 )
             };
-            render_picking_items_detail(&items, path.id, &codes, &names, &specs, &units, colspan)
+            render_picking_items_drawer_body(&picking, &items, &codes, &names, &specs, &units)
                 .into_string()
         }
-        Err(_) => render_items_error_row(path.id, colspan).into_string(),
+        Err(_) => render_drawer_error_body().into_string(),
     };
     Ok(Html(html))
 }
@@ -315,6 +314,8 @@ async fn render_ledger_card(
             div class="p-4" {
                 (body)
             }
+            // 单据明细 drawer（arrival/transfer/requisition 单号触发；固定渲染一个，按需填 body）
+            (ledger_detail_drawer())
         }
     })
 }
@@ -501,7 +502,6 @@ fn render_picking_table(
         table class="w-full border-collapse" {
             thead {
                 tr {
-                    (th(""))
                     (th("单号"))
                     @if type_slug == "arrival" {
                         (th("来源"))
@@ -538,7 +538,7 @@ fn render_picking_row(
         .scheduled_date
         .map(|d| d.format("%m-%d").to_string())
         .unwrap_or_else(|| "—".into());
-    // 出库单号跳发货 detail；其他类型单号纯文本（独立 detail 后续补）
+    // 出库单号跳发货 detail（ShippingDetailPath）；其余类型单号点开「单据明细」drawer
     let no_cell: Markup = if type_slug == "outbound" {
         let url = ShippingDetailPath { id: p.id }.to_string();
         html! {
@@ -548,11 +548,23 @@ fn render_picking_row(
             }
         }
     } else {
-        html! { td class="py-3 px-3 text-sm font-mono text-accent font-semibold" { (p.doc_number) } }
+        let url = LedgerItemRowsPath { id: p.id }.to_string();
+        html! {
+            td class="py-3 px-3" {
+                button type="button"
+                    class="text-sm font-mono text-accent font-semibold hover:underline cursor-pointer bg-transparent border-none p-0"
+                    title="查看明细"
+                    hx-get=(url)
+                    hx-target="#ledger-detail-body"
+                    hx-swap="innerHTML"
+                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #ledger-detail-overlay" {
+                    (p.doc_number)
+                }
+            }
+        }
     };
     html! {
-        tr class="border-b border-border-soft last:border-b-0 [&.open_.ledger-chev]:rotate-90" {
-            (ledger_expand_cell(p.id, type_slug))
+        tr class="border-b border-border-soft last:border-b-0" {
             (no_cell)
             @if type_slug == "arrival" {
                 td class="py-3 px-3 text-sm text-fg-2" { (arrival_source_label(p)) }
@@ -623,48 +635,23 @@ fn render_cycle_count_row(c: &CycleCount, wh_map: &HashMap<i64, String>) -> Mark
 }
 
 // =============================================================================
-// 行内展开明细（Issue #225）：行首 chevron → 懒加载 `<tr class="row-detail">` 明细表
+// 单据明细 drawer（Issue #225）：单号点开 → drawer 展示该单据明细
 // =============================================================================
 
-/// 行首展开单元格：chevron 按钮。点击 → toggle 行 `.open`：
-/// - 展开（变 .open）：派发自定义 `loadItem` 事件 → htmx 按 `hx-trigger="loadItem"` 拉明细，
-///   `afterend` 注入 `<tr id="picking-items-{id}">` 到本行之后；
-/// - 收起（去 .open）：直接 `remove #picking-items-{id}`，不派发事件 → 不重复请求。
-///
-/// 用自定义事件触发（而非默认 click），彻底避免「重复点击产生重复明细行 / 请求竞态」。
-fn ledger_expand_cell(picking_id: i64, type_slug: &str) -> Markup {
-    let items_url = format!(
-        "{}?type={}",
-        LedgerItemRowsPath { id: picking_id },
-        type_slug
-    );
-    // toggle 后按「现在是否 .open」分流：展开→拉取，收起→移除明细行（id 精确匹配，无 query 歧义）
-    let hs = format!(
-        "on click\n  toggle .open on closest <tr/>\n  if (closest <tr/> matches .open)\n    trigger loadItem on me\n  else\n    remove #picking-items-{}\n  end",
-        picking_id
-    );
-    html! {
-        td class="py-3 px-2 w-8" {
+/// 单据明细 drawer 外壳：固定渲染一个 overlay（header + 空 body 容器）。
+/// 单号按钮 hx-get 填充 `#ledger-detail-body`，afterRequest 成功后 add .open 打开。
+fn ledger_detail_drawer() -> Markup {
+    drawer_shell("ledger-detail-overlay", "w-[820px]", html! {
+        div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
+            div class="font-bold text-base text-fg" { "单据明细" }
             button type="button"
-                class="ledger-expand inline-flex items-center justify-center w-6 h-6 text-muted hover:text-fg hover:bg-surface rounded-sm transition-colors cursor-pointer"
-                title="查看明细"
-                hx-get=(items_url)
-                hx-target="closest <tr/>"
-                hx-swap="afterend"
-                hx-trigger="loadItem"
-                _=(hs) {
-                (icon::chevron_right_icon("w-4 h-4 ledger-chev transition-transform duration-150"))
+                class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
+                _="on click remove .open from #ledger-detail-overlay" {
+                (icon::x_icon("w-4 h-4"))
             }
         }
-    }
-}
-
-/// 各类型 picking 行总列数（含行首 chevron 列），供明细 `<td colspan>` 跨满整行。
-fn picking_colspan(type_slug: &str) -> u32 {
-    match type_slug {
-        "outbound" | "transfer" => 5,
-        _ => 6, // arrival / requisition / 兜底
-    }
+        div id="ledger-detail-body" class="flex-1 overflow-y-auto px-6 py-5" {}
+    })
 }
 
 /// 数量格式化：去尾零（10.00→10、10.50→10.5、100→100）。
@@ -672,59 +659,67 @@ fn fmt_qty(d: rust_decimal::Decimal) -> String {
     d.normalize().to_string()
 }
 
-/// 单据明细渲染：`<tr class="row-detail"><td colspan> ...明细表... </td></tr>`。
-/// id 与展开按钮的 `remove #picking-items-{id}` 对应，确保收起可移除。
-fn render_picking_items_detail(
+/// drawer body 内容：单据头摘要（单号 / 状态 / 计划日期）+ 明细表。
+fn render_picking_items_drawer_body(
+    picking: &StockPicking,
     items: &[StockPickingItem],
-    picking_id: i64,
     codes: &HashMap<i64, String>,
     names: &HashMap<i64, String>,
     specs: &HashMap<i64, String>,
     units: &HashMap<i64, String>,
-    colspan: u32,
 ) -> Markup {
+    let (st_label, st_cls) = picking_status_badge(picking.status);
+    let date = picking
+        .scheduled_date
+        .map(|d| d.format("%Y-%m-%d").to_string())
+        .unwrap_or_else(|| "—".into());
     let ith = "text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft";
     let ith_r = "text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft";
     html! {
-        tr id=(format!("picking-items-{}", picking_id)) class="row-detail" {
-            td colspan=(colspan) class="p-0 border-none bg-surface-raised" {
-                div class="p-4 border-t border-dashed border-border-soft" {
-                    @if items.is_empty() {
-                        div class="text-center text-sm text-muted py-4" { "暂无明细" }
-                    } @else {
-                        table class="w-full text-sm border-collapse" {
-                            thead {
-                                tr {
-                                    th class=(ith) { "商品编码" }
-                                    th class=(ith) { "商品名称" }
-                                    th class=(ith) { "规格" }
-                                    th class=(ith) { "单位" }
-                                    th class=(ith_r) { "计划数量" }
-                                    th class=(ith_r) { "实际数量" }
-                                    th class=(ith) { "批次号" }
+        // 单据头摘要
+        div class="flex items-center gap-3 flex-wrap pb-4 mb-4 border-b border-border-soft" {
+            span class="font-mono text-accent font-semibold text-base" { (picking.doc_number) }
+            span class=(format!(
+                "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {st_cls}"
+            )) { (st_label) }
+            span class="text-xs text-muted" { "计划日期 " (date) }
+        }
+        div class="text-sm font-semibold text-fg-2 mb-2" { "明细 " (items.len()) " 项" }
+        @if items.is_empty() {
+            div class="text-center text-sm text-muted py-8" { "暂无明细" }
+        } @else {
+            div class="overflow-x-auto" {
+                table class="w-full text-sm border-collapse" {
+                    thead {
+                        tr {
+                            th class=(ith) { "商品编码" }
+                            th class=(ith) { "商品名称" }
+                            th class=(ith) { "规格" }
+                            th class=(ith) { "单位" }
+                            th class=(ith_r) { "计划数量" }
+                            th class=(ith_r) { "实际数量" }
+                            th class=(ith) { "批次号" }
+                        }
+                    }
+                    tbody {
+                        @for it in items {
+                            tr class="border-b border-border-soft last:border-b-0" {
+                                td class="py-2 px-3 font-mono text-fg" {
+                                    (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
                                 }
-                            }
-                            tbody {
-                                @for it in items {
-                                    tr class="border-b border-border-soft last:border-b-0" {
-                                        td class="py-2 px-3 font-mono text-fg" {
-                                            (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
-                                        }
-                                        td class="py-2 px-3 text-fg" {
-                                            (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
-                                        }
-                                        td class="py-2 px-3 text-fg-2" {
-                                            (specs.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
-                                        }
-                                        td class="py-2 px-3 text-muted" {
-                                            (units.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
-                                        }
-                                        td class="py-2 px-3 text-right font-mono text-muted" { (fmt_qty(it.qty_requested)) }
-                                        td class="py-2 px-3 text-right font-mono text-fg font-semibold" { (fmt_qty(it.qty_done)) }
-                                        td class="py-2 px-3 font-mono text-fg-2" {
-                                            (it.batch_no.as_deref().unwrap_or("—"))
-                                        }
-                                    }
+                                td class="py-2 px-3 text-fg" {
+                                    (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+                                }
+                                td class="py-2 px-3 text-fg-2" {
+                                    (specs.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+                                }
+                                td class="py-2 px-3 text-muted" {
+                                    (units.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+                                }
+                                td class="py-2 px-3 text-right font-mono text-muted" { (fmt_qty(it.qty_requested)) }
+                                td class="py-2 px-3 text-right font-mono text-fg font-semibold" { (fmt_qty(it.qty_done)) }
+                                td class="py-2 px-3 font-mono text-fg-2" {
+                                    (it.batch_no.as_deref().unwrap_or("—"))
                                 }
                             }
                         }
@@ -735,13 +730,7 @@ fn render_picking_items_detail(
     }
 }
 
-/// 明细加载失败的兜底行（带同 id，收起可正常移除）。
-fn render_items_error_row(picking_id: i64, colspan: u32) -> Markup {
-    html! {
-        tr id=(format!("picking-items-{}", picking_id)) class="row-detail" {
-            td colspan=(colspan) class="p-0 border-none" {
-                div class="p-4 text-center text-sm text-danger" { "加载明细失败，请重试" }
-            }
-        }
-    }
+/// 明细加载失败的兜底 body。
+fn render_drawer_error_body() -> Markup {
+    html! { div class="text-center text-sm text-danger py-8" { "加载明细失败，请重试" } }
 }

@@ -816,9 +816,17 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .into_iter()
             .find(|r| r.id == routing_id)
             .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
-        let output_pid = routing.product_id.ok_or_else(|| {
-            DomainError::BusinessRule("该工序未配置产出品，无法计算齐套".into())
-        })?;
+        // 无产出工序（检测/检验）→ 无消耗物料 → 齐套为空（无需料），学 Odoo 自然跳过
+        let output_pid = match routing.product_id {
+            Some(pid) => pid,
+            None => {
+                return Ok(MaterialAvailability {
+                    level: MaterialAvailabilityLevel::Available,
+                    headline: None,
+                    lines: Vec::new(),
+                });
+            }
+        };
 
         // 2. 工单成品 → 成品已发布 BOM → 产出品节点的直接子级（物料清单）
         let wo = self.find_by_id(ctx, db, work_order_id).await?;

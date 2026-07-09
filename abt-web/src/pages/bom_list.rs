@@ -18,6 +18,7 @@ use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::bom::{
  BomCostDrawerPath, BomCreatePath, BomDeletePath, BomDetailPath, BomListPath, BomLaborCostDrawerPath,
+ BomOperationsPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
@@ -447,6 +448,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
             div class="row-actions flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:border-none [&_a]:bg-surface [&_a]:rounded-sm [&_a]:grid [&_a]:place-items-center [&_a]:cursor-pointer [&_a]:hover:bg-accent-bg [&_a]:no-underline [&_button]:w-[28px] [&_button]:h-[28px] [&_button]:border-none [&_button]:bg-surface [&_button]:rounded-sm [&_button]:grid [&_button]:place-items-center [&_button]:cursor-pointer [&_button]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
             {
                 a title="查看" href=(detail_path.to_string()) { (icon::eye_icon("w-4 h-4")) }
+                a title="工序管理" href=(BomOperationsPath { id: bom.bom_id }.to_string()) { (icon::clipboard_list_icon("w-4 h-4")) }
                 button
                     type="button"
                     title="导出BOM"

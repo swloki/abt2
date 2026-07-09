@@ -316,7 +316,17 @@ pub async fn get_orders_card(
     } = ctx;
     let svc = state.purchase_order_service();
     let summary = cached_summary(&state, &service_ctx, &mut conn).await;
-    let status = p.status.and_then(PurchaseOrderStatus::from_i16);
+    // 筛选值 2 = 「在途订单」= Confirmed(未到货) ∪ PartiallyReceived(部分到货)；其余按单状态
+    let (status, statuses) = match p.status {
+        Some(2) => (
+            None,
+            Some(vec![
+                PurchaseOrderStatus::Confirmed,
+                PurchaseOrderStatus::PartiallyReceived,
+            ]),
+        ),
+        other => (other.and_then(PurchaseOrderStatus::from_i16), None),
+    };
     let page = p.page.unwrap_or(1);
     let result = svc
         .list(
@@ -324,6 +334,7 @@ pub async fn get_orders_card(
             &mut conn,
             PurchaseOrderQuery {
                 status,
+                statuses,
                 doc_number: p.keyword.clone(),
                 ..Default::default()
             },
@@ -3291,8 +3302,7 @@ fn orders_filter_bar(status: Option<i16>, p: &OrdersCardParams) -> Markup {
                 name="status" {
                 option value="" selected[status.is_none()] { "全部状态" }
                 option value="1" selected[status == Some(1)] { "草稿" }
-                option value="2" selected[status == Some(2)] { "已确认" }
-                option value="3" selected[status == Some(3)] { "部分收货" }
+                option value="2" selected[status == Some(2)] { "在途订单" }
                 option value="4" selected[status == Some(4)] { "已收货" }
                 option value="5" selected[status == Some(5)] { "已关闭" }
                 option value="6" selected[status == Some(6)] { "已取消" }
@@ -3366,7 +3376,7 @@ fn po_status_pill(status: PurchaseOrderStatus) -> Markup {
     use PurchaseOrderStatus::*;
     match status {
         PendingApproval => pill("progress", "待审批"),
-        Confirmed => pill("info", "待收货"),
+        Confirmed => pill("info", "在途"),
         PartiallyReceived => pill("partial", "部分收货"),
         Received => pill("completed", "已收货"),
         Closed => pill("completed", "已关闭"),

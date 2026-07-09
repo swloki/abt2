@@ -160,9 +160,17 @@ function pcUpdateBatchBar() {
     if (!btn) return;
     var ids = [];
     checked.forEach(function (c) { ids.push(c.value); });
-    var sid = bar.getAttribute('data-supplier-id');
-    // 批量转单 drawer URL（同供应商多物料多选 → 一张 PO），由 .pc-batch-create-btn 的 hx-target 装载
-    btn.setAttribute('hx-get', '/admin/purchase/work-center/batch-convert/' + sid + '/drawer?demand_ids=' + ids.join(','));
+    var pid = bar.getAttribute('data-product-id');
+    var url;
+    if (pid) {
+      // 物料汇总批量栏（无 supplier_id 上下文）：单物料转单 drawer，勾选子集 → drawer 内选供应商
+      url = '/admin/purchase/work-center/products/' + pid + '/convert-po-drawer?demand_ids=' + ids.join(',');
+    } else {
+      // 采购明细批量栏（同供应商多物料多选 → 一张 PO），由 .pc-batch-create-btn 的 hx-target 装载
+      var sid = bar.getAttribute('data-supplier-id');
+      url = '/admin/purchase/work-center/batch-convert/' + sid + '/drawer?demand_ids=' + ids.join(',');
+    }
+    btn.setAttribute('hx-get', url);
     if (window.htmx) htmx.process(btn);
   });
 }

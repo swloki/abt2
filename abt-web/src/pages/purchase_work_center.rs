@@ -681,10 +681,19 @@ pub async fn get_settlement_row_detail(
 
 // ── 转采购单 drawer（就地转单，复用 create_order_from_demands）──
 
+/// 单物料转单 drawer 的 query 参数（可选 demand_ids：物料汇总批量栏勾选的子集）。
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct ConvertDrawerQuery {
+    /// 逗号分隔的 demand id（物料汇总批量栏 JS 拼接）；缺省 → 该物料全部 pending 需求。
+    #[serde(default)]
+    pub demand_ids: Option<String>,
+}
+
 #[require_permission("PURCHASE_ORDER", "read")]
 pub async fn get_convert_po_drawer(
     path: PcConvertPoDrawerPath,
     ctx: RequestContext,
+    Query(q): Query<ConvertDrawerQuery>,
 ) -> Result<Html<String>> {
     let RequestContext {
         mut conn,
@@ -692,18 +701,36 @@ pub async fn get_convert_po_drawer(
         service_ctx,
         ..
     } = ctx;
-    let demands = state
-        .purchase_demand_service()
-        .list_pending_demands(
-            &service_ctx,
-            &mut conn,
-            DemandPoolQuery {
-                product_id: Some(path.product_id),
-                ..Default::default()
-            },
-            PageParams::new(1, 100),
-        )
-        .await?;
+    // 物料汇总批量栏带 demand_ids（勾选子集）；行尾「转采购单」按钮不带（转该物料全部 pending）。
+    let demand_ids: Vec<i64> = q
+        .demand_ids
+        .as_deref()
+        .map(|s| {
+            s.split(',')
+                .filter_map(|x| x.trim().parse::<i64>().ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    let demands = if demand_ids.is_empty() {
+        state
+            .purchase_demand_service()
+            .list_pending_demands(
+                &service_ctx,
+                &mut conn,
+                DemandPoolQuery {
+                    product_id: Some(path.product_id),
+                    ..Default::default()
+                },
+                PageParams::new(1, 100),
+            )
+            .await?
+            .items
+    } else {
+        state
+            .purchase_demand_service()
+            .get_demands_by_ids(&service_ctx, &mut conn, &demand_ids)
+            .await?
+    };
     let quotes = state
         .purchase_quotation_service()
         .compare(&service_ctx, &mut conn, path.product_id)
@@ -712,7 +739,7 @@ pub async fn get_convert_po_drawer(
     let supplier_ids: Vec<i64> = quotes.iter().map(|q| q.supplier_id).collect();
     let names = supplier_names(&state, &service_ctx, &mut conn, &supplier_ids).await;
     Ok(Html(
-        render_convert_po_body(path.product_id, &demands.items, &quotes, &names, None).into_string(),
+        render_convert_po_body(path.product_id, &demands, &quotes, &names, None).into_string(),
     ))
 }
 
@@ -1026,9 +1053,33 @@ fn render_convert_po_body(
                 div class="font-semibold text-fg text-sm" { (product_name) }
                 div class="text-xs text-muted font-mono" { (product_code) }
             }
-            div class="grid grid-cols-2 gap-4 mb-4" {
-                (field_readonly("待转需求数", &format!("{}", demands.len())));
-                (field_readonly("总需求量", &fmt_plain(total_qty)));
+            // 需求明细列表（一条条列出，对齐 MES 创建工单 drawer）
+            div class="mb-4" {
+                div class="text-xs font-semibold text-fg mb-2" {
+                    "需求明细 · " (demands.len()) " 条 · 总数量 " (fmt_plain(total_qty))
+                }
+                div class="max-h-[220px] overflow-y-auto border border-border-soft rounded-sm" {
+                    table class="w-full text-xs" {
+                        thead {
+                            tr class="bg-surface text-muted" {
+                                th class="text-left font-medium py-1.5 px-2" { "来源订单" }
+                                th class="text-right font-medium py-1.5 px-2" { "数量" }
+                                th class="text-left font-medium py-1.5 px-2" { "需求日期" }
+                            }
+                        }
+                        tbody {
+                            @for d in demands {
+                                tr class="border-t border-border-soft" {
+                                    td class="py-2 px-2 font-mono text-accent" {
+                                        (d.order_no.as_deref().unwrap_or("—"))
+                                    }
+                                    td class="py-2 px-2 text-right font-mono" { (fmt_plain(d.quantity)) (unit_suffix(&d.uom)) }
+                                    td class="py-2 px-2 font-mono text-fg-2" { (fmt_date(d.required_date)) }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             // 顶部兜底 alert（校验失败重渲染显示）
             @if let Some(m) = errors.and_then(|e| e.get("__all__")) {
@@ -3114,14 +3165,26 @@ fn demand_mat_row(item: &MaterialAggSummary) -> Markup {
                     _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #convert-po-overlay" { "转采购单" }
             }
         }
-        // 展开区（懒加载 demand-rows，.expanded 切换显隐）
-        div class="mat-expand bg-surface-raised border-b border-border-soft" id=(format!("pc-demand-toggle-{pid}")) {
+        // 展开区（懒加载 demand-rows，.expanded 切换显隐；.pc-batch-scope 限定批量栏计数作用域）
+        div class="mat-expand pc-batch-scope bg-surface-raised border-b border-border-soft" id=(format!("pc-demand-toggle-{pid}")) {
             div class="p-4" {
                 table class="w-full text-sm" {
+                    thead {
+                        tr class="text-xs text-muted border-b border-border-soft" {
+                            th class="w-10 py-1.5 px-2" {
+                                input type="checkbox" title="全选"
+                                    _="on change call pcToggleAllDemands(me, closest <table/>)";
+                            }
+                            th class="text-left py-1.5 px-4 font-semibold" { "来源订单" }
+                            th class="text-right py-1.5 px-3 font-semibold" { "数量" }
+                            th class="text-left py-1.5 px-3 font-semibold" { "需求日期" }
+                        }
+                    }
                     tbody id=(format!("pc-demand-expand-{pid}")) {
-                        tr { td colspan="3" class="text-center text-muted py-4" { "点击物料加载需求明细…" } }
+                        tr { td colspan="4" class="text-center text-muted py-4" { "点击物料加载需求明细…" } }
                     }
                 }
+                (pc_batch_bar_for_material(pid))
             }
         }
     }
@@ -3239,6 +3302,28 @@ fn pc_batch_bar(supplier_id: i64) -> Markup {
     html! {
         div class="pc-batch-bar hidden show:flex items-center gap-4 fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-md bg-fg text-white text-sm shadow-lg"
             data-supplier-id=(supplier_id) {
+            span {
+                "已选 "
+                span class="pc-batch-count inline-block px-2 rounded-full bg-white/15 font-mono font-bold" { "0" }
+                " 条需求 · 可转采购单"
+            }
+            a class="pc-batch-create-btn ml-auto inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 no-underline"
+                hx-target="#convert-po-drawer-body" hx-swap="innerHTML"
+                _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #convert-po-overlay" { "转采购单" }
+            button class="pc-batch-clear-btn inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150"
+                type="button" { "清除选择" }
+        }
+    }
+}
+
+/// 物料汇总批量栏（.pc-batch-bar，对齐采购明细 pc_batch_bar 范式）。勾选 .pc-demand-cb
+/// 后由 app.js（pcUpdateBatchBar）显示，并拼接单物料转单 drawer URL（勾选子集 →
+/// convert-po-drawer?demand_ids=...，drawer 内选供应商）。与采购明细批量栏的区别：
+/// 容器带 data-product-id（物料汇总无 supplier_id 上下文）。
+fn pc_batch_bar_for_material(product_id: i64) -> Markup {
+    html! {
+        div class="pc-batch-bar hidden show:flex items-center gap-4 fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-md bg-fg text-white text-sm shadow-lg"
+            data-product-id=(product_id) {
             span {
                 "已选 "
                 span class="pc-batch-count inline-block px-2 rounded-full bg-white/15 font-mono font-bold" { "0" }
@@ -4086,6 +4171,9 @@ fn demand_expand_rows(items: &[DemandSummary]) -> Markup {
     html! {
         @for d in items {
             tr class="bg-accent-bg/30" {
+                td class="py-1.5 px-2 text-center" {
+                    input type="checkbox" class="pc-demand-cb" value=(d.id) data-product-id=(d.product_id);
+                }
                 td class="py-1.5 px-4 font-mono text-xs text-accent" {
                     (d.order_no.as_deref().unwrap_or("—"))
                 }
@@ -4094,7 +4182,7 @@ fn demand_expand_rows(items: &[DemandSummary]) -> Markup {
             }
         }
         @if items.is_empty() {
-            tr { td colspan="3" class="text-center text-muted py-4" { "暂无需求明细" } }
+            tr { td colspan="4" class="text-center text-muted py-4" { "暂无需求明细" } }
         }
     }
 }

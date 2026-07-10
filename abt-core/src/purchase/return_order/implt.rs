@@ -183,6 +183,17 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    async fn list_items_by_return_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        return_ids: &[i64],
+    ) -> Result<Vec<PurchaseReturnItem>> {
+        PurchaseReturnItemRepo::list_by_return_ids(&mut *db, return_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);

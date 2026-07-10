@@ -276,6 +276,7 @@ classDiagram
         +list(ctx, filter) PaginatedResult~PurchaseQuotation~
         +compare(ctx, product_id) Result~Vec~QuotationComparison~~
         +list_items(ctx: &ServiceContext, db: PgExecutor, quotation_id) Result~Vec~PurchaseQuotationItem~~
+        +list_items_by_quotation_ids(ctx: &ServiceContext, db: PgExecutor, quotation_ids) Result~Vec~PurchaseQuotationItem~~
         +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     }
 
@@ -286,6 +287,7 @@ classDiagram
         +get(ctx, id) Result~PurchaseOrder~
         +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list_items(ctx: &ServiceContext, db: PgExecutor, order_id) Result~Vec~PurchaseOrderItem~~
+        +list_items_by_order_ids(ctx: &ServiceContext, db: PgExecutor, order_ids) Result~Vec~PurchaseOrderItem~~
         +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list(ctx, filter) PaginatedResult~PurchaseOrder~
     }
@@ -297,6 +299,7 @@ classDiagram
         +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list_items(ctx: &ServiceContext, db: PgExecutor, return_id) Result~Vec~PurchaseReturnItem~~
+        +list_items_by_return_ids(ctx: &ServiceContext, db: PgExecutor, return_ids) Result~Vec~PurchaseReturnItem~~
         +list(ctx, filter) PaginatedResult~PurchaseReturn~
     }
 
@@ -327,6 +330,7 @@ classDiagram
         +approve(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list_items(ctx: &ServiceContext, db: PgExecutor, request_id) Result~Vec~MiscRequestItem~~
+        +list_items_by_request_ids(ctx: &ServiceContext, db: PgExecutor, request_ids) Result~Vec~MiscRequestItem~~
         +list(ctx, filter) PaginatedResult~MiscellaneousRequest~
     }
 

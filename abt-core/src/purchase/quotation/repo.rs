@@ -327,4 +327,26 @@ impl PurchaseQuotationItemRepo {
         .fetch_all(executor)
         .await.map_err(Into::into)
     }
+
+    /// 批量查多个报价的明细（避免逐个 list_by_quotation_id 的 N+1）；结果含 quotation_id，调用方按需分组。
+    pub async fn list_by_quotation_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        quotation_ids: &[i64],
+    ) -> Result<Vec<PurchaseQuotationItem>> {
+        if quotation_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        sqlx::query_as::<_, PurchaseQuotationItem>(
+            r#"
+            SELECT id, quotation_id, product_id, line_no, unit_price, min_order_qty,
+                   lead_time_days, currency, is_preferred
+            FROM purchase_quotation_items
+            WHERE quotation_id = ANY($1)
+            ORDER BY line_no
+            "#,
+        )
+        .bind(quotation_ids)
+        .fetch_all(executor)
+        .await.map_err(Into::into)
+    }
 }

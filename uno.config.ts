@@ -238,6 +238,10 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 /* 需求物料行懒加载展开区（.expanded 切换显隐）*/
 .mat-expand { display: none; }
 .mat-expand.expanded { display: block; }
+/* 采购工作中心主从表：tbody.pc-row-group 内任一行 hover → 整组高亮（含 rowspan 合并的订单级单元格）*/
+.pc-row-group:hover > tr > td { background-color: var(--accent-bg); }
+/* 主从表 td/th 边框加深一档（border-soft → border），网格线更清晰 */
+.pc-grid td, .pc-grid th { border-color: var(--border); }
 `,
     },
   ],

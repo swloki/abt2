@@ -35,6 +35,14 @@ pub trait PurchaseOrderService: Send + Sync {
 
     async fn list_items(&self, ctx: &ServiceContext, db: PgExecutor<'_>, order_id: i64) -> Result<Vec<PurchaseOrderItem>>;
 
+    /// 批量取多个 PO 的明细（扁平 Vec，调用方按 order_id 分组）；避免逐个 list_items 的 N+1。
+    async fn list_items_by_order_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_ids: &[i64],
+    ) -> Result<Vec<PurchaseOrderItem>>;
+
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()>;
 
     async fn update(

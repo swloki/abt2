@@ -11,22 +11,22 @@ VALUES
 <meta charset="UTF-8">
 <title>报价单</title>
 <style>
-body { font-family: "Microsoft YaHei","SimSun",sans-serif; margin: 20px; color: #333; }
-.container { width: 900px; margin: 0 auto; border: 1px dashed #ccc; padding: 20px; box-sizing: border-box; }
+body { font-family: "SimHei","黑体","SimSun","宋体",sans-serif; margin: 20px; color: #000; }
+.container { width: 900px; margin: 0 auto; border: 1px dashed #000; padding: 20px; box-sizing: border-box; }
 .header { text-align: center; margin-bottom: 5px; }
 .title { font-size: 24px; font-weight: bold; letter-spacing: 2px; }
-.company-info { text-align: center; font-size: 12px; color: #666; margin-bottom: 15px; }
+.company-info { text-align: center; font-size: 12px; color: #000; margin-bottom: 15px; }
 .info-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 10px; table-layout: fixed; }
 .info-table td { padding: 6px 2px; vertical-align: middle; }
 .label { text-align: right; width: 90px; white-space: nowrap; }
-.value { border-bottom: 1px dashed #999; padding-left: 5px; text-align: left; }
+.value { border-bottom: 1px dashed #000; padding-left: 5px; text-align: left; }
 .detail-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 15px; }
-.detail-table th, .detail-table td { border: 1px solid #333; text-align: center; padding: 6px 4px; height: 28px; }
-.detail-table th { font-weight: normal; background-color: #f9f9f9; }
+.detail-table th, .detail-table td { border: 1px solid #000; text-align: center; padding: 6px 4px; height: 28px; }
+.detail-table th { font-weight: normal; background-color: #fff; }
 .total-row { text-align: right; font-size: 16px; font-weight: bold; margin: 10px 0; }
-.note { font-size: 12px; color: #666; line-height: 1.6; margin: 8px 0; border-bottom: 1px dashed #ccc; padding-bottom: 8px; }
+.note { font-size: 12px; color: #000; line-height: 1.6; margin: 8px 0; border-bottom: 1px dashed #000; padding-bottom: 8px; }
 .signature-row { display: flex; justify-content: space-between; font-size: 14px; padding: 0 10px; margin-top: 30px; }
-.signature-item { width: 22%; border-bottom: 1px dashed #999; padding-bottom: 2px; }
+.signature-item { width: 22%; border-bottom: 1px dashed #000; padding-bottom: 2px; }
 @media print { body { margin: 0; } .container { border: none; width: 100%; padding: 0; } }
 </style>
 </head>
@@ -64,22 +64,22 @@ $q$, true, NOW()),
 <meta charset="UTF-8">
 <title>销售订单</title>
 <style>
-body { font-family: "Microsoft YaHei","SimSun",sans-serif; margin: 20px; color: #333; }
-.container { width: 900px; margin: 0 auto; border: 1px dashed #ccc; padding: 20px; box-sizing: border-box; }
+body { font-family: "SimHei","黑体","SimSun","宋体",sans-serif; margin: 20px; color: #000; }
+.container { width: 900px; margin: 0 auto; border: 1px dashed #000; padding: 20px; box-sizing: border-box; }
 .header { text-align: center; margin-bottom: 5px; }
 .title { font-size: 24px; font-weight: bold; letter-spacing: 2px; }
-.company-info { text-align: center; font-size: 12px; color: #666; margin-bottom: 15px; }
+.company-info { text-align: center; font-size: 12px; color: #000; margin-bottom: 15px; }
 .info-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 10px; table-layout: fixed; }
 .info-table td { padding: 6px 2px; vertical-align: middle; }
 .label { text-align: right; width: 90px; white-space: nowrap; }
-.value { border-bottom: 1px dashed #999; padding-left: 5px; text-align: left; }
+.value { border-bottom: 1px dashed #000; padding-left: 5px; text-align: left; }
 .detail-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 15px; }
-.detail-table th, .detail-table td { border: 1px solid #333; text-align: center; padding: 6px 4px; height: 28px; }
-.detail-table th { font-weight: normal; background-color: #f9f9f9; }
+.detail-table th, .detail-table td { border: 1px solid #000; text-align: center; padding: 6px 4px; height: 28px; }
+.detail-table th { font-weight: normal; background-color: #fff; }
 .total-row { text-align: right; font-size: 16px; font-weight: bold; margin: 10px 0; }
-.note { font-size: 12px; color: #666; line-height: 1.6; margin: 8px 0; border-bottom: 1px dashed #ccc; padding-bottom: 8px; }
+.note { font-size: 12px; color: #000; line-height: 1.6; margin: 8px 0; border-bottom: 1px dashed #000; padding-bottom: 8px; }
 .signature-row { display: flex; justify-content: space-between; font-size: 14px; padding: 0 10px; margin-top: 30px; }
-.signature-item { width: 22%; border-bottom: 1px dashed #999; padding-bottom: 2px; }
+.signature-item { width: 22%; border-bottom: 1px dashed #000; padding-bottom: 2px; }
 @media print { body { margin: 0; } .container { border: none; width: 100%; padding: 0; } }
 </style>
 </head>
@@ -117,22 +117,22 @@ $q$, true, NOW()),
 <meta charset="UTF-8">
 <title>采购订单</title>
 <style>
-body { font-family: "Microsoft YaHei","SimSun",sans-serif; margin: 20px; color: #333; }
-.container { width: 900px; margin: 0 auto; border: 1px dashed #ccc; padding: 20px; box-sizing: border-box; }
+body { font-family: "SimHei","黑体","SimSun","宋体",sans-serif; margin: 20px; color: #000; }
+.container { width: 900px; margin: 0 auto; border: 1px dashed #000; padding: 20px; box-sizing: border-box; }
 .header { text-align: center; margin-bottom: 5px; }
 .title { font-size: 24px; font-weight: bold; letter-spacing: 2px; }
-.company-info { text-align: center; font-size: 12px; color: #666; margin-bottom: 15px; }
+.company-info { text-align: center; font-size: 12px; color: #000; margin-bottom: 15px; }
 .info-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 10px; table-layout: fixed; }
 .info-table td { padding: 6px 2px; vertical-align: middle; }
 .label { text-align: right; width: 90px; white-space: nowrap; }
-.value { border-bottom: 1px dashed #999; padding-left: 5px; text-align: left; }
+.value { border-bottom: 1px dashed #000; padding-left: 5px; text-align: left; }
 .detail-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 15px; }
-.detail-table th, .detail-table td { border: 1px solid #333; text-align: center; padding: 6px 4px; height: 28px; }
-.detail-table th { font-weight: normal; background-color: #f9f9f9; }
+.detail-table th, .detail-table td { border: 1px solid #000; text-align: center; padding: 6px 4px; height: 28px; }
+.detail-table th { font-weight: normal; background-color: #fff; }
 .total-row { text-align: right; font-size: 16px; font-weight: bold; margin: 10px 0; }
-.note { font-size: 12px; color: #666; line-height: 1.6; margin: 8px 0; border-bottom: 1px dashed #ccc; padding-bottom: 8px; }
+.note { font-size: 12px; color: #000; line-height: 1.6; margin: 8px 0; border-bottom: 1px dashed #000; padding-bottom: 8px; }
 .signature-row { display: flex; justify-content: space-between; font-size: 14px; padding: 0 10px; margin-top: 30px; }
-.signature-item { width: 22%; border-bottom: 1px dashed #999; padding-bottom: 2px; }
+.signature-item { width: 22%; border-bottom: 1px dashed #000; padding-bottom: 2px; }
 @media print { body { margin: 0; } .container { border: none; width: 100%; padding: 0; } }
 </style>
 </head>

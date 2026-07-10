@@ -15,14 +15,14 @@ VALUES (
     <title>江门市艾伯特照明科技有限公司送货单</title>
     <style>
         body {
-            font-family: "Microsoft YaHei", "SimSun", sans-serif;
+            font-family: "SimHei", "黑体", "SimSun", "宋体", sans-serif;
             margin: 20px;
-            color: #333;
+            color: #000;
         }
         .container {
             width: 900px;
             margin: 0 auto;
-            border: 1px dashed #ccc;
+            border: 1px dashed #000;
             padding: 20px;
             box-sizing: border-box;
         }
@@ -46,7 +46,7 @@ VALUES (
         .company-info {
             text-align: center;
             font-size: 12px;
-            color: #666;
+            color: #000;
             margin-bottom: 15px;
         }
         .info-grid {
@@ -65,7 +65,7 @@ VALUES (
             white-space: nowrap;
         }
         .value {
-            border-bottom: 1px dashed #999;
+            border-bottom: 1px dashed #000;
             padding-left: 5px;
         }
         .detail-table {
@@ -75,20 +75,20 @@ VALUES (
             margin-bottom: 15px;
         }
         .detail-table th, .detail-table td {
-            border: 1px solid #333;
+            border: 1px solid #000;
             text-align: center;
             padding: 6px 4px;
             height: 28px;
         }
         .detail-table th {
             font-weight: normal;
-            background-color: #f9f9f9;
+            background-color: #fff;
         }
         .footer-note {
             font-size: 12px;
             line-height: 1.6;
             margin-bottom: 15px;
-            border-bottom: 1px dashed #ccc;
+            border-bottom: 1px dashed #000;
             padding-bottom: 10px;
         }
         .color-lian {
@@ -105,7 +105,7 @@ VALUES (
         }
         .signature-item {
             width: 20%;
-            border-bottom: 1px dashed #999;
+            border-bottom: 1px dashed #000;
             padding-bottom: 2px;
         }
         @media print {

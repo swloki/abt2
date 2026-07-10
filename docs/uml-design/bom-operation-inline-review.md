@@ -25,7 +25,7 @@
 | `work_order/implt.rs:274 has_routing: routing_id.is_some()` | 实读 `:274 "has_routing": work_order.routing_id.is_some()` | ✅ 准确 |
 | `production_batch/implt.rs:204 防跳序 guard current_step != step_no-1` | 实读 `:204 if batch.current_step != step_no - 1` | ✅ 准确 |
 | `production_batch/implt.rs:224 unit_price.unwrap_or(Decimal::ZERO)` | 实读 `:224 let unit_price = routing.unit_price.unwrap_or(Decimal::ZERO)` | ✅ 准确（NULL 价报工冻结 0 工资的实证） |
-| `production_batch/implt.rs:591 reload 状态门 Draft/Released/InProduction` | 实读 `:591 if !matches!(wo.status, Draft|Released|InProduction)` | ✅ 准确 |
+| `production_batch/implt.rs:591 reload 状态门 Draft/Planned/Released/InProduction` | 实读 `:601 if !matches!(wo.status, Draft\|Planned\|Released\|InProduction)`（`Planned` 为下达 drawer「从 BOM 更新」入口放宽） | ✅ 准确 |
 | `production_batch/implt.rs:603-615 per-step lock（删未报工 step + 锁已报工 step_no）` | 实读 `:607-614 has_report(r.id) → locked_step_nos.insert / DELETE` | ✅ 准确 |
 | `production_batch/repo.rs:378-395 has_any_report` | 实读 `:378-394 SELECT EXISTS JOIN work_reports` | ✅ 准确 |
 | `product/model.rs:230-237 UpdateProductReq 无 product_code 字段` | 实读 `:230-237` 仅 name/unit/acquire_channel/external_code/owner_department_id/meta | ✅ 准确（Q1 守卫落点为空的实证） |

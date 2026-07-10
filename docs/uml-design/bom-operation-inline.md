@@ -362,7 +362,7 @@ async fn set_work_order_step_price(
 2. `ops = bom_operation_svc.list_operations(product_code)` // `bom_operations` 全量（自洽工序行）
 3. **若 `ops` 为空 → 跳过**（留空，由 BOM 编辑页引导先配工序或从 routing 拷贝）；★ 不再回退查 `bom_routings`（routing 降级为拷贝源，不驱动 load）
 4. `prices = bom_step_price_svc.find_prices_by_product(product_code)` → `price_map: HashMap<step_order, Decimal>`
-5. **per-order lock（review major D8）**：`WorkOrderRoutingRepo::has_any_report(wo_id)` → 若**已任一 step 报工**，**整单工序结构冻结**，跳过 reload（不再删未报工 step 重插）；仅 `Draft/Released` 且**全无报工**的工单才允许 reload
+5. **per-order lock（review major D8）**：`WorkOrderRoutingRepo::has_any_report(wo_id)` → 若**已任一 step 报工**，**整单工序结构冻结**，跳过 reload（不再删未报工 step 重插）；仅 `Draft/Planned/Released/InProduction` 且**全无报工**的工单才允许 reload（`Planned` 于下达 drawer「从 BOM 更新」入口上线后放宽——待下达工单需能同步 BOM 最新工序；计件单价从 `bom_step_prices` 主数据自动回填，reload 不丢价）
 6. 遍历 `ops`：`INSERT work_order_routings`（`work_order_id` / `step_no=op.step_order` / `process_name` / `work_center_id` / `standard_time` / `standard_cost` / `allowed_loss_rate` / `is_outsourced` / `is_inspection_point` / `product_id=op.output_product_id` / `unit_price=price_map.get(op.step_order)` / `planned_qty=wo.planned_qty`）—— 数据全部来自 `bom_operations` 一站取齐，价来自 `bom_step_prices`（未定价则 NULL）
 7. ★ **仍写 `work_orders.routing_id` 作纯溯源**（review major D9）：值取 `bom_routings` 绑定的 `routing_id`（若无则取 `bom_operations` 第一行的 `source_routing_id`，再无则 None）。load 不依赖它，但 `has_routing` 事件（`:274`）+ `routing_doc` 展示（`:571-579`）+ release 兜底（`:196`）仍读它，零下游改动
 8. 审计日志（复用 `:642-649`）
@@ -378,7 +378,7 @@ async fn set_work_order_step_price(
 
 per-step 重载的风险：WO 报工了 step1，用户改 BOM 的 step2/step3，重载会丢弃 step2/step3 快照里手工设的工作中心覆盖、以及尚未经 priceWriteBack 回写到 `bom_step_prices` 的单价（priceWriteBack 只在填价动作触发，若用户在工单快照上改了价但没走该入口，重载即丢）。这是计件工资资产丢失的具体路径。
 
-**本次拍板（D8）：per-order lock**——任一 step 报工即整单工序结构冻结，不再重载（结构漂移归零，快照手工调整得以保留）。`Draft/Released` 且全无报工的工单才允许重载。
+**本次拍板（D8）：per-order lock**——任一 step 报工即整单工序结构冻结，不再重载（结构漂移归零，快照手工调整得以保留）。`Draft/Planned/Released/InProduction` 且全无报工的工单才允许重载（`Planned` 放宽：下达 drawer ② 工序区「从 BOM 更新」入口供待下达工单同步 BOM 最新工序结构；价从 `bom_step_prices` 自动回填不丢）。
 
 > 工序快照与物料快照的**不对称**（review minor，显式记录为取舍非缺陷）：物料走 `bom_snapshots`（JSONB 版本快照，release 时冻结 `bom_snapshot_id`，整版冻结）；工序走 `work_order_routings`（运行时 copy-on-write 快照）。per-order lock 下，工单一旦有报工，工序结构也等价于"整版冻结"，两条机制在"有报工即锁定"语义上对齐。
 

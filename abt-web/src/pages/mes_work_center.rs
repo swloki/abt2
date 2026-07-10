@@ -1,10 +1,12 @@
-//! MES 生产作业中心 — 需求池 / 订单排期 / 工单 三 card 聚合工作台。
+//! MES 生产作业中心 — 单 card 聚合工作台（订单行明细 / 物料汇总 / 工单 / 批次 四 view tab）。
 //!
-//! 架构（组件化单端点模式）：
-//! - 首页内联渲染 3 个 card 外壳，每个 card 占位 div `hx-trigger="load"` 拉各自端点；
-//! - 每个 card 一个 GET 端点，card 内 tab/筛选/分页走该端点 + `hx-select="#wc-xxx-card"` 局部刷新；
-//! - 写操作（下达/分批/报工）POST 广播 `HX-Trigger: woChanged`，相关 card 声明
-//!   `hx-trigger="woChanged from:body"` 自刷新；工序由工单创建时从 BOM 关联工艺路线自动加载（只读，无需手动编辑）。
+//! 架构（列表页单端点模式）：
+//! - 首页渲染 1 个 card 外壳（`#wc-demand-card`），占位 div `hx-trigger="load"` 拉 `WcDemandPath` 端点；
+//! - 单 GET 端点 `get_demand_card` 按 `view` 参数（detail/material/orders/batches）渲染不同视图，
+//!   tab/筛选/分页走同一端点 + `hx-select="#wc-demand-card"` 局部刷新（§2 列表页单端点）；
+//! - 写操作（下达/分批/报工）POST 广播 `HX-Trigger: woChanged`，card 声明
+//!   `hx-trigger="woChanged from:body"` 自刷新；工序由工单创建时从 BOM 自动加载，
+//!   下达 drawer ② 工序区可「从 BOM 更新」同步最新工艺路线（计件单价从主数据 bom_step_prices 自动回填）。
 
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
@@ -2144,11 +2146,8 @@ fn render_release_drawer_body(data: &ReleaseDrawerData, errors: Option<&ReleaseE
                     _="on click call addSplitRow(me)" { "+ 添加生产批次" }
             }
 
-            // ② 工序（来自 BOM 工艺路线，工单创建时自动加载；只读）
-            div class="mb-5" {
-                div class="text-sm font-semibold text-fg mb-2" { "② 工序（来自 BOM 工艺路线）" }
-                (render_release_routings(routings, wc_map, prod_map, errors))
-            }
+            // ② 工序（来自 BOM 工艺路线）：标题旁「从 BOM 更新」入口；id 为 reload 端点替换边界
+            (render_release_routings_block(routings, wc_map, prod_map, errors))
 
             // ③ 物料确认
             div class="mb-5" {
@@ -2179,6 +2178,48 @@ fn render_release_drawer_body(data: &ReleaseDrawerData, errors: Option<&ReleaseE
                     "确认下达"
                 }
             }
+        }
+        // ② 工序「从 BOM 更新」确认弹窗（置于 release form 之外，避免 <form> 嵌套）
+        ({
+            crate::components::confirm_dialog::confirm_dialog(
+                "wc-reload-dialog",
+                "从 BOM 更新工序",
+                "将用 BOM 最新工艺路线<strong>覆盖当前工序快照</strong>。<br/>✅ 已设计件单价会自动保留（单价是主数据 bom_step_prices）。<br/>⚠ 若 BOM 调整了工序顺序，单价可能错位，<strong>更新后请逐行核对</strong>。",
+                "确认更新",
+                "wc-reload-form",
+                html! {
+                    form id="wc-reload-form" class="hidden"
+                        hx-post=(WoReloadRoutingsPath { order_id: order.id }.to_string())
+                        hx-target="#wc-release-routings"
+                        hx-select="#wc-release-routings"
+                        hx-swap="outerHTML" {}
+                },
+            )
+        })
+    }
+}
+
+/// ② 工序区（标题 + 「从 BOM 更新」按钮 + 工序表）。
+/// drawer 首渲与 reload-routings 端点共用；id="wc-release-routings" 为 reload 端点 hx-target/hx-select 边界。
+fn render_release_routings_block(
+    routings: &[WorkOrderRouting],
+    wc_map: &HashMap<i64, String>,
+    prod_map: &HashMap<i64, String>,
+    errors: Option<&ReleaseErrors>,
+) -> Markup {
+    html! {
+        div id="wc-release-routings" class="mb-5" {
+            div class="flex items-center justify-between mb-2" {
+                div class="text-sm font-semibold text-fg" { "② 工序（来自 BOM 工艺路线）" }
+                button type="button"
+                    class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-sm border border-border text-fg-2 hover:bg-accent-bg hover:text-accent cursor-pointer transition-all"
+                    title="用 BOM 最新工艺路线重新加载工序（已设单价自动保留）"
+                    _="on click show #wc-reload-dialog" {
+                    (icon::refresh_icon("w-3.5 h-3.5"))
+                    "从 BOM 更新"
+                }
+            }
+            (render_release_routings(routings, wc_map, prod_map, errors))
         }
     }
 }
@@ -2306,6 +2347,65 @@ pub async fn set_step_price(
             .into_iter().map(|p| (p.product_id, p.pdt_name.clone())).collect()
     };
     Ok(Html(render_release_routing_row(r, &wc_map, &prod_map, None).into_string()))
+}
+
+/// 下达 drawer：从 BOM 重新加载工序（覆盖当前快照；计件单价自动从主数据 bom_step_prices 回填）。
+/// 权限 WORK_ORDER update（与 release 同级；仅刷新工序结构，不改价，故不走 BOM_STEP_PRICE）。
+/// 守卫复用 load_operations_from_bom：整单零报工 + 状态 Draft/Planned/Released/InProduction。
+/// 成功 → 重渲 ② 工序区（#wc-release-routings）返回；service Err（已报工/状态不符）→ errors.rs toast。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn reload_routings(
+    path: WoReloadRoutingsPath,
+    ctx: RequestContext,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let wo_svc = state.work_order_service();
+    let batch_svc = state.production_batch_service();
+
+    // 取工单 + product_code（load_operations_from_bom 入参）
+    let order = wo_svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
+    let product = state
+        .product_service()
+        .get(&service_ctx, &mut conn, order.product_id)
+        .await?;
+
+    // 事务包裹：load = DELETE + INSERT work_order_routings + 审计（多步写）
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+    batch_svc
+        .load_operations_from_bom(&service_ctx, &mut tx, path.order_id, product.product_code.clone())
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+
+    // 重渲 ② 工序区（reload 后快照 + 最新主数据价）
+    let routings = batch_svc
+        .list_routings(&service_ctx, &mut conn, path.order_id)
+        .await?;
+    let wc_map: HashMap<i64, String> = new_work_center_service(state.pool.clone())
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|w| (w.id, w.name))
+        .collect();
+    let prod_ids: Vec<i64> = routings.iter().filter_map(|x| x.product_id).collect();
+    let prod_map: HashMap<i64, String> = if prod_ids.is_empty() {
+        HashMap::new()
+    } else {
+        state.product_service()
+            .get_by_ids(&service_ctx, &mut conn, prod_ids)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| (p.product_id, p.pdt_name.clone()))
+            .collect()
+    };
+    Ok(Html(render_release_routings_block(&routings, &wc_map, &prod_map, None).into_string()))
 }
 
 /// 单条生产批次行（数量 input + 删除按钮）。.split-row 供 addSplitRow 克隆；至少保留 1 行。

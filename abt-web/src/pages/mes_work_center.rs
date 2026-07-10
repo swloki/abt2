@@ -2257,6 +2257,10 @@ fn render_release_routing_row(
                     hx-post=(WoStepPricePath { order_id: r.work_order_id, step_no: r.step_no }.to_string())
                     hx-trigger="blur"
                     hx-target="closest tr" hx-swap="outerHTML"
+                    // 此 input 嵌在 release <form> 内，htmx 对 POST 会无条件序列化最近 <form>
+                    // （含每行工序各一个 unit_price），导致 set_step_price 报 duplicate field 'unit_price'。
+                    // 故 config-request 时只回填本输入框自己的值（order_id/step_no 已在 URL 路径里）。
+                    hx-on:htmx:config-request="event.detail.parameters = {unit_price: event.detail.elt.value}"
                     title="此单价保存后对该产品后续所有工单生效（主数据·本产品通用）";
             }
             td class="py-1.5 px-2 text-center" {

@@ -34,7 +34,10 @@ pub struct OrderCreateForm {
  pub payment_terms: Option<String>,
  pub delivery_terms: Option<String>,
  pub delivery_address: Option<String>,
- pub remark: Option<String>,
+ // 命名 order_remark 而非 remark：行项目 input 也用 name="remark"（collectItems 收集进
+ // items_json），整表单提交时会序列化出多个 remark；此处取单值会因 duplicate field 报错。
+ // 故订单级备注用 order_remark，行项目的 remark 不匹配顶层字段被 serde 忽略（与 quantity 等同机制）。
+ pub order_remark: Option<String>,
  pub items_json: String,
  pub profit_center_id: Option<String>,
 }
@@ -227,7 +230,7 @@ pub async fn create_order(
  payment_terms: form.payment_terms,
  delivery_terms: form.delivery_terms,
  delivery_address: form.delivery_address,
- remark: form.remark,
+ remark: form.order_remark,
  profit_center_id: form.profit_center_id.as_deref().and_then(|s| if s.is_empty() { None } else { s.parse().ok() }),
  };
 
@@ -432,7 +435,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                 { (icon::file_text_icon("w-[18px] h-[18px]")) "备注" }
                 textarea
                     class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5"
-                    name="remark"
+                    name="order_remark"
                     placeholder="输入订单相关备注信息…"
                 {
                     @if let Some(r) = sel_remark { (r) }

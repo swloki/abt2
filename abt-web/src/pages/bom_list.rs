@@ -207,7 +207,6 @@ fn bom_list_page(
                 },
             )
         })
-        script src="/cost-drawer.js?v=20260602" {}
     }
 }
 }
@@ -474,6 +473,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                         })
                         hx-target="#cost-drawer-body"
                         hx-swap="innerHTML"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #cost-drawer"
                     { (icon::currency_icon("w-4 h-4")) }
                 } @else if can_view_labor_cost {
                     button
@@ -487,7 +487,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                         })
                         hx-target="#cost-drawer-body"
                         hx-swap="innerHTML"
-                        _="on click show #cost-drawer"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #cost-drawer"
                     { (icon::bolt_icon("w-4 h-4")) }
                 }
                 @if can_delete {

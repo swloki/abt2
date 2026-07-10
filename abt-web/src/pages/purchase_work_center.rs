@@ -1878,13 +1878,6 @@ fn render_po_detail_drawer_body(
                     print_templates,
                     &format!("{}?document_type=purchase_order", PrintTemplateListPath::PATH),
                 ))
-                button type="button"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface hover:text-accent transition-colors shadow-xs"
-                    hx-post=(format!("{}/purchase-order?order_id={}", crate::routes::excel::EXPORT_START_PATH, order.id))
-                    hx-confirm="确定要导出此采购订单吗？"
-                    hx-swap="none" {
-                    (icon::download_icon("w-3.5 h-3.5")) "导出"
-                }
                 span class="text-lg font-bold font-mono text-accent" { (fmt_decimal(order.total_amount)) }
             }
         }

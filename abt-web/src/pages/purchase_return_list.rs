@@ -59,6 +59,7 @@ fn build_filter(params: &PRQueryParams) -> PurchaseReturnQuery {
  status: params.status.and_then(PurchaseReturnStatus::from_i16),
  return_date_start,
  return_date_end,
+ ..Default::default()
  }
 }
 

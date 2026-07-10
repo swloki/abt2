@@ -49,6 +49,14 @@ pub struct MiscRequestQuery {
     pub status: Option<MiscRequestStatus>,
     pub request_date_start: Option<NaiveDate>,
     pub request_date_end: Option<NaiveDate>,
+    /// 单号模糊匹配（ILIKE '%kw%'）
+    pub doc_number: Option<String>,
+    /// 物品关键字反查（EXISTS join misc_request_items，item_name OR specification）
+    pub item_keyword: Option<String>,
+    /// 排序列（白名单：date/amount/purpose/doc）
+    pub sort: Option<String>,
+    /// 排序方向（"asc" | "desc"，默认 desc）
+    pub dir: Option<String>,
 }
 
 // ---------------------------------------------------------------------------

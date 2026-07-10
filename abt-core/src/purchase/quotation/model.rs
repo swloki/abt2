@@ -52,6 +52,14 @@ pub struct PurchaseQuotationQuery {
     pub status: Option<PurchaseQuotationStatus>,
     pub quotation_date_start: Option<NaiveDate>,
     pub quotation_date_end: Option<NaiveDate>,
+    /// 单号模糊匹配（ILIKE '%kw%'）
+    pub doc_number: Option<String>,
+    /// 物料关键字反查（EXISTS join items+products，product_code OR pdt_name）
+    pub product_keyword: Option<String>,
+    /// 排序列（白名单：date/valid/supplier/doc）
+    pub sort: Option<String>,
+    /// 排序方向（"asc" | "desc"，默认 desc）
+    pub dir: Option<String>,
 }
 
 // ---------------------------------------------------------------------------

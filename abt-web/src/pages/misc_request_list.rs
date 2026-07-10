@@ -65,6 +65,7 @@ fn build_filter(params: &MiscQueryParams, dept_id_map: &HashMap<String, i64>) ->
  status: params.status.and_then(MiscRequestStatus::from_i16),
  request_date_start,
  request_date_end,
+ ..Default::default()
  }
 }
 

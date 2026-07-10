@@ -70,13 +70,42 @@ impl PurchaseReturnRepo {
         q: &PurchaseReturnQuery,
         page: &PageParams,
     ) -> Result<(Vec<PurchaseReturn>, u64)> {
+        // 排序：白名单列名 + 方向（防注入）。sort=supplier 需 LEFT JOIN suppliers
+        let (order_col, default_asc, need_join) = match q.sort.as_deref() {
+            Some("amount") => ("total_amount", false, false),
+            Some("supplier") => ("s.supplier_name", true, true),
+            Some("doc") => ("doc_number", false, false),
+            _ => ("return_date", false, false), // date 或默认
+        };
+        let asc = match q.dir.as_deref() {
+            Some("asc") => true,
+            Some("desc") => false,
+            _ => default_asc,
+        };
+        let order_clause = format!(
+            "{order_col} {}{}",
+            if asc { "ASC" } else { "DESC" },
+            if need_join { " NULLS LAST" } else { "" }
+        );
+        let join_clause = if need_join {
+            "LEFT JOIN suppliers s ON s.supplier_id = purchase_returns.supplier_id AND s.deleted_at IS NULL"
+        } else {
+            ""
+        };
         let where_clause = "
-            WHERE deleted_at IS NULL
-              AND ($1::bigint IS NULL OR order_id = $1)
-              AND ($2::bigint IS NULL OR supplier_id = $2)
-              AND ($3::smallint IS NULL OR status = $3)
-              AND ($4::date IS NULL OR return_date >= $4)
-              AND ($5::date IS NULL OR return_date <= $5)
+            WHERE purchase_returns.deleted_at IS NULL
+              AND ($1::bigint IS NULL OR purchase_returns.order_id = $1)
+              AND ($2::bigint IS NULL OR purchase_returns.supplier_id = $2)
+              AND ($3::smallint IS NULL OR purchase_returns.status = $3)
+              AND ($4::date IS NULL OR purchase_returns.return_date >= $4)
+              AND ($5::date IS NULL OR purchase_returns.return_date <= $5)
+              AND ($6::text IS NULL OR purchase_returns.doc_number ILIKE '%' || $6 || '%')
+              AND ($7::text IS NULL OR EXISTS (
+                    SELECT 1 FROM purchase_return_items ri
+                    JOIN products p ON p.product_id = ri.product_id AND p.deleted_at IS NULL
+                    WHERE ri.return_id = purchase_returns.id
+                      AND (p.product_code ILIKE '%' || $7 || '%'
+                           OR p.pdt_name ILIKE '%' || $7 || '%')))
         ";
 
         // Count
@@ -87,6 +116,8 @@ impl PurchaseReturnRepo {
             .bind(q.status)
             .bind(q.return_date_start)
             .bind(q.return_date_end)
+            .bind(q.doc_number.as_deref())
+            .bind(q.product_keyword.as_deref())
             .fetch_one(&mut *executor)
             .await?;
         let total: i64 = count_row.try_get("cnt")?;
@@ -95,12 +126,12 @@ impl PurchaseReturnRepo {
         let limit = page.page_size as i64;
         let offset = page.offset() as i64;
         let data_sql = format!(
-            "SELECT id, doc_number, order_id, supplier_id, return_date, status,
-                    return_reason, total_amount, remark, operator_id,
-                    created_at, updated_at, deleted_at
-             FROM purchase_returns {where_clause}
-             ORDER BY created_at DESC
-             LIMIT $6 OFFSET $7"
+            "SELECT purchase_returns.id, purchase_returns.doc_number, purchase_returns.order_id, purchase_returns.supplier_id, purchase_returns.return_date, purchase_returns.status,
+                    purchase_returns.return_reason, purchase_returns.total_amount, purchase_returns.remark, purchase_returns.operator_id,
+                    purchase_returns.created_at, purchase_returns.updated_at, purchase_returns.deleted_at
+             FROM purchase_returns {join_clause} {where_clause}
+             ORDER BY {order_clause}
+             LIMIT $8 OFFSET $9"
         );
         let rows = sqlx::query_as::<_, PurchaseReturn>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.order_id)
@@ -108,6 +139,8 @@ impl PurchaseReturnRepo {
             .bind(q.status)
             .bind(q.return_date_start)
             .bind(q.return_date_end)
+            .bind(q.doc_number.as_deref())
+            .bind(q.product_keyword.as_deref())
             .bind(limit)
             .bind(offset)
             .fetch_all(&mut *executor)

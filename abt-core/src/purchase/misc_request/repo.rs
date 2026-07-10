@@ -71,32 +71,53 @@ impl MiscRequestRepo {
     ) -> Result<(Vec<MiscellaneousRequest>, u64)> {
         let (data_scope, operator_id, department_id) = scope;
         // miscellaneous_requests 有 department_id，可按部门过滤
-        let scope_clause = match data_scope {
-            DataScope::All => "",
-            DataScope::Department => "AND department_id = $7",
-            DataScope::SelfOnly => "AND operator_id = $7",
+        // 占位符：$1 department_id, $2 status, $3 date_start, $4 date_end, $5 doc_number, $6 item_keyword
+        //         count scope $7；data LIMIT $7 OFFSET $8 + scope $9
+        let (count_scope_clause, data_scope_clause) = match data_scope {
+            DataScope::All => ("", ""),
+            DataScope::Department => ("AND department_id = $7", "AND department_id = $9"),
+            DataScope::SelfOnly => ("AND operator_id = $7", "AND operator_id = $9"),
         };
-        let where_clause = format!(
-            "WHERE deleted_at IS NULL
-              AND ($1::bigint IS NULL OR department_id = $1)
-              AND ($2::smallint IS NULL OR status = $2)
-              AND ($3::date IS NULL OR request_date >= $3)
-              AND ($4::date IS NULL OR request_date <= $4)
-              {scope_clause}"
-        );
-
         let scope_bind_id = match data_scope {
             DataScope::Department => department_id.unwrap_or(operator_id),
             _ => operator_id,
         };
+        // 排序：白名单列名 + 方向（防注入）。misc 无供应商概念，不支持 supplier 排序
+        let (order_col, default_asc) = match q.sort.as_deref() {
+            Some("amount") => ("total_amount", false),
+            Some("purpose") => ("purpose", true),
+            Some("doc") => ("doc_number", false),
+            _ => ("request_date", false), // date 或默认
+        };
+        let asc = match q.dir.as_deref() {
+            Some("asc") => true,
+            Some("desc") => false,
+            _ => default_asc,
+        };
+        let order_clause = format!("{order_col} {}", if asc { "ASC" } else { "DESC" });
+        let where_base = "WHERE deleted_at IS NULL
+              AND ($1::bigint IS NULL OR department_id = $1)
+              AND ($2::smallint IS NULL OR status = $2)
+              AND ($3::date IS NULL OR request_date >= $3)
+              AND ($4::date IS NULL OR request_date <= $4)
+              AND ($5::text IS NULL OR doc_number ILIKE '%' || $5 || '%')
+              AND ($6::text IS NULL OR EXISTS (
+                    SELECT 1 FROM misc_request_items mi
+                    WHERE mi.request_id = miscellaneous_requests.id
+                      AND (mi.item_name ILIKE '%' || $6 || '%'
+                           OR mi.specification ILIKE '%' || $6 || '%')))";
+        let count_where = format!("{where_base} {count_scope_clause}");
+        let data_where = format!("{where_base} {data_scope_clause}");
 
         // Count
-        let count_sql = format!("SELECT COUNT(*) AS cnt FROM miscellaneous_requests {where_clause}");
+        let count_sql = format!("SELECT COUNT(*) AS cnt FROM miscellaneous_requests {count_where}");
         let mut count_query = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.department_id)
             .bind(q.status)
             .bind(q.request_date_start)
-            .bind(q.request_date_end);
+            .bind(q.request_date_end)
+            .bind(q.doc_number.as_deref())
+            .bind(q.item_keyword.as_deref());
         if !matches!(data_scope, DataScope::All) {
             count_query = count_query.bind(scope_bind_id);
         }
@@ -109,15 +130,17 @@ impl MiscRequestRepo {
         let data_sql = format!(
             "SELECT id, doc_number, department_id, request_date, status, total_amount,
                     purpose, remark, operator_id, created_at, updated_at, deleted_at
-             FROM miscellaneous_requests {where_clause}
-             ORDER BY created_at DESC
-             LIMIT $5 OFFSET $6"
+             FROM miscellaneous_requests {data_where}
+             ORDER BY {order_clause}
+             LIMIT $7 OFFSET $8"
         );
         let mut data_query = sqlx::query_as::<_, MiscellaneousRequest>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.department_id)
             .bind(q.status)
             .bind(q.request_date_start)
             .bind(q.request_date_end)
+            .bind(q.doc_number.as_deref())
+            .bind(q.item_keyword.as_deref())
             .bind(limit)
             .bind(offset);
         if !matches!(data_scope, DataScope::All) {

@@ -68,6 +68,24 @@ pub struct PcPoItemsRowPath {
     pub id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/quotations/{id}/items-row")]
+pub struct PcQuotationItemsRowPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/returns/{id}/items-row")]
+pub struct PcReturnItemsRowPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/misc/{id}/items-row")]
+pub struct PcMiscItemsRowPath {
+    pub id: i64,
+}
+
 // ── 转采购单 drawer（就地转单，复用 create_order_from_demands）──
 
 #[derive(TypedPath, Deserialize, Clone)]
@@ -312,6 +330,18 @@ pub fn router() -> Router<AppState> {
         .route(
             PcPoItemsRowPath::PATH,
             get(purchase_work_center::get_po_items_row),
+        )
+        .route(
+            PcQuotationItemsRowPath::PATH,
+            get(purchase_work_center::get_quotation_items_row),
+        )
+        .route(
+            PcReturnItemsRowPath::PATH,
+            get(purchase_work_center::get_return_items_row),
+        )
+        .route(
+            PcMiscItemsRowPath::PATH,
+            get(purchase_work_center::get_misc_items_row),
         )
         .route(
             PcConvertPoDrawerPath::PATH,

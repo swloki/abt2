@@ -48,7 +48,7 @@ use abt_core::shared::types::{DomainError, PageParams};
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
-use abt_core::purchase::misc_request::model::{MiscRequestQuery, MiscellaneousRequest};
+use abt_core::purchase::misc_request::model::{MiscRequestItem, MiscRequestQuery, MiscellaneousRequest};
 use abt_core::purchase::misc_request::MiscellaneousRequestService;
 use rust_decimal::Decimal;
 use abt_core::purchase::quotation::model::{
@@ -723,6 +723,114 @@ pub async fn get_po_items_row(
     Ok(Html(
         po_items_expand_row(path.id, &items, &codes, &names).into_string(),
     ))
+}
+
+/// 报价行展开：懒加载该报价的产品明细（产品/单价/起订量/交期/优选）。
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_quotation_items_row(
+    path: PcQuotationItemsRowPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let items = state
+        .purchase_quotation_service()
+        .list_items(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+    let (codes, names): (HashMap<i64, String>, HashMap<i64, String>) = {
+        let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        if ids.is_empty() {
+            (HashMap::new(), HashMap::new())
+        } else {
+            let products = state
+                .product_service()
+                .get_by_ids(&service_ctx, &mut conn, ids)
+                .await
+                .unwrap_or_default();
+            (
+                products
+                    .iter()
+                    .map(|p| (p.product_id, p.product_code.clone()))
+                    .collect(),
+                products
+                    .iter()
+                    .map(|p| (p.product_id, p.pdt_name.clone()))
+                    .collect(),
+            )
+        }
+    };
+    Ok(Html(
+        quotation_items_expand_row(path.id, &items, &codes, &names).into_string(),
+    ))
+}
+
+/// 退货行展开：懒加载该退货的产品明细（产品/退货数/单价/金额）。
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_return_items_row(
+    path: PcReturnItemsRowPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let items = state
+        .purchase_return_service()
+        .list_items(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+    let (codes, names): (HashMap<i64, String>, HashMap<i64, String>) = {
+        let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        if ids.is_empty() {
+            (HashMap::new(), HashMap::new())
+        } else {
+            let products = state
+                .product_service()
+                .get_by_ids(&service_ctx, &mut conn, ids)
+                .await
+                .unwrap_or_default();
+            (
+                products
+                    .iter()
+                    .map(|p| (p.product_id, p.product_code.clone()))
+                    .collect(),
+                products
+                    .iter()
+                    .map(|p| (p.product_id, p.pdt_name.clone()))
+                    .collect(),
+            )
+        }
+    };
+    Ok(Html(
+        return_items_expand_row(path.id, &items, &codes, &names).into_string(),
+    ))
+}
+
+/// 请购行展开：懒加载该请购的物品明细（物品名/规格/数量/估价/备注，自由物品无 product_id）。
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_misc_items_row(
+    path: PcMiscItemsRowPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let items = state
+        .misc_request_service()
+        .list_items(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+    Ok(Html(misc_items_expand_row(path.id, &items).into_string()))
 }
 
 // ── 转采购单 drawer（就地转单，复用 create_order_from_demands）──
@@ -3452,22 +3560,30 @@ fn orders_filter_bar(status: Option<i16>, p: &OrdersCardParams) -> Markup {
     }
 }
 
+/// thead 展开列 th：全部展开/收起图标按钮（chevrons-down↔up 切换），scope 限当前 #pc-card。
+/// 复用于订单/报价/请购/退货四个列表。
+fn pc_expand_all_th() -> Markup {
+    html! {
+        th class="w-12 py-2 px-1 text-center" {
+            button type="button" class="pc-expand-all inline-flex items-center justify-center text-muted hover:text-accent cursor-pointer rounded-sm hover:bg-surface p-0.5"
+                data-expanded="0"
+                title="展开/收起全部明细"
+                aria-label="展开/收起全部明细"
+                _="on click call rowExpandToggleAll(me, '#pc-card')" {
+                (icon::raw("i-lucide-chevrons-down", "ico-expand w-[15px] h-[15px]"))
+                (icon::raw("i-lucide-chevrons-up", "ico-collapse hidden w-[15px] h-[15px]"))
+            }
+        }
+    }
+}
+
 fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>) -> Markup {
     html! {
         div class="overflow-x-auto" {
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
-                        th class="w-12 py-2 px-1 text-center" {
-                            button type="button" class="pc-expand-all inline-flex items-center justify-center text-muted hover:text-accent cursor-pointer rounded-sm hover:bg-surface p-0.5"
-                                data-expanded="0"
-                                title="展开/收起全部订单明细"
-                                aria-label="展开/收起全部订单明细"
-                                _="on click call rowExpandToggleAll(me, '#pc-card')" {
-                                (icon::raw("i-lucide-chevrons-down", "ico-expand w-[15px] h-[15px]"))
-                                (icon::raw("i-lucide-chevrons-up", "ico-collapse hidden w-[15px] h-[15px]"))
-                            }
-                        }
+                        (pc_expand_all_th())
                         th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "订单号" }
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "供应商" }
                         th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "金额" }
@@ -3559,6 +3675,128 @@ fn po_items_expand_row(
         }
     };
     row_expand::row_expand_detail(&row_id, 7, body)
+}
+
+/// 报价行展开明细：产品(名+编码)/单价(+币种)/起订量/交期/优选。
+fn quotation_items_expand_row(
+    quotation_id: i64,
+    items: &[PurchaseQuotationItem],
+    codes: &HashMap<i64, String>,
+    names: &HashMap<i64, String>,
+) -> Markup {
+    let row_id = format!("quotation-items-{quotation_id}");
+    let body = html! {
+        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
+            table class="w-full text-xs" {
+                thead {
+                    tr class="text-muted border-b border-border-soft" {
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物料" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "单价" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "起订量" }
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "交期" }
+                        th class="text-center font-semibold py-1.5 px-2 uppercase tracking-wide" { "优选" }
+                    }
+                }
+                tbody {
+                    @for it in items {
+                        tr class="border-b border-border-soft/40 last:border-none" {
+                            td class="py-1.5 px-2" {
+                                div class="text-fg" { (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                div class="text-muted font-mono" { (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            }
+                            td class="py-1.5 px-2 text-right font-mono whitespace-nowrap" { (fmt_plain(it.unit_price)) " " (it.currency.as_str()) }
+                            td class="py-1.5 px-2 text-right font-mono" { (it.min_order_qty.map(fmt_plain).unwrap_or_else(|| "—".into())) }
+                            td class="py-1.5 px-2 text-muted" { @if let Some(d) = it.lead_time_days { (d) " 天" } @else { "—" } }
+                            td class="py-1.5 px-2 text-center" { @if it.is_preferred { span class="text-success font-bold" { "✓" } } @else { "—" } }
+                        }
+                    }
+                    @if items.is_empty() {
+                        tr { td colspan="5" class="text-center text-muted py-4" { "暂无明细" } }
+                    }
+                }
+            }
+        }
+    };
+    row_expand::row_expand_detail(&row_id, 6, body)
+}
+
+/// 退货行展开明细：产品(名+编码)/退货数/单价/金额。
+fn return_items_expand_row(
+    return_id: i64,
+    items: &[PurchaseReturnItem],
+    codes: &HashMap<i64, String>,
+    names: &HashMap<i64, String>,
+) -> Markup {
+    let row_id = format!("return-items-{return_id}");
+    let body = html! {
+        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
+            table class="w-full text-xs" {
+                thead {
+                    tr class="text-muted border-b border-border-soft" {
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物料" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "退货数" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "单价" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "金额" }
+                    }
+                }
+                tbody {
+                    @for it in items {
+                        tr class="border-b border-border-soft/40 last:border-none" {
+                            td class="py-1.5 px-2" {
+                                div class="text-fg" { (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                div class="text-muted font-mono" { (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.returned_qty)) }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.unit_price)) }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.amount)) }
+                        }
+                    }
+                    @if items.is_empty() {
+                        tr { td colspan="4" class="text-center text-muted py-4" { "暂无明细" } }
+                    }
+                }
+            }
+        }
+    };
+    row_expand::row_expand_detail(&row_id, 6, body)
+}
+
+/// 请购行展开明细：物品名(+规格)/数量(+单位)/估价/备注（自由物品，无 product_id）。
+fn misc_items_expand_row(request_id: i64, items: &[MiscRequestItem]) -> Markup {
+    let row_id = format!("misc-items-{request_id}");
+    let body = html! {
+        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
+            table class="w-full text-xs" {
+                thead {
+                    tr class="text-muted border-b border-border-soft" {
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物品" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "数量" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "估价" }
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "备注" }
+                    }
+                }
+                tbody {
+                    @for it in items {
+                        tr class="border-b border-border-soft/40 last:border-none" {
+                            td class="py-1.5 px-2" {
+                                div class="text-fg" { (it.item_name.as_str()) }
+                                @if let Some(spec) = &it.specification {
+                                    div class="text-muted text-[11px]" { (spec.as_str()) }
+                                }
+                            }
+                            td class="py-1.5 px-2 text-right font-mono whitespace-nowrap" { (fmt_plain(it.quantity)) " " (it.unit.as_str()) }
+                            td class="py-1.5 px-2 text-right font-mono" { (it.estimated_price.map(fmt_plain).unwrap_or_else(|| "—".into())) }
+                            td class="py-1.5 px-2 text-muted" { (it.remark.as_deref().unwrap_or("—")) }
+                        }
+                    }
+                    @if items.is_empty() {
+                        tr { td colspan="4" class="text-center text-muted py-4" { "暂无明细" } }
+                    }
+                }
+            }
+        }
+    };
+    row_expand::row_expand_detail(&row_id, 6, body)
 }
 
 fn po_status_pill(status: PurchaseOrderStatus) -> Markup {
@@ -3754,6 +3992,7 @@ fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>) -> Mark
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
+                        (pc_expand_all_th())
                         th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "退货单号" }
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "供应商" }
                         th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "金额" }
@@ -3763,10 +4002,16 @@ fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>) -> Mark
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="5" class="text-center text-muted py-8" { "暂无退货" } }
+                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无退货" } }
                     }
                     @for r in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg" {
+                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
+                            td class="py-2.5 px-2 text-center" {
+                                (row_expand::row_expand_toggle(
+                                    &format!("return-items-{}", r.id),
+                                    &PcReturnItemsRowPath { id: r.id }.to_string(),
+                                ))
+                            }
                             td class="py-2.5 px-5 font-mono text-accent font-medium" {
                                 (doc_number_detail_btn(&r.doc_number, &PcReturnDetailDrawerPath { id: r.id }.to_string(), "#return-detail-drawer-body", "#return-detail-overlay"))
                             }
@@ -3857,6 +4102,7 @@ fn quotation_table(items: &[PurchaseQuotation], names: &HashMap<i64, String>) ->
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
+                        (pc_expand_all_th())
                         th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "报价单号" }
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "供应商" }
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "有效期" }
@@ -3866,10 +4112,16 @@ fn quotation_table(items: &[PurchaseQuotation], names: &HashMap<i64, String>) ->
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="5" class="text-center text-muted py-8" { "暂无报价" } }
+                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无报价" } }
                     }
                     @for q in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg" {
+                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
+                            td class="py-2.5 px-2 text-center" {
+                                (row_expand::row_expand_toggle(
+                                    &format!("quotation-items-{}", q.id),
+                                    &PcQuotationItemsRowPath { id: q.id }.to_string(),
+                                ))
+                            }
                             td class="py-2.5 px-5 font-mono text-accent font-medium" {
                                 (doc_number_detail_btn(&q.doc_number, &PcQuotationDetailDrawerPath { id: q.id }.to_string(), "#quotation-detail-drawer-body", "#quotation-detail-overlay"))
                             }
@@ -3937,6 +4189,7 @@ fn misc_table(items: &[MiscellaneousRequest]) -> Markup {
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
+                        (pc_expand_all_th())
                         th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "请购单号" }
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "用途" }
                         th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "金额" }
@@ -3946,10 +4199,16 @@ fn misc_table(items: &[MiscellaneousRequest]) -> Markup {
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="5" class="text-center text-muted py-8" { "暂无请购" } }
+                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无请购" } }
                     }
                     @for m in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg" {
+                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
+                            td class="py-2.5 px-2 text-center" {
+                                (row_expand::row_expand_toggle(
+                                    &format!("misc-items-{}", m.id),
+                                    &PcMiscItemsRowPath { id: m.id }.to_string(),
+                                ))
+                            }
                             td class="py-2.5 px-5 font-mono text-accent font-medium" {
                                 (doc_number_detail_btn(&m.doc_number, &PcMiscDetailDrawerPath { id: m.id }.to_string(), "#misc-detail-drawer-body", "#misc-detail-overlay"))
                             }

@@ -11,6 +11,7 @@ pub mod pagination;
 pub mod status_step_bar;
 pub mod tabs;
 pub mod category_select;
+pub mod combo_select;
 pub mod detail;
 pub mod drawer;
 pub mod export_button;

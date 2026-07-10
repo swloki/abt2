@@ -252,6 +252,7 @@ fn bom_detail_page(
                         hx-get=(cost_drawer_path.to_string())
                         hx-target="#cost-drawer-body"
                         hx-swap="innerHTML"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #cost-drawer"
                     { (icon::currency_icon("w-3.5 h-3.5")) "查看成本" }
                 } @else if can_view_labor_cost {
                     button
@@ -260,7 +261,7 @@ fn bom_detail_page(
                         hx-get=(labor_drawer_path.to_string())
                         hx-target="#labor-drawer-body"
                         hx-swap="innerHTML"
-                        _="on click show #labor-drawer"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #labor-drawer"
                     { (icon::bolt_icon("w-3.5 h-3.5")) "查看人工成本" }
                 }
                 @if can_edit {

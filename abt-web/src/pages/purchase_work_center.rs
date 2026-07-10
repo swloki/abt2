@@ -310,6 +310,8 @@ pub struct OrdersCardParams {
     pub dir: Option<String>,
     #[serde(default)]
     pub page: Option<u32>,
+    #[serde(default)]
+    pub per_page: Option<u32>,
 }
 
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -338,6 +340,7 @@ pub async fn get_orders_card(
         other => (other.and_then(PurchaseOrderStatus::from_i16), None),
     };
     let page = p.page.unwrap_or(1);
+    let per_page = p.per_page.unwrap_or(10).clamp(1, 200);
     let result = svc
         .list(
             &service_ctx,
@@ -351,11 +354,24 @@ pub async fn get_orders_card(
                 dir: p.dir.clone(),
                 ..Default::default()
             },
-            PageParams::new(page, 10),
+            PageParams::new(page, per_page),
         )
         .await?;
-    let ids: Vec<i64> = result.items.iter().map(|o| o.supplier_id).collect();
-    let names = supplier_names(&state, &service_ctx, &mut conn, &ids).await;
+    let sup_ids: Vec<i64> = result.items.iter().map(|o| o.supplier_id).collect();
+    let names = supplier_names(&state, &service_ctx, &mut conn, &sup_ids).await;
+    // 批量取明细（避免 N+1）+ 产品编码/名称，供主从表 rowspan 常驻明细
+    let order_ids: Vec<i64> = result.items.iter().map(|o| o.id).collect();
+    let mut order_items: HashMap<i64, Vec<PurchaseOrderItem>> = HashMap::new();
+    let mut product_ids: Vec<i64> = Vec::new();
+    for it in svc
+        .list_items_by_order_ids(&service_ctx, &mut conn, &order_ids)
+        .await
+        .unwrap_or_default()
+    {
+        product_ids.push(it.product_id);
+        order_items.entry(it.order_id).or_default().push(it);
+    }
+    let (codes, pnames) = product_codes_names(&state, &service_ctx, &mut conn, product_ids).await;
 
     Ok(Html(
         html! {
@@ -365,8 +381,8 @@ pub async fn get_orders_card(
                 hx-include="#pc-filter-form"
                 hx-target="this" hx-select="#pc-card" hx-swap="outerHTML" {
                 (pc_tab_bar("orders", &summary))
-                (orders_filter_bar(p.status, &p))
-                (orders_table(&result.items, &names, p.sort.as_deref(), p.dir.as_deref()))
+                (orders_filter_bar(p.status, per_page, &p))
+                (orders_table(&result.items, &names, &order_items, &codes, &pnames, p.sort.as_deref(), p.dir.as_deref()))
                 (pagination(PcOrdersPath::PATH, "#pc-card", "#pc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -486,6 +502,8 @@ pub struct ReturnsCardParams {
     pub dir: Option<String>,
     #[serde(default)]
     pub page: Option<u32>,
+    #[serde(default)]
+    pub per_page: Option<u32>,
 }
 
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -504,6 +522,7 @@ pub async fn get_returns_card(
     let summary = cached_summary(&state, &service_ctx, &mut conn).await;
     let status = p.status.and_then(PurchaseReturnStatus::from_i16);
     let page = p.page.unwrap_or(1);
+    let per_page = p.per_page.unwrap_or(10).clamp(1, 200);
     let result = svc
         .list(
             &service_ctx,
@@ -516,11 +535,24 @@ pub async fn get_returns_card(
                 dir: p.dir.clone(),
                 ..Default::default()
             },
-            PageParams::new(page, 10),
+            PageParams::new(page, per_page),
         )
         .await?;
-    let ids: Vec<i64> = result.items.iter().map(|x| x.supplier_id).collect();
-    let names = supplier_names(&state, &service_ctx, &mut conn, &ids).await;
+    let sup_ids: Vec<i64> = result.items.iter().map(|x| x.supplier_id).collect();
+    let names = supplier_names(&state, &service_ctx, &mut conn, &sup_ids).await;
+    // 批量取明细（避免 N+1）+ 产品编码/名称，供主从表 rowspan 常驻明细
+    let return_ids: Vec<i64> = result.items.iter().map(|r| r.id).collect();
+    let mut return_items: HashMap<i64, Vec<PurchaseReturnItem>> = HashMap::new();
+    let mut product_ids: Vec<i64> = Vec::new();
+    for it in svc
+        .list_items_by_return_ids(&service_ctx, &mut conn, &return_ids)
+        .await
+        .unwrap_or_default()
+    {
+        product_ids.push(it.product_id);
+        return_items.entry(it.return_id).or_default().push(it);
+    }
+    let (codes, pnames) = product_codes_names(&state, &service_ctx, &mut conn, product_ids).await;
 
     Ok(Html(
         html! {
@@ -530,8 +562,8 @@ pub async fn get_returns_card(
                 hx-include="#pc-filter-form"
                 hx-target="this" hx-select="#pc-card" hx-swap="outerHTML" {
                 (pc_tab_bar("returns", &summary))
-                (returns_filter_bar(p.status, &p))
-                (returns_table(&result.items, &names, p.sort.as_deref(), p.dir.as_deref()))
+                (returns_filter_bar(p.status, per_page, &p))
+                (returns_table(&result.items, &names, &return_items, &codes, &pnames, p.sort.as_deref(), p.dir.as_deref()))
                 (pagination(PcReturnsPath::PATH, "#pc-card", "#pc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -558,6 +590,8 @@ pub struct QuotationCardParams {
     pub dir: Option<String>,
     #[serde(default)]
     pub page: Option<u32>,
+    #[serde(default)]
+    pub per_page: Option<u32>,
 }
 
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -576,6 +610,7 @@ pub async fn get_quotation_card(
     let summary = cached_summary(&state, &service_ctx, &mut conn).await;
     let status = p.status.and_then(PurchaseQuotationStatus::from_i16);
     let page = p.page.unwrap_or(1);
+    let per_page = p.per_page.unwrap_or(10).clamp(1, 200);
     let result = svc
         .list(
             &service_ctx,
@@ -588,11 +623,24 @@ pub async fn get_quotation_card(
                 dir: p.dir.clone(),
                 ..Default::default()
             },
-            PageParams::new(page, 10),
+            PageParams::new(page, per_page),
         )
         .await?;
-    let ids: Vec<i64> = result.items.iter().map(|q| q.supplier_id).collect();
-    let names = supplier_names(&state, &service_ctx, &mut conn, &ids).await;
+    let sup_ids: Vec<i64> = result.items.iter().map(|q| q.supplier_id).collect();
+    let names = supplier_names(&state, &service_ctx, &mut conn, &sup_ids).await;
+    // 批量取明细（避免 N+1）+ 产品编码/名称，供主从表 rowspan 常驻明细
+    let quotation_ids: Vec<i64> = result.items.iter().map(|q| q.id).collect();
+    let mut quotation_items: HashMap<i64, Vec<PurchaseQuotationItem>> = HashMap::new();
+    let mut product_ids: Vec<i64> = Vec::new();
+    for it in svc
+        .list_items_by_quotation_ids(&service_ctx, &mut conn, &quotation_ids)
+        .await
+        .unwrap_or_default()
+    {
+        product_ids.push(it.product_id);
+        quotation_items.entry(it.quotation_id).or_default().push(it);
+    }
+    let (codes, pnames) = product_codes_names(&state, &service_ctx, &mut conn, product_ids).await;
     Ok(Html(
         html! {
             div id="pc-card"
@@ -601,8 +649,8 @@ pub async fn get_quotation_card(
                 hx-include="#pc-filter-form"
                 hx-target="this" hx-select="#pc-card" hx-swap="outerHTML" {
                 (pc_tab_bar("quotation", &summary))
-                (quotation_filter_bar(p.status, &p))
-                (quotation_table(&result.items, &names, p.sort.as_deref(), p.dir.as_deref()))
+                (quotation_filter_bar(p.status, per_page, &p))
+                (quotation_table(&result.items, &names, &quotation_items, &codes, &pnames, p.sort.as_deref(), p.dir.as_deref()))
                 (pagination(PcQuotationPath::PATH, "#pc-card", "#pc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -629,6 +677,8 @@ pub struct MiscCardParams {
     pub dir: Option<String>,
     #[serde(default)]
     pub page: Option<u32>,
+    #[serde(default)]
+    pub per_page: Option<u32>,
 }
 
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -647,6 +697,7 @@ pub async fn get_misc_card(
     let summary = cached_summary(&state, &service_ctx, &mut conn).await;
     let status = p.status.and_then(MiscRequestStatus::from_i16);
     let page = p.page.unwrap_or(1);
+    let per_page = p.per_page.unwrap_or(10).clamp(1, 200);
     let result = svc
         .list(
             &service_ctx,
@@ -659,9 +710,19 @@ pub async fn get_misc_card(
                 dir: p.dir.clone(),
                 ..Default::default()
             },
-            PageParams::new(page, 10),
+            PageParams::new(page, per_page),
         )
         .await?;
+    // 批量取明细（避免 N+1）；零星请购物品为自由文本（无 product_id），按 request_id 分组
+    let request_ids: Vec<i64> = result.items.iter().map(|m| m.id).collect();
+    let mut misc_items: HashMap<i64, Vec<MiscRequestItem>> = HashMap::new();
+    for it in svc
+        .list_items_by_request_ids(&service_ctx, &mut conn, &request_ids)
+        .await
+        .unwrap_or_default()
+    {
+        misc_items.entry(it.request_id).or_default().push(it);
+    }
     Ok(Html(
         html! {
             div id="pc-card"
@@ -670,8 +731,8 @@ pub async fn get_misc_card(
                 hx-include="#pc-filter-form"
                 hx-target="this" hx-select="#pc-card" hx-swap="outerHTML" {
                 (pc_tab_bar("misc", &summary))
-                (misc_filter_bar(p.status, &p))
-                (misc_table(&result.items, p.sort.as_deref(), p.dir.as_deref()))
+                (misc_filter_bar(p.status, per_page, &p))
+                (misc_table(&result.items, &misc_items, p.sort.as_deref(), p.dir.as_deref()))
                 (pagination(PcMiscPath::PATH, "#pc-card", "#pc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -734,158 +795,6 @@ pub async fn get_settlement_row_detail(
         .await?;
     let row_id = format!("{}-row-{}", path.recon_type, path.ref_id);
     Ok(Html(settlement_row_detail_tr(&row_id, &summary).into_string()))
-}
-
-/// 订单行展开：懒加载该 PO 的产品明细子表（物料/数量/单价/小计），返回单 `<tr class="row-detail">`。
-#[require_permission("PURCHASE_ORDER", "read")]
-pub async fn get_po_items_row(
-    path: PcPoItemsRowPath,
-    ctx: RequestContext,
-) -> Result<Html<String>> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let svc = state.purchase_order_service();
-    let items = svc
-        .list_items(&service_ctx, &mut conn, path.id)
-        .await
-        .unwrap_or_default();
-    let (codes, names): (HashMap<i64, String>, HashMap<i64, String>) = {
-        let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-        if ids.is_empty() {
-            (HashMap::new(), HashMap::new())
-        } else {
-            let products = state
-                .product_service()
-                .get_by_ids(&service_ctx, &mut conn, ids)
-                .await
-                .unwrap_or_default();
-            (
-                products
-                    .iter()
-                    .map(|p| (p.product_id, p.product_code.clone()))
-                    .collect(),
-                products
-                    .iter()
-                    .map(|p| (p.product_id, p.pdt_name.clone()))
-                    .collect(),
-            )
-        }
-    };
-    Ok(Html(
-        po_items_expand_row(path.id, &items, &codes, &names).into_string(),
-    ))
-}
-
-/// 报价行展开：懒加载该报价的产品明细（产品/单价/起订量/交期/优选）。
-#[require_permission("PURCHASE_ORDER", "read")]
-pub async fn get_quotation_items_row(
-    path: PcQuotationItemsRowPath,
-    ctx: RequestContext,
-) -> Result<Html<String>> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let items = state
-        .purchase_quotation_service()
-        .list_items(&service_ctx, &mut conn, path.id)
-        .await
-        .unwrap_or_default();
-    let (codes, names): (HashMap<i64, String>, HashMap<i64, String>) = {
-        let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-        if ids.is_empty() {
-            (HashMap::new(), HashMap::new())
-        } else {
-            let products = state
-                .product_service()
-                .get_by_ids(&service_ctx, &mut conn, ids)
-                .await
-                .unwrap_or_default();
-            (
-                products
-                    .iter()
-                    .map(|p| (p.product_id, p.product_code.clone()))
-                    .collect(),
-                products
-                    .iter()
-                    .map(|p| (p.product_id, p.pdt_name.clone()))
-                    .collect(),
-            )
-        }
-    };
-    Ok(Html(
-        quotation_items_expand_row(path.id, &items, &codes, &names).into_string(),
-    ))
-}
-
-/// 退货行展开：懒加载该退货的产品明细（产品/退货数/单价/金额）。
-#[require_permission("PURCHASE_ORDER", "read")]
-pub async fn get_return_items_row(
-    path: PcReturnItemsRowPath,
-    ctx: RequestContext,
-) -> Result<Html<String>> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let items = state
-        .purchase_return_service()
-        .list_items(&service_ctx, &mut conn, path.id)
-        .await
-        .unwrap_or_default();
-    let (codes, names): (HashMap<i64, String>, HashMap<i64, String>) = {
-        let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-        if ids.is_empty() {
-            (HashMap::new(), HashMap::new())
-        } else {
-            let products = state
-                .product_service()
-                .get_by_ids(&service_ctx, &mut conn, ids)
-                .await
-                .unwrap_or_default();
-            (
-                products
-                    .iter()
-                    .map(|p| (p.product_id, p.product_code.clone()))
-                    .collect(),
-                products
-                    .iter()
-                    .map(|p| (p.product_id, p.pdt_name.clone()))
-                    .collect(),
-            )
-        }
-    };
-    Ok(Html(
-        return_items_expand_row(path.id, &items, &codes, &names).into_string(),
-    ))
-}
-
-/// 请购行展开：懒加载该请购的物品明细（物品名/规格/数量/估价/备注，自由物品无 product_id）。
-#[require_permission("PURCHASE_ORDER", "read")]
-pub async fn get_misc_items_row(
-    path: PcMiscItemsRowPath,
-    ctx: RequestContext,
-) -> Result<Html<String>> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let items = state
-        .misc_request_service()
-        .list_items(&service_ctx, &mut conn, path.id)
-        .await
-        .unwrap_or_default();
-    Ok(Html(misc_items_expand_row(path.id, &items).into_string()))
 }
 
 // ── 转采购单 drawer（就地转单，复用 create_order_from_demands）──
@@ -3197,6 +3106,45 @@ async fn supplier_names(
     }
 }
 
+/// 批量取产品编码/名称 map（订单/报价/退货主从表明细列共用；零星请购为自由物品无 product_id，不走这里）。
+async fn product_codes_names(
+    state: &crate::state::AppState,
+    ctx: &abt_core::shared::types::context::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    product_ids: Vec<i64>,
+) -> (HashMap<i64, String>, HashMap<i64, String>) {
+    if product_ids.is_empty() {
+        return (HashMap::new(), HashMap::new());
+    }
+    let products = state
+        .product_service()
+        .get_by_ids(ctx, db, product_ids)
+        .await
+        .unwrap_or_default();
+    (
+        products
+            .iter()
+            .map(|p| (p.product_id, p.product_code.clone()))
+            .collect(),
+        products
+            .iter()
+            .map(|p| (p.product_id, p.pdt_name.clone()))
+            .collect(),
+    )
+}
+
+/// 每页条数选择器（5/10/20/50，默认 10）：name=per_page，change 触发筛选 form 局部刷新。
+fn per_page_select(cur: u32) -> Markup {
+    html! {
+        select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
+            name="per_page" {
+            @for &v in &[5u32, 10, 20, 50] {
+                option value=(v) selected[cur == v] { (v) " /页" }
+            }
+        }
+    }
+}
+
 /// summary 缓存有效期（秒）：写操作 invalidate 之外的兜底，防遗漏导致脏数据。
 const SUMMARY_TTL_SECS: u64 = 30;
 
@@ -3575,7 +3523,7 @@ fn po_print_buttons(frame_id: &str, default_url: &str, templates: &[PrintTemplat
     }
 }
 
-fn orders_filter_bar(status: Option<i16>, p: &OrdersCardParams) -> Markup {
+fn orders_filter_bar(status: Option<i16>, per_page: u32, p: &OrdersCardParams) -> Markup {
     let kw = p.keyword.as_deref().unwrap_or("");
     let mat = p.material.as_deref().unwrap_or("");
     html! {
@@ -3605,30 +3553,15 @@ fn orders_filter_bar(status: Option<i16>, p: &OrdersCardParams) -> Markup {
                     type="text" name="material" placeholder="搜索物料名称/编码"
                     value=(mat);
             }
+            (per_page_select(per_page))
         }
         form id="pc-filter-form" class="hidden" {
             input type="hidden" name="keyword" value=(kw);
             input type="hidden" name="material" value=(mat);
             input type="hidden" name="status" value=(status.map(|s| s.to_string()).unwrap_or_default());
+            input type="hidden" name="per_page" value=(per_page);
             input type="hidden" name="sort" value=(p.sort.clone().unwrap_or_default());
             input type="hidden" name="dir" value=(p.dir.clone().unwrap_or_default());
-        }
-    }
-}
-
-/// thead 展开列 th：全部展开/收起图标按钮（chevrons-down↔up 切换），scope 限当前 #pc-card。
-/// 复用于订单/报价/请购/退货四个列表。
-fn pc_expand_all_th() -> Markup {
-    html! {
-        th class="w-12 py-2 px-1 text-center" {
-            button type="button" class="pc-expand-all inline-flex items-center justify-center text-muted hover:text-accent cursor-pointer rounded-sm hover:bg-surface p-0.5"
-                data-expanded="0"
-                title="展开/收起全部明细"
-                aria-label="展开/收起全部明细"
-                _="on click call rowExpandToggleAll(me, '#pc-card')" {
-                (icon::raw("i-lucide-chevrons-down", "ico-expand w-[15px] h-[15px]"))
-                (icon::raw("i-lucide-chevrons-up", "ico-collapse hidden w-[15px] h-[15px]"))
-            }
         }
     }
 }
@@ -3675,55 +3608,74 @@ fn sortable_th(
     }
 }
 
-fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>, cur_sort: Option<&str>, cur_dir: Option<&str>) -> Markup {
+fn orders_table(
+    items: &[PurchaseOrder],
+    names: &HashMap<i64, String>,
+    order_items: &HashMap<i64, Vec<PurchaseOrderItem>>,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+    cur_sort: Option<&str>,
+    cur_dir: Option<&str>,
+) -> Markup {
     html! {
-        div class="overflow-x-auto" {
-            table class="w-full text-sm" {
+        div class="overflow-x-auto mt-2" {
+            table class="w-full text-sm border-collapse pc-grid" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
-                        (pc_expand_all_th())
-                        (sortable_th("订单号", "doc", cur_sort, cur_dir, PcOrdersPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide"))
-                        (sortable_th("供应商", "supplier", cur_sort, cur_dir, PcOrdersPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
-                        (sortable_th("金额", "amount", cur_sort, cur_dir, PcOrdersPath::PATH, "text-right font-semibold py-2 px-3 uppercase tracking-wide"))
-                        (sortable_th("交期", "date", cur_sort, cur_dir, PcOrdersPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "状态" }
-                        th class="text-right font-semibold py-2 px-5 uppercase tracking-wide" { "操作" }
+                        (sortable_th("订单号", "doc", cur_sort, cur_dir, PcOrdersPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        (sortable_th("供应商", "supplier", cur_sort, cur_dir, PcOrdersPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品编码" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品名称" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "数量" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "单价" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "小计" }
+                        (sortable_th("金额", "amount", cur_sort, cur_dir, PcOrdersPath::PATH, "text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        (sortable_th("交期", "date", cur_sort, cur_dir, PcOrdersPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "状态" }
+                        th class="text-right font-semibold py-2 px-5 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "操作" }
                     }
                 }
-                tbody {
-                    @if items.is_empty() {
-                        tr { td colspan="7" class="text-center text-muted py-8" { "暂无待处理订单" } }
-                    }
-                    @for o in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
-                            td class="py-2.5 px-2 text-center" {
-                                (row_expand::row_expand_toggle(
-                                    &format!("po-items-{}", o.id),
-                                    &PcPoItemsRowPath { id: o.id }.to_string(),
-                                ))
-                            }
-                            td class="py-2.5 px-5 font-mono text-accent font-medium" {
-                                (doc_number_detail_btn(&o.doc_number, &PcPoDetailDrawerPath { id: o.id }.to_string(), "#po-detail-drawer-body", "#po-detail-overlay"))
-                            }
-                            td class="py-2.5 px-3 text-fg" {
-                                a class="text-fg hover:text-accent hover:underline cursor-pointer"
-                                    href=(crate::routes::supplier::SupplierDetailPath { id: o.supplier_id }.to_string())
-                                    target="_blank" { (names.get(&o.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
-                            }
-                            td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(o.total_amount)) }
-                            td class="py-2.5 px-3 text-muted" { (fmt_date(o.expected_delivery_date)) }
-                            td class="py-2.5 px-3" { (po_status_pill(o.status)) }
-                            td class="text-right py-2.5 px-5 whitespace-nowrap" {
-                                button class="inline-flex items-center px-3 py-1 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface mr-1"
-                                    hx-get=(PcPoDetailDrawerPath { id: o.id }.to_string())
-                                    hx-target="#po-detail-drawer-body" hx-swap="innerHTML"
-                                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #po-detail-overlay" { "详情" }
-                                @if o.status == PurchaseOrderStatus::PendingApproval {
-                                    button class="inline-flex items-center px-3 py-1 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90 mr-1"
-                                        hx-get=(PcOrderApproveDrawerPath { id: o.id }.to_string())
-                                        hx-target="#approve-drawer-body" hx-swap="innerHTML"
-                                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #approve-overlay" { "审批" }
+                @if items.is_empty() {
+                    tbody { tr { td colspan="11" class="text-center text-muted py-8 border border-border-soft" { "暂无待处理订单" } } }
+                } @else {
+                    @for (i, o) in items.iter().enumerate() {
+                        @let cells = order_items.get(&o.id).cloned().unwrap_or_default();
+                        @let n = if cells.is_empty() { 1usize } else { cells.len() };
+                        @let row_bg = if i % 2 == 1 { "bg-surface-raised" } else { "" };
+                        tbody class="pc-row-group" {
+                            tr class=(row_bg) {
+                                td rowspan=(n.to_string()) class="py-2.5 px-5 font-mono text-accent font-medium align-middle whitespace-nowrap border border-border-soft" {
+                                    (doc_number_detail_btn(&o.doc_number, &PcPoDetailDrawerPath { id: o.id }.to_string(), "#po-detail-drawer-body", "#po-detail-overlay"))
                                 }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" {
+                                    a class="text-fg hover:text-accent hover:underline cursor-pointer inline-block max-w-[160px] truncate align-middle"
+                                        href=(crate::routes::supplier::SupplierDetailPath { id: o.supplier_id }.to_string())
+                                        title=(names.get(&o.supplier_id).map(|s| s.as_str()).unwrap_or("—"))
+                                        target="_blank" { (names.get(&o.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                }
+                                @if let Some(first) = cells.first() {
+                                    (order_item_cell_tds(first, codes, pnames))
+                                } @else {
+                                    td colspan="5" class="py-2.5 px-3 text-sm text-muted text-center border border-border-soft" { "—" }
+                                }
+                                td rowspan=(n.to_string()) class="text-right font-mono py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" { (fmt_decimal(o.total_amount)) }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 text-muted align-middle whitespace-nowrap border border-border-soft" { (fmt_date(o.expected_delivery_date)) }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" { (po_status_pill(o.status)) }
+                                td rowspan=(n.to_string()) class="text-right py-2.5 px-5 align-middle whitespace-nowrap border border-border-soft" {
+                                    button class="inline-flex items-center px-3 py-1 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface mr-1"
+                                        hx-get=(PcPoDetailDrawerPath { id: o.id }.to_string())
+                                        hx-target="#po-detail-drawer-body" hx-swap="innerHTML"
+                                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #po-detail-overlay" { "详情" }
+                                    @if o.status == PurchaseOrderStatus::PendingApproval {
+                                        button class="inline-flex items-center px-3 py-1 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90 mr-1"
+                                            hx-get=(PcOrderApproveDrawerPath { id: o.id }.to_string())
+                                            hx-target="#approve-drawer-body" hx-swap="innerHTML"
+                                            _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #approve-overlay" { "审批" }
+                                    }
+                                }
+                            }
+                            @for c in cells.iter().skip(1) {
+                                tr class=(row_bg) { (order_item_cell_tds(c, codes, pnames)) }
                             }
                         }
                     }
@@ -3733,168 +3685,26 @@ fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>, cur_sort:
     }
 }
 
-/// 订单行展开明细：物料(名+编码)/数量/单价/小计 子表，用 [`row_expand::row_expand_detail`]
-/// 包裹成单 `<tr class="row-detail" id="po-items-{order_id}">`（`row_id` 与触发器一致）。
-fn po_items_expand_row(
-    order_id: i64,
-    items: &[PurchaseOrderItem],
+/// 订单明细单元格（编码/名称/数量/单价/小计）——主从表明细列，首行与后续行共用。
+fn order_item_cell_tds(
+    it: &PurchaseOrderItem,
     codes: &HashMap<i64, String>,
     names: &HashMap<i64, String>,
 ) -> Markup {
-    let row_id = format!("po-items-{order_id}");
-    let body = html! {
-        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
-            table class="w-full text-xs" {
-                thead {
-                    tr class="text-muted border-b border-border-soft" {
-                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物料" }
-                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "数量" }
-                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "单价" }
-                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "小计" }
-                    }
-                }
-                tbody {
-                    @for it in items {
-                        tr class="border-b border-border-soft/40 last:border-none" {
-                            td class="py-1.5 px-2" {
-                                div class="text-fg" { (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
-                                div class="text-muted font-mono" { (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
-                            }
-                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.quantity)) }
-                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.unit_price)) }
-                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.quantity * it.unit_price)) }
-                        }
-                    }
-                    @if items.is_empty() {
-                        tr { td colspan="4" class="text-center text-muted py-4" { "暂无明细" } }
-                    }
-                }
+    html! {
+        td class="py-2.5 px-3 text-sm font-mono text-accent whitespace-nowrap border border-border-soft" {
+            (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+        }
+        td class="py-2.5 px-3 text-sm text-fg whitespace-nowrap border border-border-soft" {
+            span class="inline-block max-w-[240px] align-middle truncate"
+                title=(names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) {
+                (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
             }
         }
-    };
-    row_expand::row_expand_detail(&row_id, 7, body)
-}
-
-/// 报价行展开明细：产品(名+编码)/单价(+币种)/起订量/交期/优选。
-fn quotation_items_expand_row(
-    quotation_id: i64,
-    items: &[PurchaseQuotationItem],
-    codes: &HashMap<i64, String>,
-    names: &HashMap<i64, String>,
-) -> Markup {
-    let row_id = format!("quotation-items-{quotation_id}");
-    let body = html! {
-        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
-            table class="w-full text-xs" {
-                thead {
-                    tr class="text-muted border-b border-border-soft" {
-                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物料" }
-                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "单价" }
-                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "起订量" }
-                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "交期" }
-                        th class="text-center font-semibold py-1.5 px-2 uppercase tracking-wide" { "优选" }
-                    }
-                }
-                tbody {
-                    @for it in items {
-                        tr class="border-b border-border-soft/40 last:border-none" {
-                            td class="py-1.5 px-2" {
-                                div class="text-fg" { (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
-                                div class="text-muted font-mono" { (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
-                            }
-                            td class="py-1.5 px-2 text-right font-mono whitespace-nowrap" { (fmt_plain(it.unit_price)) " " (it.currency.as_str()) }
-                            td class="py-1.5 px-2 text-right font-mono" { (it.min_order_qty.map(fmt_plain).unwrap_or_else(|| "—".into())) }
-                            td class="py-1.5 px-2 text-muted" { @if let Some(d) = it.lead_time_days { (d) " 天" } @else { "—" } }
-                            td class="py-1.5 px-2 text-center" { @if it.is_preferred { span class="text-success font-bold" { "✓" } } @else { "—" } }
-                        }
-                    }
-                    @if items.is_empty() {
-                        tr { td colspan="5" class="text-center text-muted py-4" { "暂无明细" } }
-                    }
-                }
-            }
-        }
-    };
-    row_expand::row_expand_detail(&row_id, 6, body)
-}
-
-/// 退货行展开明细：产品(名+编码)/退货数/单价/金额。
-fn return_items_expand_row(
-    return_id: i64,
-    items: &[PurchaseReturnItem],
-    codes: &HashMap<i64, String>,
-    names: &HashMap<i64, String>,
-) -> Markup {
-    let row_id = format!("return-items-{return_id}");
-    let body = html! {
-        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
-            table class="w-full text-xs" {
-                thead {
-                    tr class="text-muted border-b border-border-soft" {
-                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物料" }
-                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "退货数" }
-                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "单价" }
-                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "金额" }
-                    }
-                }
-                tbody {
-                    @for it in items {
-                        tr class="border-b border-border-soft/40 last:border-none" {
-                            td class="py-1.5 px-2" {
-                                div class="text-fg" { (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
-                                div class="text-muted font-mono" { (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
-                            }
-                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.returned_qty)) }
-                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.unit_price)) }
-                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.amount)) }
-                        }
-                    }
-                    @if items.is_empty() {
-                        tr { td colspan="4" class="text-center text-muted py-4" { "暂无明细" } }
-                    }
-                }
-            }
-        }
-    };
-    row_expand::row_expand_detail(&row_id, 6, body)
-}
-
-/// 请购行展开明细：物品名(+规格)/数量(+单位)/估价/备注（自由物品，无 product_id）。
-fn misc_items_expand_row(request_id: i64, items: &[MiscRequestItem]) -> Markup {
-    let row_id = format!("misc-items-{request_id}");
-    let body = html! {
-        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
-            table class="w-full text-xs" {
-                thead {
-                    tr class="text-muted border-b border-border-soft" {
-                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物品" }
-                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "数量" }
-                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "估价" }
-                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "备注" }
-                    }
-                }
-                tbody {
-                    @for it in items {
-                        tr class="border-b border-border-soft/40 last:border-none" {
-                            td class="py-1.5 px-2" {
-                                div class="text-fg" { (it.item_name.as_str()) }
-                                @if let Some(spec) = &it.specification {
-                                    div class="text-muted text-[11px]" { (spec.as_str()) }
-                                }
-                            }
-                            td class="py-1.5 px-2 text-right font-mono whitespace-nowrap" { (fmt_plain(it.quantity)) " " (it.unit.as_str()) }
-                            td class="py-1.5 px-2 text-right font-mono" { (it.estimated_price.map(fmt_plain).unwrap_or_else(|| "—".into())) }
-                            td class="py-1.5 px-2 text-muted" { (it.remark.as_deref().unwrap_or("—")) }
-                        }
-                    }
-                    @if items.is_empty() {
-                        tr { td colspan="4" class="text-center text-muted py-4" { "暂无明细" } }
-                    }
-                }
-            }
-        }
-    };
-    row_expand::row_expand_detail(&row_id, 6, body)
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity * it.unit_price)) }
+    }
 }
 
 fn po_status_pill(status: PurchaseOrderStatus) -> Markup {
@@ -4052,7 +3862,7 @@ fn payment_table(items: &[PaymentRequest], names: &HashMap<i64, String>) -> Mark
 
 // ── 退货 card 渲染 ──
 
-fn returns_filter_bar(status: Option<i16>, p: &ReturnsCardParams) -> Markup {
+fn returns_filter_bar(status: Option<i16>, per_page: u32, p: &ReturnsCardParams) -> Markup {
     let kw = p.keyword.as_deref().unwrap_or("");
     let mat = p.material.as_deref().unwrap_or("");
     html! {
@@ -4082,67 +3892,114 @@ fn returns_filter_bar(status: Option<i16>, p: &ReturnsCardParams) -> Markup {
                     type="text" name="material" placeholder="搜索物料名称/编码"
                     value=(mat);
             }
+            (per_page_select(per_page))
             (new_drawer_button(PcReturnCreateDrawerPath::PATH, "#return-create-drawer-body", "#return-create-overlay", "新建退货"))
         }
         form id="pc-filter-form" class="hidden" {
             input type="hidden" name="keyword" value=(kw);
             input type="hidden" name="material" value=(mat);
             input type="hidden" name="status" value=(status.map(|s| s.to_string()).unwrap_or_default());
+            input type="hidden" name="per_page" value=(per_page);
             input type="hidden" name="sort" value=(p.sort.clone().unwrap_or_default());
             input type="hidden" name="dir" value=(p.dir.clone().unwrap_or_default());
         }
     }
 }
 
-fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>, cur_sort: Option<&str>, cur_dir: Option<&str>) -> Markup {
+fn returns_table(
+    items: &[PurchaseReturn],
+    names: &HashMap<i64, String>,
+    return_items: &HashMap<i64, Vec<PurchaseReturnItem>>,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+    cur_sort: Option<&str>,
+    cur_dir: Option<&str>,
+) -> Markup {
     html! {
-        div class="overflow-x-auto" {
-            table class="w-full text-sm" {
+        div class="overflow-x-auto mt-2" {
+            table class="w-full text-sm border-collapse pc-grid" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
-                        (pc_expand_all_th())
-                        (sortable_th("退货单号", "doc", cur_sort, cur_dir, PcReturnsPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide"))
-                        (sortable_th("供应商", "supplier", cur_sort, cur_dir, PcReturnsPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
-                        (sortable_th("金额", "amount", cur_sort, cur_dir, PcReturnsPath::PATH, "text-right font-semibold py-2 px-3 uppercase tracking-wide"))
-                        (sortable_th("退货日期", "date", cur_sort, cur_dir, PcReturnsPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "原因" }
-                        th class="text-right font-semibold py-2 px-5 uppercase tracking-wide" { "操作" }
+                        (sortable_th("退货单号", "doc", cur_sort, cur_dir, PcReturnsPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        (sortable_th("供应商", "supplier", cur_sort, cur_dir, PcReturnsPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品编码" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品名称" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "退货数" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "单价" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "金额" }
+                        (sortable_th("金额", "amount", cur_sort, cur_dir, PcReturnsPath::PATH, "text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        (sortable_th("退货日期", "date", cur_sort, cur_dir, PcReturnsPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "原因" }
+                        th class="text-right font-semibold py-2 px-5 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "操作" }
                     }
                 }
-                tbody {
-                    @if items.is_empty() {
-                        tr { td colspan="7" class="text-center text-muted py-8" { "暂无退货" } }
-                    }
-                    @for r in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
-                            td class="py-2.5 px-2 text-center" {
-                                (row_expand::row_expand_toggle(
-                                    &format!("return-items-{}", r.id),
-                                    &PcReturnItemsRowPath { id: r.id }.to_string(),
-                                ))
+                @if items.is_empty() {
+                    tbody { tr { td colspan="11" class="text-center text-muted py-8 border border-border-soft" { "暂无退货" } } }
+                } @else {
+                    @for (i, r) in items.iter().enumerate() {
+                        @let cells = return_items.get(&r.id).cloned().unwrap_or_default();
+                        @let n = if cells.is_empty() { 1usize } else { cells.len() };
+                        @let row_bg = if i % 2 == 1 { "bg-surface-raised" } else { "" };
+                        tbody class="pc-row-group" {
+                            tr class=(row_bg) {
+                                td rowspan=(n.to_string()) class="py-2.5 px-5 font-mono text-accent font-medium align-middle whitespace-nowrap border border-border-soft" {
+                                    (doc_number_detail_btn(&r.doc_number, &PcReturnDetailDrawerPath { id: r.id }.to_string(), "#return-detail-drawer-body", "#return-detail-overlay"))
+                                }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" {
+                                    a class="text-fg hover:text-accent hover:underline cursor-pointer inline-block max-w-[160px] truncate align-middle"
+                                        href=(crate::routes::supplier::SupplierDetailPath { id: r.supplier_id }.to_string())
+                                        title=(names.get(&r.supplier_id).map(|s| s.as_str()).unwrap_or("—"))
+                                        target="_blank" { (names.get(&r.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                }
+                                @if let Some(first) = cells.first() {
+                                    (return_item_cell_tds(first, codes, pnames))
+                                } @else {
+                                    td colspan="5" class="py-2.5 px-3 text-sm text-muted text-center border border-border-soft" { "—" }
+                                }
+                                td rowspan=(n.to_string()) class="text-right font-mono py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" { (fmt_decimal(r.total_amount)) }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 text-muted align-middle whitespace-nowrap border border-border-soft" { (fmt_date(Some(r.return_date))) }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 text-muted align-middle border border-border-soft" {
+                                    span class="inline-block max-w-[180px] truncate align-middle" title=(r.return_reason.as_str()) {
+                                        @if r.return_reason.is_empty() { "—" } @else { (r.return_reason.as_str()) }
+                                    }
+                                }
+                                td rowspan=(n.to_string()) class="text-right py-2.5 px-5 align-middle whitespace-nowrap border border-border-soft" {
+                                    button class="inline-flex items-center px-3 py-1 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface mr-1"
+                                        hx-get=(PcReturnDetailDrawerPath { id: r.id }.to_string())
+                                        hx-target="#return-detail-drawer-body" hx-swap="innerHTML"
+                                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #return-detail-overlay" { "详情" }
+                                }
                             }
-                            td class="py-2.5 px-5 font-mono text-accent font-medium" {
-                                (doc_number_detail_btn(&r.doc_number, &PcReturnDetailDrawerPath { id: r.id }.to_string(), "#return-detail-drawer-body", "#return-detail-overlay"))
-                            }
-                            td class="py-2.5 px-3 text-fg" {
-                                a class="text-fg hover:text-accent hover:underline cursor-pointer"
-                                    href=(crate::routes::supplier::SupplierDetailPath { id: r.supplier_id }.to_string())
-                                    target="_blank" { (names.get(&r.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
-                            }
-                            td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(r.total_amount)) }
-                            td class="py-2.5 px-3 text-muted" { (fmt_date(Some(r.return_date))) }
-                            td class="py-2.5 px-3 text-muted" { @if r.return_reason.is_empty() { "—" } @else { (r.return_reason.as_str()) } }
-                            td class="text-right py-2.5 px-5 whitespace-nowrap" {
-                                button class="inline-flex items-center px-3 py-1 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface mr-1"
-                                    hx-get=(PcReturnDetailDrawerPath { id: r.id }.to_string())
-                                    hx-target="#return-detail-drawer-body" hx-swap="innerHTML"
-                                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #return-detail-overlay" { "详情" }
+                            @for c in cells.iter().skip(1) {
+                                tr class=(row_bg) { (return_item_cell_tds(c, codes, pnames)) }
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/// 退货行明细单元格（编码/名称/退货数/单价/金额）——主从表明细列。
+fn return_item_cell_tds(
+    it: &PurchaseReturnItem,
+    codes: &HashMap<i64, String>,
+    names: &HashMap<i64, String>,
+) -> Markup {
+    html! {
+        td class="py-2.5 px-3 text-sm font-mono text-accent whitespace-nowrap border border-border-soft" {
+            (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+        }
+        td class="py-2.5 px-3 text-sm text-fg whitespace-nowrap border border-border-soft" {
+            span class="inline-block max-w-[240px] align-middle truncate"
+                title=(names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) {
+                (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+            }
+        }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.returned_qty)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.amount)) }
     }
 }
 
@@ -4178,7 +4035,7 @@ fn doc_number_detail_btn(doc_number: &str, get_path: &str, body_sel: &str, overl
     }
 }
 
-fn quotation_filter_bar(status: Option<i16>, p: &QuotationCardParams) -> Markup {
+fn quotation_filter_bar(status: Option<i16>, per_page: u32, p: &QuotationCardParams) -> Markup {
     let kw = p.keyword.as_deref().unwrap_or("");
     let mat = p.material.as_deref().unwrap_or("");
     html! {
@@ -4207,6 +4064,7 @@ fn quotation_filter_bar(status: Option<i16>, p: &QuotationCardParams) -> Markup 
                     type="text" name="material" placeholder="搜索物料名称/编码"
                     value=(mat);
             }
+            (per_page_select(per_page))
             button class="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90"
                 hx-get=(PcQuotationCreateDrawerPath::PATH)
                 hx-target="#quotation-create-drawer-body" hx-swap="innerHTML"
@@ -4218,59 +4076,103 @@ fn quotation_filter_bar(status: Option<i16>, p: &QuotationCardParams) -> Markup 
             input type="hidden" name="keyword" value=(kw);
             input type="hidden" name="material" value=(mat);
             input type="hidden" name="status" value=(status.map(|s| s.to_string()).unwrap_or_default());
+            input type="hidden" name="per_page" value=(per_page);
             input type="hidden" name="sort" value=(p.sort.clone().unwrap_or_default());
             input type="hidden" name="dir" value=(p.dir.clone().unwrap_or_default());
         }
     }
 }
 
-fn quotation_table(items: &[PurchaseQuotation], names: &HashMap<i64, String>, cur_sort: Option<&str>, cur_dir: Option<&str>) -> Markup {
+fn quotation_table(
+    items: &[PurchaseQuotation],
+    names: &HashMap<i64, String>,
+    quotation_items: &HashMap<i64, Vec<PurchaseQuotationItem>>,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+    cur_sort: Option<&str>,
+    cur_dir: Option<&str>,
+) -> Markup {
     html! {
-        div class="overflow-x-auto" {
-            table class="w-full text-sm" {
+        div class="overflow-x-auto mt-2" {
+            table class="w-full text-sm border-collapse pc-grid" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
-                        (pc_expand_all_th())
-                        (sortable_th("报价单号", "doc", cur_sort, cur_dir, PcQuotationPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide"))
-                        (sortable_th("供应商", "supplier", cur_sort, cur_dir, PcQuotationPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
-                        (sortable_th("有效期", "valid", cur_sort, cur_dir, PcQuotationPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "状态" }
-                        th class="text-right font-semibold py-2 px-5 uppercase tracking-wide" { "操作" }
+                        (sortable_th("报价单号", "doc", cur_sort, cur_dir, PcQuotationPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        (sortable_th("供应商", "supplier", cur_sort, cur_dir, PcQuotationPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品编码" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品名称" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "单价" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "起订量" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "交期" }
+                        th class="text-center font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "优选" }
+                        (sortable_th("有效期", "valid", cur_sort, cur_dir, PcQuotationPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "状态" }
+                        th class="text-right font-semibold py-2 px-5 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "操作" }
                     }
                 }
-                tbody {
-                    @if items.is_empty() {
-                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无报价" } }
-                    }
-                    @for q in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
-                            td class="py-2.5 px-2 text-center" {
-                                (row_expand::row_expand_toggle(
-                                    &format!("quotation-items-{}", q.id),
-                                    &PcQuotationItemsRowPath { id: q.id }.to_string(),
-                                ))
+                @if items.is_empty() {
+                    tbody { tr { td colspan="11" class="text-center text-muted py-8 border border-border-soft" { "暂无报价" } } }
+                } @else {
+                    @for (i, q) in items.iter().enumerate() {
+                        @let cells = quotation_items.get(&q.id).cloned().unwrap_or_default();
+                        @let n = if cells.is_empty() { 1usize } else { cells.len() };
+                        @let row_bg = if i % 2 == 1 { "bg-surface-raised" } else { "" };
+                        tbody class="pc-row-group" {
+                            tr class=(row_bg) {
+                                td rowspan=(n.to_string()) class="py-2.5 px-5 font-mono text-accent font-medium align-middle whitespace-nowrap border border-border-soft" {
+                                    (doc_number_detail_btn(&q.doc_number, &PcQuotationDetailDrawerPath { id: q.id }.to_string(), "#quotation-detail-drawer-body", "#quotation-detail-overlay"))
+                                }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" {
+                                    a class="text-fg hover:text-accent hover:underline cursor-pointer inline-block max-w-[160px] truncate align-middle"
+                                        href=(crate::routes::supplier::SupplierDetailPath { id: q.supplier_id }.to_string())
+                                        title=(names.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("—"))
+                                        target="_blank" { (names.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                }
+                                @if let Some(first) = cells.first() {
+                                    (quotation_item_cell_tds(first, codes, pnames))
+                                } @else {
+                                    td colspan="6" class="py-2.5 px-3 text-sm text-muted text-center border border-border-soft" { "—" }
+                                }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 text-muted font-mono align-middle whitespace-nowrap border border-border-soft" { (fmt_date(Some(q.valid_from))) " → " (fmt_date(Some(q.valid_until))) }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" { (quotation_status_pill(q.status)) }
+                                td rowspan=(n.to_string()) class="text-right py-2.5 px-5 align-middle whitespace-nowrap border border-border-soft" {
+                                    button class="inline-flex items-center px-3 py-1 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface"
+                                        hx-get=(PcQuotationDetailDrawerPath { id: q.id }.to_string())
+                                        hx-target="#quotation-detail-drawer-body" hx-swap="innerHTML"
+                                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #quotation-detail-overlay" { "详情" }
+                                }
                             }
-                            td class="py-2.5 px-5 font-mono text-accent font-medium" {
-                                (doc_number_detail_btn(&q.doc_number, &PcQuotationDetailDrawerPath { id: q.id }.to_string(), "#quotation-detail-drawer-body", "#quotation-detail-overlay"))
-                            }
-                            td class="py-2.5 px-3 text-fg" {
-                                a class="text-fg hover:text-accent hover:underline cursor-pointer"
-                                    href=(crate::routes::supplier::SupplierDetailPath { id: q.supplier_id }.to_string())
-                                    target="_blank" { (names.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
-                            }
-                            td class="py-2.5 px-3 text-muted font-mono" { (fmt_date(Some(q.valid_from))) " → " (fmt_date(Some(q.valid_until))) }
-                            td class="py-2.5 px-3" { (quotation_status_pill(q.status)) }
-                            td class="text-right py-2.5 px-5" {
-                                button class="inline-flex items-center px-3 py-1 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface"
-                                    hx-get=(PcQuotationDetailDrawerPath { id: q.id }.to_string())
-                                    hx-target="#quotation-detail-drawer-body" hx-swap="innerHTML"
-                                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #quotation-detail-overlay" { "详情" }
+                            @for c in cells.iter().skip(1) {
+                                tr class=(row_bg) { (quotation_item_cell_tds(c, codes, pnames)) }
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/// 报价行明细单元格（编码/名称/单价+币种/起订量/交期/优选）——主从表明细列。
+fn quotation_item_cell_tds(
+    it: &PurchaseQuotationItem,
+    codes: &HashMap<i64, String>,
+    names: &HashMap<i64, String>,
+) -> Markup {
+    html! {
+        td class="py-2.5 px-3 text-sm font-mono text-accent whitespace-nowrap border border-border-soft" {
+            (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+        }
+        td class="py-2.5 px-3 text-sm text-fg whitespace-nowrap border border-border-soft" {
+            span class="inline-block max-w-[240px] align-middle truncate"
+                title=(names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) {
+                (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+            }
+        }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) " " (it.currency.as_str()) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (it.min_order_qty.map(fmt_plain).unwrap_or_else(|| "—".into())) }
+        td class="py-2.5 px-3 text-sm text-muted whitespace-nowrap border border-border-soft" { @if let Some(d) = it.lead_time_days { (d) " 天" } @else { "—" } }
+        td class="py-2.5 px-3 text-sm text-center whitespace-nowrap border border-border-soft" { @if it.is_preferred { span class="text-success font-bold" { "✓" } } @else { "—" } }
     }
 }
 
@@ -4286,7 +4188,7 @@ fn quotation_status_pill(status: PurchaseQuotationStatus) -> Markup {
 
 // ── 零星采购 card 渲染 ──
 
-fn misc_filter_bar(status: Option<i16>, p: &MiscCardParams) -> Markup {
+fn misc_filter_bar(status: Option<i16>, per_page: u32, p: &MiscCardParams) -> Markup {
     let kw = p.keyword.as_deref().unwrap_or("");
     let mat = p.material.as_deref().unwrap_or("");
     html! {
@@ -4317,55 +4219,90 @@ fn misc_filter_bar(status: Option<i16>, p: &MiscCardParams) -> Markup {
                     type="text" name="material" placeholder="搜索物品名称/规格"
                     value=(mat);
             }
+            (per_page_select(per_page))
             (new_drawer_button(PcMiscCreateDrawerPath::PATH, "#misc-create-drawer-body", "#misc-create-overlay", "新建请购"))
         }
         form id="pc-filter-form" class="hidden" {
             input type="hidden" name="keyword" value=(kw);
             input type="hidden" name="material" value=(mat);
             input type="hidden" name="status" value=(status.map(|s| s.to_string()).unwrap_or_default());
+            input type="hidden" name="per_page" value=(per_page);
             input type="hidden" name="sort" value=(p.sort.clone().unwrap_or_default());
             input type="hidden" name="dir" value=(p.dir.clone().unwrap_or_default());
         }
     }
 }
 
-fn misc_table(items: &[MiscellaneousRequest], cur_sort: Option<&str>, cur_dir: Option<&str>) -> Markup {
+fn misc_table(
+    items: &[MiscellaneousRequest],
+    misc_items: &HashMap<i64, Vec<MiscRequestItem>>,
+    cur_sort: Option<&str>,
+    cur_dir: Option<&str>,
+) -> Markup {
     html! {
-        div class="overflow-x-auto" {
-            table class="w-full text-sm" {
+        div class="overflow-x-auto mt-2" {
+            table class="w-full text-sm border-collapse pc-grid" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
-                        (pc_expand_all_th())
-                        (sortable_th("请购单号", "doc", cur_sort, cur_dir, PcMiscPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide"))
-                        (sortable_th("用途", "purpose", cur_sort, cur_dir, PcMiscPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
-                        (sortable_th("金额", "amount", cur_sort, cur_dir, PcMiscPath::PATH, "text-right font-semibold py-2 px-3 uppercase tracking-wide"))
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "状态" }
-                        (sortable_th("日期", "date", cur_sort, cur_dir, PcMiscPath::PATH, "text-right font-semibold py-2 px-5 uppercase tracking-wide"))
+                        (sortable_th("请购单号", "doc", cur_sort, cur_dir, PcMiscPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        (sortable_th("用途", "purpose", cur_sort, cur_dir, PcMiscPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "物品" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "数量" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "估价" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "备注" }
+                        (sortable_th("金额", "amount", cur_sort, cur_dir, PcMiscPath::PATH, "text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "状态" }
+                        (sortable_th("日期", "date", cur_sort, cur_dir, PcMiscPath::PATH, "text-right font-semibold py-2 px-5 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
                     }
                 }
-                tbody {
-                    @if items.is_empty() {
-                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无请购" } }
-                    }
-                    @for m in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
-                            td class="py-2.5 px-2 text-center" {
-                                (row_expand::row_expand_toggle(
-                                    &format!("misc-items-{}", m.id),
-                                    &PcMiscItemsRowPath { id: m.id }.to_string(),
-                                ))
+                @if items.is_empty() {
+                    tbody { tr { td colspan="9" class="text-center text-muted py-8 border border-border-soft" { "暂无请购" } } }
+                } @else {
+                    @for (i, m) in items.iter().enumerate() {
+                        @let cells = misc_items.get(&m.id).cloned().unwrap_or_default();
+                        @let n = if cells.is_empty() { 1usize } else { cells.len() };
+                        @let row_bg = if i % 2 == 1 { "bg-surface-raised" } else { "" };
+                        tbody class="pc-row-group" {
+                            tr class=(row_bg) {
+                                td rowspan=(n.to_string()) class="py-2.5 px-5 font-mono text-accent font-medium align-middle whitespace-nowrap border border-border-soft" {
+                                    (doc_number_detail_btn(&m.doc_number, &PcMiscDetailDrawerPath { id: m.id }.to_string(), "#misc-detail-drawer-body", "#misc-detail-overlay"))
+                                }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 align-middle border border-border-soft" {
+                                    span class="inline-block max-w-[160px] truncate align-middle" title=(m.purpose.as_str()) { (m.purpose.as_str()) }
+                                }
+                                @if let Some(first) = cells.first() {
+                                    (misc_item_cell_tds(first))
+                                } @else {
+                                    td colspan="4" class="py-2.5 px-3 text-sm text-muted text-center border border-border-soft" { "—" }
+                                }
+                                td rowspan=(n.to_string()) class="text-right font-mono py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" { (fmt_decimal(m.total_amount)) }
+                                td rowspan=(n.to_string()) class="py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" { (misc_status_pill(m.status)) }
+                                td rowspan=(n.to_string()) class="py-2.5 px-5 text-muted align-middle whitespace-nowrap border border-border-soft" { (fmt_date(Some(m.request_date))) }
                             }
-                            td class="py-2.5 px-5 font-mono text-accent font-medium" {
-                                (doc_number_detail_btn(&m.doc_number, &PcMiscDetailDrawerPath { id: m.id }.to_string(), "#misc-detail-drawer-body", "#misc-detail-overlay"))
+                            @for c in cells.iter().skip(1) {
+                                tr class=(row_bg) { (misc_item_cell_tds(c)) }
                             }
-                            td class="py-2.5 px-3 text-fg" { (m.purpose) }
-                            td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(m.total_amount)) }
-                            td class="py-2.5 px-3" { (misc_status_pill(m.status)) }
-                            td class="py-2.5 px-5 text-muted" { (fmt_date(Some(m.request_date))) }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/// 零星请购明细单元格（物品名+规格/数量+单位/估价/备注）——主从表明细列（自由物品无 product_id）。
+fn misc_item_cell_tds(it: &MiscRequestItem) -> Markup {
+    html! {
+        td class="py-2.5 px-3 text-sm text-fg border border-border-soft" {
+            div class="inline-block max-w-[200px] align-middle truncate" title=(it.item_name.as_str()) { (it.item_name.as_str()) }
+            @if let Some(spec) = &it.specification {
+                div class="text-muted text-[11px] font-mono" { (spec.as_str()) }
+            }
+        }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity)) " " (it.unit.as_str()) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (it.estimated_price.map(fmt_plain).unwrap_or_else(|| "—".into())) }
+        td class="py-2.5 px-3 text-sm text-muted border border-border-soft" {
+            span class="inline-block max-w-[180px] truncate align-middle" title=(it.remark.as_deref().unwrap_or("")) { (it.remark.as_deref().unwrap_or("—")) }
         }
     }
 }

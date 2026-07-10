@@ -25,6 +25,7 @@ pub mod material_requisition_picker;
 pub mod worker_picker;
 pub mod supplier_search;
 pub mod reservation_detail;
+pub mod row_expand;
 pub mod customer_search;
 pub mod bin_search;
 pub mod print_dropdown;

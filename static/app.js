@@ -1039,4 +1039,43 @@ document.addEventListener('htmx:afterSettle', function (e) {
 
 // 打印模板编辑器启动由 edit_form 的 hyperscript（on load）触发，加载 print-template-edit.js 到 <head>。
 
+// ── 行展开：全部展开/收起切换（复用 row_expand 控件，scope 内遍历 chev）──
+// 展开：对每个未 .open 的 chev 派发 loadItem（htmx 各自请求）+ 标记 .open；
+// 收起：所有展开行 .row-expand-anim 加 .closing 播放收起动画，220ms 后统一移除。btn.dataset.expanded 切换文案。
+window.rowExpandToggleAll = function (btn, scopeSelector) {
+    const scope = document.querySelector(scopeSelector);
+    if (!scope) return;
+    // 切按钮图标：展开态显示 chevrons-up（下一步收起），收起态显示 chevrons-down（下一步展开）
+    const setIcon = function (expanded) {
+        const exp = btn.querySelector('.ico-expand');
+        const col = btn.querySelector('.ico-collapse');
+        if (exp) exp.classList.toggle('hidden', expanded);
+        if (col) col.classList.toggle('hidden', !expanded);
+    };
+    const expand = btn.dataset.expanded !== '1';
+    if (expand) {
+        scope.querySelectorAll('button.row-expand-toggle').forEach(function (chev) {
+            const tr = chev.closest('tr');
+            if (tr && !tr.classList.contains('open')) {
+                tr.classList.add('open');
+                chev.dispatchEvent(new CustomEvent('loadItem'));
+            }
+        });
+        btn.dataset.expanded = '1';
+        setIcon(true);
+    } else {
+        const details = scope.querySelectorAll('tr.row-detail');
+        details.forEach(function (tr) {
+            const anim = tr.querySelector('.row-expand-anim');
+            if (anim) anim.classList.add('closing');
+        });
+        setTimeout(function () {
+            details.forEach(function (tr) { tr.remove(); });
+            scope.querySelectorAll('tr.open').forEach(function (tr) { tr.classList.remove('open'); });
+        }, 220);
+        btn.dataset.expanded = '0';
+        setIcon(false);
+    }
+};
+
 

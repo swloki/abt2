@@ -35,6 +35,15 @@ pub struct WorkOrder {
     pub source_customer: Option<String>,
 }
 
+/// 工单产品摘要（id/product_id/planned_qty）——批量取，wms 待收货等只需产品+数量场景，
+/// 避免完整 WorkOrder 的复杂聚合 SQL（total_steps/completed_steps 等计算列）。
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct WoProductBrief {
+    pub id: i64,
+    pub product_id: i64,
+    pub planned_qty: Decimal,
+}
+
 #[derive(Debug, Clone)]
 pub struct CreateWorkOrderReq {
     pub plan_item_id: Option<i64>,

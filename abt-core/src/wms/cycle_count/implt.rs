@@ -167,6 +167,17 @@ impl CycleCountService for CycleCountServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    async fn list_items_by_count_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        count_ids: &[i64],
+    ) -> Result<Vec<CycleCountItem>> {
+        CycleCountRepo::list_by_count_ids(&mut *db, count_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn list(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,

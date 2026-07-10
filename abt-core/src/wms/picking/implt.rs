@@ -795,6 +795,15 @@ impl PickingService for PickingServiceImpl {
         PickingRepo::get_items_by_picking_ids(&mut *db, requisition_ids).await
     }
 
+    async fn list_items_by_picking_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        picking_ids: &[i64],
+    ) -> Result<Vec<StockPickingItem>> {
+        PickingRepo::get_items_by_picking_ids(&mut *db, picking_ids).await
+    }
+
     async fn list_requisitioned_routing_ids(
         &self,
         _ctx: &ServiceContext,

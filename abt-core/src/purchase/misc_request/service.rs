@@ -35,6 +35,14 @@ pub trait MiscellaneousRequestService: Send + Sync {
         request_id: i64,
     ) -> Result<Vec<MiscRequestItem>>;
 
+    /// 批量取多个零星请购的明细（扁平 Vec，调用方按 request_id 分组）。
+    async fn list_items_by_request_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        request_ids: &[i64],
+    ) -> Result<Vec<MiscRequestItem>>;
+
     async fn cancel(
         &self,
         ctx: &ServiceContext,

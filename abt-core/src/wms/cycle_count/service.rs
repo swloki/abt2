@@ -33,6 +33,14 @@ pub trait CycleCountService: Send + Sync {
         count_id: i64,
     ) -> Result<Vec<CycleCountItem>>;
 
+    /// 批量取多个盘点单明细（按 count_ids），wms 待盘点主从表用。
+    async fn list_items_by_count_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        count_ids: &[i64],
+    ) -> Result<Vec<CycleCountItem>>;
+
     /// 分页查询盘点单
     async fn list(
         &self,

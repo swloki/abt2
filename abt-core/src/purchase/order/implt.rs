@@ -503,6 +503,17 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    async fn list_items_by_order_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_ids: &[i64],
+    ) -> Result<Vec<PurchaseOrderItem>> {
+        PurchaseOrderItemRepo::list_by_order_ids(&mut *db, order_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         self.check_idempotency(ctx, db, idempotency_key, "PurchaseOrder:cancel").await?;
 

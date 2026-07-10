@@ -257,4 +257,24 @@ impl PurchaseReturnItemRepo {
         .fetch_all(executor)
         .await.map_err(Into::into)
     }
+
+    /// 批量查多个退货的明细（避免逐个 list_by_return_id 的 N+1）；结果含 return_id，调用方按需分组。
+    pub async fn list_by_return_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        return_ids: &[i64],
+    ) -> Result<Vec<PurchaseReturnItem>> {
+        if return_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        sqlx::query_as::<_, PurchaseReturnItem>(
+            r#"
+            SELECT id, return_id, order_item_id, product_id, returned_qty, unit_price, amount
+            FROM purchase_return_items
+            WHERE return_id = ANY($1)
+            "#,
+        )
+        .bind(return_ids)
+        .fetch_all(executor)
+        .await.map_err(Into::into)
+    }
 }

@@ -189,6 +189,17 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    async fn list_items_by_request_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        request_ids: &[i64],
+    ) -> Result<Vec<MiscRequestItem>> {
+        MiscRequestItemRepo::list_by_request_ids(&mut *db, request_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn cancel(
         &self,
         ctx: &ServiceContext,

@@ -6,6 +6,7 @@ use serde::Deserialize;
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::types::{PgExecutor, ServiceContext};
 use abt_core::wms::enums::{CycleCountStatus, PickingStatus};
+use abt_core::wms::picking::model::StockPickingItem;
 use abt_core::wms::picking::{IssueItemReq, IssueMaterialReq, PickingService};
 use abt_core::wms::cycle_count::model::CycleCountItem;
 use abt_core::wms::cycle_count::CycleCountService;
@@ -18,6 +19,7 @@ use abt_core::wms::work_center::model::{
 };
 use abt_core::wms::work_center::WorkCenterService;
 use abt_core::shared::document_sequence::DocumentSequenceService;
+use abt_core::purchase::order::model::PurchaseOrderItem;
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::shared::enums::DocumentType;
 use abt_core::wms::enums::TransactionType;
@@ -34,6 +36,7 @@ use crate::components::pagination::pagination;
 use abt_core::wms::picking::model::{PoReceiveRow, ReceivePurchaseReq, ShipRowReq, ShippingHubSummary};
 use abt_core::wms::inventory_transaction::{model::RecordTransactionReq, InventoryTransactionService};
 use abt_core::wms::inventory::InventoryService;
+use abt_core::mes::work_order::model::WoProductBrief;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::shared::identity::UserService;
@@ -1422,6 +1425,22 @@ pub async fn post_work_center_action(
         )
         .await
         .unwrap_or_else(|_| PaginatedResult::empty(1, DOMAIN_PAGE_SIZE));
+    // 主从表物料（按 domain）：picking 类（编码/名称/数量）+ cycle（盘点列）
+    let picking_materials: Option<HashMap<i64, Vec<MaterialCell>>> = match domain {
+        WorkCenterDomain::Arrival => {
+            Some(build_arrival_materials(&state, &service_ctx, &mut conn, &result.items).await)
+        }
+        WorkCenterDomain::Outbound | WorkCenterDomain::Requisition | WorkCenterDomain::Transfer => {
+            Some(build_picking_materials(&state, &service_ctx, &mut conn, &result.items).await)
+        }
+        _ => None,
+    };
+    let cycle_materials: Option<HashMap<i64, Vec<CycleCell>>> =
+        if domain == WorkCenterDomain::CycleCount {
+            Some(build_cycle_materials(&state, &service_ctx, &mut conn, &result.items).await)
+        } else {
+            None
+        };
     let fragment: Markup = html! {
         (render_domain_card(
             domain,
@@ -1429,6 +1448,8 @@ pub async fn post_work_center_action(
             &result,
             &WorkCenterQuery::default(),
             &warehouses,
+            picking_materials.as_ref(),
+            cycle_materials.as_ref(),
         ))
         // 顶栏总数 badge：hx-swap-oob 自动替换页面 #wc-total-badge
         (total_badge(summary.total(), true))
@@ -1750,6 +1771,249 @@ struct ReceiveRowJson {
 // ── 页面 / 片段渲染 ──
 
 /// 渲染作业中心：非 htmx → 整页（标题 + 总数 badge + tab 主体 + drawer/picker 壳）；
+/// 待收货物料单元格（编码/名称/数量）——Arrival 主从表 rowspan 明细列。
+#[derive(Clone)]
+struct MaterialCell {
+    code: String,
+    name: String,
+    qty: Decimal,
+}
+
+/// 待收货(Arrival)：装配每个单据的物料 cells（po 多物料 / wo 单产品），供主从表 rowspan 常驻显示。
+async fn build_arrival_materials(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    tasks: &[PendingTask],
+) -> HashMap<i64, Vec<MaterialCell>> {
+    let po_ids: Vec<i64> = tasks
+        .iter()
+        .filter(|t| t.source_kind == TaskSourceKind::PurchaseOrder)
+        .map(|t| t.doc_id)
+        .collect();
+    let wo_ids: Vec<i64> = tasks
+        .iter()
+        .filter(|t| t.source_kind == TaskSourceKind::WorkOrder)
+        .map(|t| t.doc_id)
+        .collect();
+    // PO 物料（批量，复用 PR #255 的 list_items_by_order_ids）
+    let mut po_items: HashMap<i64, Vec<PurchaseOrderItem>> = HashMap::new();
+    let mut product_ids: Vec<i64> = Vec::new();
+    for it in state
+        .purchase_order_service()
+        .list_items_by_order_ids(ctx, db, &po_ids)
+        .await
+        .unwrap_or_default()
+    {
+        product_ids.push(it.product_id);
+        po_items.entry(it.order_id).or_default().push(it);
+    }
+    // 工单产品（批量 brief：id/product_id/planned_qty）
+    let wo_briefs = state
+        .work_order_service()
+        .list_product_brief_by_ids(ctx, db, &wo_ids)
+        .await
+        .unwrap_or_default();
+    for w in &wo_briefs {
+        product_ids.push(w.product_id);
+    }
+    // 产品编码/名称
+    let (codes, names): (HashMap<i64, String>, HashMap<i64, String>) = if product_ids.is_empty() {
+        (HashMap::new(), HashMap::new())
+    } else {
+        let products = state
+            .product_service()
+            .get_by_ids(ctx, db, product_ids)
+            .await
+            .unwrap_or_default();
+        (
+            products
+                .iter()
+                .map(|p| (p.product_id, p.product_code.clone()))
+                .collect(),
+            products
+                .iter()
+                .map(|p| (p.product_id, p.pdt_name.clone()))
+                .collect(),
+        )
+    };
+    // 装配每个 task 的物料 cells（po 多物料 / wo 单产品）
+    let mut map: HashMap<i64, Vec<MaterialCell>> = HashMap::new();
+    for t in tasks {
+        let cells = match t.source_kind {
+            TaskSourceKind::PurchaseOrder => po_items
+                .get(&t.doc_id)
+                .map(|items| {
+                    items
+                        .iter()
+                        .map(|it| MaterialCell {
+                            code: codes
+                                .get(&it.product_id)
+                                .cloned()
+                                .unwrap_or_else(|| "—".into()),
+                            name: names
+                                .get(&it.product_id)
+                                .cloned()
+                                .unwrap_or_else(|| "—".into()),
+                            qty: it.quantity,
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            TaskSourceKind::WorkOrder => wo_briefs
+                .iter()
+                .find(|w| w.id == t.doc_id)
+                .map(|w| {
+                    vec![MaterialCell {
+                        code: codes
+                            .get(&w.product_id)
+                            .cloned()
+                            .unwrap_or_else(|| "—".into()),
+                        name: names
+                            .get(&w.product_id)
+                            .cloned()
+                            .unwrap_or_else(|| "—".into()),
+                        qty: w.planned_qty,
+                    }]
+                })
+                .unwrap_or_default(),
+        };
+        map.insert(t.doc_id, cells);
+    }
+    map
+}
+
+/// 批量取产品编码/名称 map（各 domain 物料装配共用）。
+async fn product_codes_names(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    product_ids: Vec<i64>,
+) -> (HashMap<i64, String>, HashMap<i64, String>) {
+    if product_ids.is_empty() {
+        return (HashMap::new(), HashMap::new());
+    }
+    let products = state
+        .product_service()
+        .get_by_ids(ctx, db, product_ids)
+        .await
+        .unwrap_or_default();
+    (
+        products
+            .iter()
+            .map(|p| (p.product_id, p.product_code.clone()))
+            .collect(),
+        products
+            .iter()
+            .map(|p| (p.product_id, p.pdt_name.clone()))
+            .collect(),
+    )
+}
+
+/// 待出库/待领料/待调拨（picking）：装配每个作业单据的物料 cells（编码/名称/请求数），主从表 rowspan。
+async fn build_picking_materials(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    tasks: &[PendingTask],
+) -> HashMap<i64, Vec<MaterialCell>> {
+    let picking_ids: Vec<i64> = tasks.iter().map(|t| t.doc_id).collect();
+    let mut items_by_picking: HashMap<i64, Vec<StockPickingItem>> = HashMap::new();
+    let mut product_ids: Vec<i64> = Vec::new();
+    for it in state
+        .picking_service()
+        .list_items_by_picking_ids(ctx, db, &picking_ids)
+        .await
+        .unwrap_or_default()
+    {
+        product_ids.push(it.product_id);
+        items_by_picking.entry(it.picking_id).or_default().push(it);
+    }
+    let (codes, names) = product_codes_names(state, ctx, db, product_ids).await;
+    let mut map: HashMap<i64, Vec<MaterialCell>> = HashMap::new();
+    for t in tasks {
+        let cells = items_by_picking
+            .get(&t.doc_id)
+            .map(|items| {
+                items
+                    .iter()
+                    .map(|it| MaterialCell {
+                        code: codes
+                            .get(&it.product_id)
+                            .cloned()
+                            .unwrap_or_else(|| "—".into()),
+                        name: names
+                            .get(&it.product_id)
+                            .cloned()
+                            .unwrap_or_else(|| "—".into()),
+                        qty: it.qty_requested,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        map.insert(t.doc_id, cells);
+    }
+    map
+}
+
+/// 待盘点物料单元格（编码/名称/系统量/盘点量/差异）——CycleCount 主从表 rowspan 明细列。
+#[derive(Clone)]
+struct CycleCell {
+    code: String,
+    name: String,
+    system_qty: Decimal,
+    counted_qty: Decimal,
+    variance_qty: Decimal,
+}
+
+/// 待盘点（CycleCount）：装配每个盘点单的物料 cells（编码/名称/系统量/盘点量/差异）。
+async fn build_cycle_materials(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    tasks: &[PendingTask],
+) -> HashMap<i64, Vec<CycleCell>> {
+    let count_ids: Vec<i64> = tasks.iter().map(|t| t.doc_id).collect();
+    let mut items_by_count: HashMap<i64, Vec<CycleCountItem>> = HashMap::new();
+    let mut product_ids: Vec<i64> = Vec::new();
+    for it in state
+        .cycle_count_service()
+        .list_items_by_count_ids(ctx, db, &count_ids)
+        .await
+        .unwrap_or_default()
+    {
+        product_ids.push(it.product_id);
+        items_by_count.entry(it.count_id).or_default().push(it);
+    }
+    let (codes, names) = product_codes_names(state, ctx, db, product_ids).await;
+    let mut map: HashMap<i64, Vec<CycleCell>> = HashMap::new();
+    for t in tasks {
+        let cells = items_by_count
+            .get(&t.doc_id)
+            .map(|items| {
+                items
+                    .iter()
+                    .map(|it| CycleCell {
+                        code: codes
+                            .get(&it.product_id)
+                            .cloned()
+                            .unwrap_or_else(|| "—".into()),
+                        name: names
+                            .get(&it.product_id)
+                            .cloned()
+                            .unwrap_or_else(|| "—".into()),
+                        system_qty: it.system_qty,
+                        counted_qty: it.counted_qty,
+                        variance_qty: it.variance_qty,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        map.insert(t.doc_id, cells);
+    }
+    map
+}
+
 /// htmx → admin_page(true) 返回 tab 主体片段，客户端 `hx-select="#wc-domain-card"` 选取。
 async fn render_work_center_page(
     ctx: RequestContext,
@@ -1792,7 +2056,32 @@ async fn render_work_center_page(
         )
         .await
         .unwrap_or_else(|_| PaginatedResult::empty(page, DOMAIN_PAGE_SIZE));
-    let domain_markup: Markup = render_domain_card(domain, &summary, &result, q, &warehouses);
+    // 主从表物料：Arrival/Outbound/Requisition/Transfer → MaterialCell（编码/名称/数量）；
+    // CycleCount → CycleCell（盘点列）；LowStock 无明细。
+    let picking_materials: Option<HashMap<i64, Vec<MaterialCell>>> = match domain {
+        WorkCenterDomain::Arrival => {
+            Some(build_arrival_materials(&state, &service_ctx, &mut conn, &result.items).await)
+        }
+        WorkCenterDomain::Outbound | WorkCenterDomain::Requisition | WorkCenterDomain::Transfer => {
+            Some(build_picking_materials(&state, &service_ctx, &mut conn, &result.items).await)
+        }
+        _ => None,
+    };
+    let cycle_materials: Option<HashMap<i64, Vec<CycleCell>>> =
+        if domain == WorkCenterDomain::CycleCount {
+            Some(build_cycle_materials(&state, &service_ctx, &mut conn, &result.items).await)
+        } else {
+            None
+        };
+    let domain_markup: Markup = render_domain_card(
+        domain,
+        &summary,
+        &result,
+        q,
+        &warehouses,
+        picking_materials.as_ref(),
+        cycle_materials.as_ref(),
+    );
 
     let content = if is_htmx {
         // htmx 片段：tab 主体 + 顶栏总数 badge oob（wcChanged 触发 card 自刷新时一并更新顶栏待办数）
@@ -1991,6 +2280,8 @@ fn render_domain_card(
     result: &PaginatedResult<PendingTask>,
     q: &WorkCenterQuery,
     warehouses: &[Warehouse],
+    picking_materials: Option<&HashMap<i64, Vec<MaterialCell>>>,
+    cycle_materials: Option<&HashMap<i64, Vec<CycleCell>>>,
 ) -> Markup {
     let (overdue, soon) = {
         let s = summary.of(active);
@@ -2016,7 +2307,12 @@ fn render_domain_card(
                 @if active == WorkCenterDomain::LowStock {
                     (render_low_stock_list(&result.items))
                 } @else {
-                    (render_task_table(&result.items, active))
+                    (render_task_table(
+                        &result.items,
+                        active,
+                        picking_materials,
+                        cycle_materials,
+                    ))
                 }
                 @if result.total_pages > 1 {
                     div class="mt-3" {
@@ -2140,11 +2436,24 @@ fn render_low_stock_list(tasks: &[PendingTask]) -> Markup {
     }
 }
 
-fn render_task_table(tasks: &[PendingTask], domain: WorkCenterDomain) -> Markup {
+fn render_task_table(
+    tasks: &[PendingTask],
+    domain: WorkCenterDomain,
+    picking_materials: Option<&HashMap<i64, Vec<MaterialCell>>>,
+    cycle_materials: Option<&HashMap<i64, Vec<CycleCell>>>,
+) -> Markup {
     if tasks.is_empty() {
         return html! {
             div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无待办" }
         };
+    }
+    // CycleCount → 盘点列主从表（编码/名称/系统量/盘点量/差异）
+    if let Some(mats) = cycle_materials {
+        return render_cycle_table(tasks, domain, mats);
+    }
+    // Arrival/Outbound/Requisition/Transfer → 编码/名称/数量主从表
+    if let Some(mats) = picking_materials {
+        return render_master_table(tasks, domain, mats);
     }
     html! {
         table class="w-full border-collapse mt-2" {
@@ -2174,6 +2483,205 @@ fn render_task_table(tasks: &[PendingTask], domain: WorkCenterDomain) -> Markup 
                 }
             }
         }
+    }
+}
+
+/// 主从表（Arrival/Outbound/Requisition/Transfer 共用）：每单一个 tbody.pc-row-group，
+/// 订单级列 rowspan + 物料列（编码/名称/数量）常驻 + 斑马纹 + pc-grid 边框 + 垂直居中。
+fn render_master_table(
+    tasks: &[PendingTask],
+    domain: WorkCenterDomain,
+    materials: &HashMap<i64, Vec<MaterialCell>>,
+) -> Markup {
+    html! {
+        div class="overflow-x-auto mt-2" {
+            table class="w-full text-sm border-collapse pc-grid" {
+                thead {
+                    tr class="bg-surface-raised text-xs text-muted" {
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "单号" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "对象" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品编码" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品名称" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "数量" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "摘要" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "收到" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "到期" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "紧急度" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "操作" }
+                    }
+                }
+                @for (i, t) in tasks.iter().enumerate() {
+                    @let cells = materials.get(&t.doc_id).cloned().unwrap_or_default();
+                    @let n = if cells.is_empty() { 1usize } else { cells.len() };
+                    @let (urgency_label, urgency_cls) = match t.urgency {
+                        Urgency::Overdue => ("逾期", "bg-danger-bg text-danger"),
+                        Urgency::Soon => ("临期", "bg-warn-bg text-warn"),
+                        Urgency::Normal => ("正常", "bg-surface text-muted"),
+                    };
+                    // 斑马纹：奇数单浅灰背景，区分每单边界；紧急度改由紧急度列 pill 提示（不再整行染色）
+                    @let row_bg = if i % 2 == 1 {
+                        "bg-surface-raised"
+                    } else {
+                        ""
+                    };
+                    @let received = t.received_at.map(|d| d.format("%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".into());
+                    @let expected = t.expected_at.map(|d| d.format("%m-%d").to_string()).unwrap_or_else(|| "—".into());
+                    tbody class="pc-row-group" {
+                        tr class=(row_bg) {
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-sm font-mono text-accent font-semibold align-middle whitespace-nowrap border border-border-soft" {
+                                @if let Some(drw) = row_detail_drawer(domain, t.source_kind) {
+                                    (doc_detail_trigger(drw, t.doc_id, "pending", html! { (t.doc_number) },
+                                        "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
+                                } @else {
+                                    (t.doc_number)
+                                }
+                            }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-sm align-middle whitespace-nowrap border border-border-soft" {
+                                @let cp = t.counterparty.as_str();
+                                @if let Some(drw) = row_detail_drawer(domain, t.source_kind) {
+                                    (doc_detail_trigger(drw, t.doc_id, "pending",
+                                        html! { span class="block truncate" title=(cp) { (cp) } },
+                                        "inline-block max-w-[160px] align-middle truncate text-fg-2 text-sm bg-transparent border-none p-0 cursor-pointer hover:text-accent hover:underline text-left"))
+                                } @else {
+                                    span class="inline-block max-w-[160px] align-middle truncate text-fg-2" title=(cp) { (cp) }
+                                }
+                            }
+                            @if let Some(first) = cells.first() {
+                                (material_cell_tds(first))
+                            } @else {
+                                td colspan="3" class="py-2.5 px-3 text-sm text-muted text-center border border-border-soft" { "—" }
+                            }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-sm text-muted align-middle whitespace-nowrap border border-border-soft" { (t.summary) }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-sm font-mono text-muted align-middle whitespace-nowrap border border-border-soft" { (received) }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-sm font-mono text-fg-2 align-middle whitespace-nowrap border border-border-soft" { (expected) }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" {
+                                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {urgency_cls}")) {
+                                    (urgency_label)
+                                }
+                            }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-right align-middle whitespace-nowrap border border-border-soft" {
+                                (render_row_action(t))
+                            }
+                        }
+                        @for c in cells.iter().skip(1) {
+                            tr class=(row_bg) {
+                                (material_cell_tds(c))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 待收货物料单元格（编码/名称/数量）——主从表明细列，首行与后续行共用。
+fn material_cell_tds(c: &MaterialCell) -> Markup {
+    html! {
+        td class="py-2.5 px-3 text-sm font-mono text-accent whitespace-nowrap border border-border-soft" { (c.code) }
+        td class="py-2.5 px-3 text-sm text-fg whitespace-nowrap border border-border-soft" {
+            span class="inline-block max-w-[240px] align-middle truncate" title=(c.name.as_str()) { (c.name.as_str()) }
+        }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_qty(c.qty)) }
+    }
+}
+
+/// 待盘点(CycleCount)主从表：每单一个 tbody.pc-row-group，订单级列 rowspan +
+/// 盘点项列（编码/名称/系统量/盘点量/差异）常驻 + 斑马纹 + pc-grid。
+fn render_cycle_table(
+    tasks: &[PendingTask],
+    domain: WorkCenterDomain,
+    materials: &HashMap<i64, Vec<CycleCell>>,
+) -> Markup {
+    html! {
+        div class="overflow-x-auto mt-2" {
+            table class="w-full text-sm border-collapse pc-grid" {
+                thead {
+                    tr class="bg-surface-raised text-xs text-muted" {
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "单号" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "对象" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品编码" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品名称" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "系统量" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "盘点量" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "差异" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "摘要" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "收到" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "到期" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "紧急度" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "操作" }
+                    }
+                }
+                @for (i, t) in tasks.iter().enumerate() {
+                    @let cells = materials.get(&t.doc_id).cloned().unwrap_or_default();
+                    @let n = if cells.is_empty() { 1usize } else { cells.len() };
+                    @let (urgency_label, urgency_cls) = match t.urgency {
+                        Urgency::Overdue => ("逾期", "bg-danger-bg text-danger"),
+                        Urgency::Soon => ("临期", "bg-warn-bg text-warn"),
+                        Urgency::Normal => ("正常", "bg-surface text-muted"),
+                    };
+                    @let row_bg = if i % 2 == 1 { "bg-surface-raised" } else { "" };
+                    @let received = t.received_at.map(|d| d.format("%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".into());
+                    @let expected = t.expected_at.map(|d| d.format("%m-%d").to_string()).unwrap_or_else(|| "—".into());
+                    tbody class="pc-row-group" {
+                        tr class=(row_bg) {
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-sm font-mono text-accent font-semibold align-middle whitespace-nowrap border border-border-soft" {
+                                @if let Some(drw) = row_detail_drawer(domain, t.source_kind) {
+                                    (doc_detail_trigger(drw, t.doc_id, "pending", html! { (t.doc_number) },
+                                        "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
+                                } @else {
+                                    (t.doc_number)
+                                }
+                            }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-sm align-middle whitespace-nowrap border border-border-soft" {
+                                @let cp = t.counterparty.as_str();
+                                @if let Some(drw) = row_detail_drawer(domain, t.source_kind) {
+                                    (doc_detail_trigger(drw, t.doc_id, "pending",
+                                        html! { span class="block truncate" title=(cp) { (cp) } },
+                                        "inline-block max-w-[160px] align-middle truncate text-fg-2 text-sm bg-transparent border-none p-0 cursor-pointer hover:text-accent hover:underline text-left"))
+                                } @else {
+                                    span class="inline-block max-w-[160px] align-middle truncate text-fg-2" title=(cp) { (cp) }
+                                }
+                            }
+                            @if let Some(first) = cells.first() {
+                                (cycle_cell_tds(first))
+                            } @else {
+                                td colspan="5" class="py-2.5 px-3 text-sm text-muted text-center border border-border-soft" { "—" }
+                            }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-sm text-muted align-middle whitespace-nowrap border border-border-soft" { (t.summary) }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-sm font-mono text-muted align-middle whitespace-nowrap border border-border-soft" { (received) }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-sm font-mono text-fg-2 align-middle whitespace-nowrap border border-border-soft" { (expected) }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 align-middle whitespace-nowrap border border-border-soft" {
+                                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {urgency_cls}")) {
+                                    (urgency_label)
+                                }
+                            }
+                            td rowspan=(n.to_string()) class="py-2.5 px-3 text-right align-middle whitespace-nowrap border border-border-soft" {
+                                (render_row_action(t))
+                            }
+                        }
+                        @for c in cells.iter().skip(1) {
+                            tr class=(row_bg) {
+                                (cycle_cell_tds(c))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 待盘点物料单元格（编码/名称/系统量/盘点量/差异）——CycleCount 主从表明细列。
+fn cycle_cell_tds(c: &CycleCell) -> Markup {
+    html! {
+        td class="py-2.5 px-3 text-sm font-mono text-accent whitespace-nowrap border border-border-soft" { (c.code) }
+        td class="py-2.5 px-3 text-sm text-fg whitespace-nowrap border border-border-soft" {
+            span class="inline-block max-w-[240px] align-middle truncate" title=(c.name.as_str()) { (c.name.as_str()) }
+        }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_qty(c.system_qty)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_qty(c.counted_qty)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_qty(c.variance_qty)) }
     }
 }
 

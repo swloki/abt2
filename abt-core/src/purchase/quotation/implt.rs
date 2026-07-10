@@ -193,6 +193,15 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
+    async fn list_items_by_quotation_ids(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        quotation_ids: &[i64],
+    ) -> Result<Vec<PurchaseQuotationItem>> {
+        PurchaseQuotationItemRepo::list_by_quotation_ids(&mut *db, quotation_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
     async fn cancel(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

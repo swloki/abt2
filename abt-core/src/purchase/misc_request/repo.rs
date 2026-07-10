@@ -229,4 +229,26 @@ impl MiscRequestItemRepo {
         .fetch_all(executor)
         .await.map_err(Into::into)
     }
+
+    /// 批量查多个零星请购的明细（避免逐个 list_by_request_id 的 N+1）；结果含 request_id，调用方按需分组。
+    pub async fn list_by_request_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        request_ids: &[i64],
+    ) -> Result<Vec<MiscRequestItem>> {
+        if request_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        sqlx::query_as::<_, MiscRequestItem>(
+            r#"
+            SELECT id, request_id, line_no, item_name, specification, quantity,
+                   unit, estimated_price, remark
+            FROM misc_request_items
+            WHERE request_id = ANY($1)
+            ORDER BY line_no
+            "#,
+        )
+        .bind(request_ids)
+        .fetch_all(executor)
+        .await.map_err(Into::into)
+    }
 }

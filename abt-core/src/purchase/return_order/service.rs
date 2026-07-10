@@ -26,6 +26,13 @@ pub trait PurchaseReturnService: Send + Sync {
 
     async fn list_items(&self, ctx: &ServiceContext, db: PgExecutor<'_>, return_id: i64) -> Result<Vec<PurchaseReturnItem>>;
 
+    /// 批量取多个退货的明细（扁平 Vec，调用方按 return_id 分组）。
+    async fn list_items_by_return_ids(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        return_ids: &[i64],
+    ) -> Result<Vec<PurchaseReturnItem>>;
+
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()>;
 
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()>;

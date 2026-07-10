@@ -388,8 +388,13 @@ pub fn product_picker_results_for_table(
                 @for p in products {
                     div class="flex items-center p-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg transition-colors"
                         hx-get=(item_row_path)
-                        hx-vals=(format!("{{\"product_id\": {}}}", p.product_id))
-                        hx-include="[name=supplier_id]"
+                        // 以目标 tbody 锚定其所属表单，仅取【本表单】的 supplier_id（按供应商带最优价）。
+                        // 不可用全局 `hx-include="[name=supplier_id]"`：工作中心等多 drawer 共存页面会
+                        // 命中所有 name=supplier_id → query 字段重复 → 后端单值反序列化报 duplicate field。
+                        hx-vals=(format!(
+                            "js:{{ product_id: {}, supplier_id: document.querySelector('#{}')?.closest('form')?.querySelector('[name=supplier_id]')?.value || '' }}",
+                            p.product_id, tbody_id
+                        ))
                         hx-target=(format!("#{}", tbody_id))
                         hx-swap="beforeend"
                         _=({

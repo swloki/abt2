@@ -60,6 +60,7 @@ fn build_filter(params: &PQQueryParams) -> PurchaseQuotationQuery {
  status: params.status.and_then(PurchaseQuotationStatus::from_i16),
  quotation_date_start,
  quotation_date_end,
+ ..Default::default()
  }
 }
 

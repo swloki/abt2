@@ -299,6 +299,15 @@ pub struct OrdersCardParams {
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub keyword: Option<String>,
+    /// 物料名称/编码搜索
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub material: Option<String>,
+    /// 排序列（date/amount/supplier/doc）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub sort: Option<String>,
+    /// 排序方向（asc/desc）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub dir: Option<String>,
     #[serde(default)]
     pub page: Option<u32>,
 }
@@ -337,6 +346,9 @@ pub async fn get_orders_card(
                 status,
                 statuses,
                 doc_number: p.keyword.clone(),
+                product_code: p.material.clone(),
+                sort: p.sort.clone(),
+                dir: p.dir.clone(),
                 ..Default::default()
             },
             PageParams::new(page, 10),
@@ -354,7 +366,7 @@ pub async fn get_orders_card(
                 hx-target="this" hx-select="#pc-card" hx-swap="outerHTML" {
                 (pc_tab_bar("orders", &summary))
                 (orders_filter_bar(p.status, &p))
-                (orders_table(&result.items, &names))
+                (orders_table(&result.items, &names, p.sort.as_deref(), p.dir.as_deref()))
                 (pagination(PcOrdersPath::PATH, "#pc-card", "#pc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -463,6 +475,15 @@ pub struct ReturnsCardParams {
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub keyword: Option<String>,
+    /// 物料名称/编码搜索
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub material: Option<String>,
+    /// 排序列（date/amount/supplier/doc）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub sort: Option<String>,
+    /// 排序方向（asc/desc）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub dir: Option<String>,
     #[serde(default)]
     pub page: Option<u32>,
 }
@@ -489,6 +510,10 @@ pub async fn get_returns_card(
             &mut conn,
             PurchaseReturnQuery {
                 status,
+                doc_number: p.keyword.clone(),
+                product_keyword: p.material.clone(),
+                sort: p.sort.clone(),
+                dir: p.dir.clone(),
                 ..Default::default()
             },
             PageParams::new(page, 10),
@@ -506,7 +531,7 @@ pub async fn get_returns_card(
                 hx-target="this" hx-select="#pc-card" hx-swap="outerHTML" {
                 (pc_tab_bar("returns", &summary))
                 (returns_filter_bar(p.status, &p))
-                (returns_table(&result.items, &names))
+                (returns_table(&result.items, &names, p.sort.as_deref(), p.dir.as_deref()))
                 (pagination(PcReturnsPath::PATH, "#pc-card", "#pc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -520,6 +545,17 @@ pub async fn get_returns_card(
 pub struct QuotationCardParams {
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub keyword: Option<String>,
+    /// 物料名称/编码搜索
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub material: Option<String>,
+    /// 排序列（date/valid/supplier/doc）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub sort: Option<String>,
+    /// 排序方向（asc/desc）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub dir: Option<String>,
     #[serde(default)]
     pub page: Option<u32>,
 }
@@ -546,6 +582,10 @@ pub async fn get_quotation_card(
             &mut conn,
             PurchaseQuotationQuery {
                 status,
+                doc_number: p.keyword.clone(),
+                product_keyword: p.material.clone(),
+                sort: p.sort.clone(),
+                dir: p.dir.clone(),
                 ..Default::default()
             },
             PageParams::new(page, 10),
@@ -561,8 +601,8 @@ pub async fn get_quotation_card(
                 hx-include="#pc-filter-form"
                 hx-target="this" hx-select="#pc-card" hx-swap="outerHTML" {
                 (pc_tab_bar("quotation", &summary))
-                (quotation_filter_bar(p.status))
-                (quotation_table(&result.items, &names))
+                (quotation_filter_bar(p.status, &p))
+                (quotation_table(&result.items, &names, p.sort.as_deref(), p.dir.as_deref()))
                 (pagination(PcQuotationPath::PATH, "#pc-card", "#pc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -576,6 +616,17 @@ pub async fn get_quotation_card(
 pub struct MiscCardParams {
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub keyword: Option<String>,
+    /// 物品名称/规格搜索
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub material: Option<String>,
+    /// 排序列（date/amount/purpose/doc）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub sort: Option<String>,
+    /// 排序方向（asc/desc）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub dir: Option<String>,
     #[serde(default)]
     pub page: Option<u32>,
 }
@@ -602,6 +653,10 @@ pub async fn get_misc_card(
             &mut conn,
             MiscRequestQuery {
                 status,
+                doc_number: p.keyword.clone(),
+                item_keyword: p.material.clone(),
+                sort: p.sort.clone(),
+                dir: p.dir.clone(),
                 ..Default::default()
             },
             PageParams::new(page, 10),
@@ -615,8 +670,8 @@ pub async fn get_misc_card(
                 hx-include="#pc-filter-form"
                 hx-target="this" hx-select="#pc-card" hx-swap="outerHTML" {
                 (pc_tab_bar("misc", &summary))
-                (misc_filter_bar(p.status))
-                (misc_table(&result.items))
+                (misc_filter_bar(p.status, &p))
+                (misc_table(&result.items, p.sort.as_deref(), p.dir.as_deref()))
                 (pagination(PcMiscPath::PATH, "#pc-card", "#pc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -1561,10 +1616,8 @@ pub async fn get_po_create_drawer(
             &service_ctx,
             &mut conn,
             PurchaseQuotationQuery {
-                supplier_id: None,
                 status: Some(PurchaseQuotationStatus::Active),
-                quotation_date_start: None,
-                quotation_date_end: None,
+                ..Default::default()
             },
             PageParams::new(1, 200),
         )
@@ -3524,10 +3577,11 @@ fn po_print_buttons(frame_id: &str, default_url: &str, templates: &[PrintTemplat
 
 fn orders_filter_bar(status: Option<i16>, p: &OrdersCardParams) -> Markup {
     let kw = p.keyword.as_deref().unwrap_or("");
+    let mat = p.material.as_deref().unwrap_or("");
     html! {
         form class="flex items-center gap-2 flex-wrap px-5 py-3 border-b border-border-soft"
             hx-get=(PcOrdersPath::PATH)
-            hx-trigger="change, keyup changed delay:300ms from:.pc-orders-search"
+            hx-trigger="change, keyup changed delay:300ms from:.pc-orders-search, keyup changed delay:300ms from:.pc-orders-material"
             hx-target="#pc-card" hx-select="#pc-card" hx-swap="outerHTML"
             {
             select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
@@ -3545,10 +3599,19 @@ fn orders_filter_bar(status: Option<i16>, p: &OrdersCardParams) -> Markup {
                     type="text" name="keyword" placeholder="搜索 PO 号"
                     value=(kw);
             }
+            div class="relative" {
+                (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
+                input class="pc-orders-material w-[180px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                    type="text" name="material" placeholder="搜索物料名称/编码"
+                    value=(mat);
+            }
         }
         form id="pc-filter-form" class="hidden" {
             input type="hidden" name="keyword" value=(kw);
+            input type="hidden" name="material" value=(mat);
             input type="hidden" name="status" value=(status.map(|s| s.to_string()).unwrap_or_default());
+            input type="hidden" name="sort" value=(p.sort.clone().unwrap_or_default());
+            input type="hidden" name="dir" value=(p.dir.clone().unwrap_or_default());
         }
     }
 }
@@ -3570,17 +3633,59 @@ fn pc_expand_all_th() -> Markup {
     }
 }
 
-fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>) -> Markup {
+/// 可排序表头：点击列头触发 #pc-card 局部刷新（带 sort/dir），再点切换方向。
+/// 排序变更不传 page → handler 默认第 1 页（与 status_tabs 切 tab 同理）；
+/// 当前生效列显示 ▲/▼ 箭头。`th_class` 由调用方提供（含对齐/内边距）。
+fn sortable_th(
+    label: &str,
+    sort_key: &str,
+    cur_sort: Option<&str>,
+    cur_dir: Option<&str>,
+    path: &str,
+    th_class: &str,
+) -> Markup {
+    let active = cur_sort == Some(sort_key);
+    // 下次点击方向：当前列激活 → toggle；否则用该列默认方向（供应商/用途 A→Z，其余降序）
+    let next_dir = if active {
+        if cur_dir == Some("asc") {
+            "desc"
+        } else {
+            "asc"
+        }
+    } else {
+        match sort_key {
+            "supplier" | "purpose" => "asc",
+            _ => "desc",
+        }
+    };
+    let vals = serde_json::json!({ "sort": sort_key, "dir": next_dir }).to_string();
+    html! {
+        th class=(th_class) {
+            a class="inline-flex items-center gap-1 hover:text-accent cursor-pointer"
+                hx-get=(path)
+                hx-vals=(vals)
+                hx-target="#pc-card" hx-select="#pc-card" hx-swap="outerHTML"
+                hx-include="#pc-filter-form" {
+                (label)
+                @if active {
+                    span class="text-[10px] leading-none" { (if cur_dir == Some("asc") { "▲" } else { "▼" }) }
+                }
+            }
+        }
+    }
+}
+
+fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>, cur_sort: Option<&str>, cur_dir: Option<&str>) -> Markup {
     html! {
         div class="overflow-x-auto" {
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
                         (pc_expand_all_th())
-                        th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "订单号" }
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "供应商" }
-                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "金额" }
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "交期" }
+                        (sortable_th("订单号", "doc", cur_sort, cur_dir, PcOrdersPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide"))
+                        (sortable_th("供应商", "supplier", cur_sort, cur_dir, PcOrdersPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
+                        (sortable_th("金额", "amount", cur_sort, cur_dir, PcOrdersPath::PATH, "text-right font-semibold py-2 px-3 uppercase tracking-wide"))
+                        (sortable_th("交期", "date", cur_sort, cur_dir, PcOrdersPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "状态" }
                         th class="text-right font-semibold py-2 px-5 uppercase tracking-wide" { "操作" }
                     }
@@ -3949,10 +4054,11 @@ fn payment_table(items: &[PaymentRequest], names: &HashMap<i64, String>) -> Mark
 
 fn returns_filter_bar(status: Option<i16>, p: &ReturnsCardParams) -> Markup {
     let kw = p.keyword.as_deref().unwrap_or("");
+    let mat = p.material.as_deref().unwrap_or("");
     html! {
         form class="flex items-center gap-2 flex-wrap px-5 py-3 border-b border-border-soft"
             hx-get=(PcReturnsPath::PATH)
-            hx-trigger="change, keyup changed delay:300ms from:.pc-returns-search"
+            hx-trigger="change, keyup changed delay:300ms from:.pc-returns-search, keyup changed delay:300ms from:.pc-returns-material"
             hx-target="#pc-card" hx-select="#pc-card" hx-swap="outerHTML"
             {
             select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
@@ -3970,32 +4076,42 @@ fn returns_filter_bar(status: Option<i16>, p: &ReturnsCardParams) -> Markup {
                     type="text" name="keyword" placeholder="搜索退货单号"
                     value=(kw);
             }
+            div class="relative" {
+                (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
+                input class="pc-returns-material w-[180px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                    type="text" name="material" placeholder="搜索物料名称/编码"
+                    value=(mat);
+            }
             (new_drawer_button(PcReturnCreateDrawerPath::PATH, "#return-create-drawer-body", "#return-create-overlay", "新建退货"))
         }
         form id="pc-filter-form" class="hidden" {
             input type="hidden" name="keyword" value=(kw);
+            input type="hidden" name="material" value=(mat);
             input type="hidden" name="status" value=(status.map(|s| s.to_string()).unwrap_or_default());
+            input type="hidden" name="sort" value=(p.sort.clone().unwrap_or_default());
+            input type="hidden" name="dir" value=(p.dir.clone().unwrap_or_default());
         }
     }
 }
 
-fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>) -> Markup {
+fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>, cur_sort: Option<&str>, cur_dir: Option<&str>) -> Markup {
     html! {
         div class="overflow-x-auto" {
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
                         (pc_expand_all_th())
-                        th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "退货单号" }
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "供应商" }
-                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "金额" }
+                        (sortable_th("退货单号", "doc", cur_sort, cur_dir, PcReturnsPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide"))
+                        (sortable_th("供应商", "supplier", cur_sort, cur_dir, PcReturnsPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
+                        (sortable_th("金额", "amount", cur_sort, cur_dir, PcReturnsPath::PATH, "text-right font-semibold py-2 px-3 uppercase tracking-wide"))
+                        (sortable_th("退货日期", "date", cur_sort, cur_dir, PcReturnsPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "原因" }
                         th class="text-right font-semibold py-2 px-5 uppercase tracking-wide" { "操作" }
                     }
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无退货" } }
+                        tr { td colspan="7" class="text-center text-muted py-8" { "暂无退货" } }
                     }
                     @for r in items {
                         tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
@@ -4014,6 +4130,7 @@ fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>) -> Mark
                                     target="_blank" { (names.get(&r.supplier_id).map(|s| s.as_str()).unwrap_or("—")) }
                             }
                             td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(r.total_amount)) }
+                            td class="py-2.5 px-3 text-muted" { (fmt_date(Some(r.return_date))) }
                             td class="py-2.5 px-3 text-muted" { @if r.return_reason.is_empty() { "—" } @else { (r.return_reason.as_str()) } }
                             td class="text-right py-2.5 px-5 whitespace-nowrap" {
                                 button class="inline-flex items-center px-3 py-1 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium cursor-pointer hover:bg-surface mr-1"
@@ -4061,11 +4178,13 @@ fn doc_number_detail_btn(doc_number: &str, get_path: &str, body_sel: &str, overl
     }
 }
 
-fn quotation_filter_bar(status: Option<i16>) -> Markup {
+fn quotation_filter_bar(status: Option<i16>, p: &QuotationCardParams) -> Markup {
+    let kw = p.keyword.as_deref().unwrap_or("");
+    let mat = p.material.as_deref().unwrap_or("");
     html! {
         form class="flex items-center gap-2 flex-wrap px-5 py-3 border-b border-border-soft"
             hx-get=(PcQuotationPath::PATH)
-            hx-trigger="change"
+            hx-trigger="change, keyup changed delay:300ms from:.pc-quotation-search, keyup changed delay:300ms from:.pc-quotation-material"
             hx-target="#pc-card" hx-select="#pc-card" hx-swap="outerHTML"
             {
             select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
@@ -4076,6 +4195,18 @@ fn quotation_filter_bar(status: Option<i16>) -> Markup {
                 option value="3" selected[status == Some(3)] { "已过期" }
                 option value="4" selected[status == Some(4)] { "已取消" }
             }
+            div class="relative" {
+                (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
+                input class="pc-quotation-search w-[180px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                    type="text" name="keyword" placeholder="搜索报价单号"
+                    value=(kw);
+            }
+            div class="relative" {
+                (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
+                input class="pc-quotation-material w-[180px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                    type="text" name="material" placeholder="搜索物料名称/编码"
+                    value=(mat);
+            }
             button class="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90"
                 hx-get=(PcQuotationCreateDrawerPath::PATH)
                 hx-target="#quotation-create-drawer-body" hx-swap="innerHTML"
@@ -4084,21 +4215,25 @@ fn quotation_filter_bar(status: Option<i16>) -> Markup {
             }
         }
         form id="pc-filter-form" class="hidden" {
+            input type="hidden" name="keyword" value=(kw);
+            input type="hidden" name="material" value=(mat);
             input type="hidden" name="status" value=(status.map(|s| s.to_string()).unwrap_or_default());
+            input type="hidden" name="sort" value=(p.sort.clone().unwrap_or_default());
+            input type="hidden" name="dir" value=(p.dir.clone().unwrap_or_default());
         }
     }
 }
 
-fn quotation_table(items: &[PurchaseQuotation], names: &HashMap<i64, String>) -> Markup {
+fn quotation_table(items: &[PurchaseQuotation], names: &HashMap<i64, String>, cur_sort: Option<&str>, cur_dir: Option<&str>) -> Markup {
     html! {
         div class="overflow-x-auto" {
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
                         (pc_expand_all_th())
-                        th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "报价单号" }
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "供应商" }
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "有效期" }
+                        (sortable_th("报价单号", "doc", cur_sort, cur_dir, PcQuotationPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide"))
+                        (sortable_th("供应商", "supplier", cur_sort, cur_dir, PcQuotationPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
+                        (sortable_th("有效期", "valid", cur_sort, cur_dir, PcQuotationPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "状态" }
                         th class="text-right font-semibold py-2 px-5 uppercase tracking-wide" { "操作" }
                     }
@@ -4151,11 +4286,13 @@ fn quotation_status_pill(status: PurchaseQuotationStatus) -> Markup {
 
 // ── 零星采购 card 渲染 ──
 
-fn misc_filter_bar(status: Option<i16>) -> Markup {
+fn misc_filter_bar(status: Option<i16>, p: &MiscCardParams) -> Markup {
+    let kw = p.keyword.as_deref().unwrap_or("");
+    let mat = p.material.as_deref().unwrap_or("");
     html! {
         form class="flex items-center gap-2 flex-wrap px-5 py-3 border-b border-border-soft"
             hx-get=(PcMiscPath::PATH)
-            hx-trigger="change"
+            hx-trigger="change, keyup changed delay:300ms from:.pc-misc-search, keyup changed delay:300ms from:.pc-misc-material"
             hx-target="#pc-card" hx-select="#pc-card" hx-swap="outerHTML"
             {
             select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
@@ -4168,26 +4305,42 @@ fn misc_filter_bar(status: Option<i16>) -> Markup {
                 option value="5" selected[status == Some(5)] { "已关闭" }
                 option value="6" selected[status == Some(6)] { "已取消" }
             }
+            div class="relative" {
+                (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
+                input class="pc-misc-search w-[180px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                    type="text" name="keyword" placeholder="搜索请购单号"
+                    value=(kw);
+            }
+            div class="relative" {
+                (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
+                input class="pc-misc-material w-[180px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                    type="text" name="material" placeholder="搜索物品名称/规格"
+                    value=(mat);
+            }
             (new_drawer_button(PcMiscCreateDrawerPath::PATH, "#misc-create-drawer-body", "#misc-create-overlay", "新建请购"))
         }
         form id="pc-filter-form" class="hidden" {
+            input type="hidden" name="keyword" value=(kw);
+            input type="hidden" name="material" value=(mat);
             input type="hidden" name="status" value=(status.map(|s| s.to_string()).unwrap_or_default());
+            input type="hidden" name="sort" value=(p.sort.clone().unwrap_or_default());
+            input type="hidden" name="dir" value=(p.dir.clone().unwrap_or_default());
         }
     }
 }
 
-fn misc_table(items: &[MiscellaneousRequest]) -> Markup {
+fn misc_table(items: &[MiscellaneousRequest], cur_sort: Option<&str>, cur_dir: Option<&str>) -> Markup {
     html! {
         div class="overflow-x-auto" {
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
                         (pc_expand_all_th())
-                        th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "请购单号" }
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "用途" }
-                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "金额" }
+                        (sortable_th("请购单号", "doc", cur_sort, cur_dir, PcMiscPath::PATH, "text-left font-semibold py-2 px-5 uppercase tracking-wide"))
+                        (sortable_th("用途", "purpose", cur_sort, cur_dir, PcMiscPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide"))
+                        (sortable_th("金额", "amount", cur_sort, cur_dir, PcMiscPath::PATH, "text-right font-semibold py-2 px-3 uppercase tracking-wide"))
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "状态" }
-                        th class="text-right font-semibold py-2 px-5 uppercase tracking-wide" { "日期" }
+                        (sortable_th("日期", "date", cur_sort, cur_dir, PcMiscPath::PATH, "text-right font-semibold py-2 px-5 uppercase tracking-wide"))
                     }
                 }
                 tbody {

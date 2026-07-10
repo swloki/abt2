@@ -94,26 +94,64 @@ impl PurchaseQuotationRepo {
     ) -> Result<(Vec<PurchaseQuotation>, u64)> {
         let (data_scope, operator_id, _department_id) = scope;
         // purchase_quotations 无 department_id，Department 降级为 SelfOnly
-        let scope_clause = match data_scope {
-            DataScope::All => "",
-            _ => "AND operator_id = $7",
+        // 占位符：$1 supplier_id, $2 status, $3 date_start, $4 date_end, $5 doc_number, $6 product_keyword
+        //         count scope $7；data LIMIT $7 OFFSET $8 + scope $9
+        let count_scope_clause = if matches!(data_scope, DataScope::All) {
+            ""
+        } else {
+            "AND purchase_quotations.operator_id = $7"
         };
-        let where_clause = format!(
-            "WHERE deleted_at IS NULL
-              AND ($1::bigint IS NULL OR supplier_id = $1)
-              AND ($2::smallint IS NULL OR status = $2)
-              AND ($3::date IS NULL OR quotation_date >= $3)
-              AND ($4::date IS NULL OR quotation_date <= $4)
-              {scope_clause}"
+        let data_scope_clause = if matches!(data_scope, DataScope::All) {
+            ""
+        } else {
+            "AND purchase_quotations.operator_id = $9"
+        };
+        // 排序：白名单列名 + 方向（防注入）。sort=supplier 需 LEFT JOIN suppliers
+        let (order_col, default_asc, need_join) = match q.sort.as_deref() {
+            Some("valid") => ("valid_from", false, false),
+            Some("supplier") => ("s.supplier_name", true, true),
+            Some("doc") => ("doc_number", false, false),
+            _ => ("quotation_date", false, false), // date 或默认
+        };
+        let asc = match q.dir.as_deref() {
+            Some("asc") => true,
+            Some("desc") => false,
+            _ => default_asc,
+        };
+        let order_clause = format!(
+            "{order_col} {}{}",
+            if asc { "ASC" } else { "DESC" },
+            if need_join { " NULLS LAST" } else { "" }
         );
+        let join_clause = if need_join {
+            "LEFT JOIN suppliers s ON s.supplier_id = purchase_quotations.supplier_id AND s.deleted_at IS NULL"
+        } else {
+            ""
+        };
+        let where_base = "WHERE purchase_quotations.deleted_at IS NULL
+              AND ($1::bigint IS NULL OR purchase_quotations.supplier_id = $1)
+              AND ($2::smallint IS NULL OR purchase_quotations.status = $2)
+              AND ($3::date IS NULL OR purchase_quotations.quotation_date >= $3)
+              AND ($4::date IS NULL OR purchase_quotations.quotation_date <= $4)
+              AND ($5::text IS NULL OR purchase_quotations.doc_number ILIKE '%' || $5 || '%')
+              AND ($6::text IS NULL OR EXISTS (
+                    SELECT 1 FROM purchase_quotation_items qi
+                    JOIN products p ON p.product_id = qi.product_id AND p.deleted_at IS NULL
+                    WHERE qi.quotation_id = purchase_quotations.id
+                      AND (p.product_code ILIKE '%' || $6 || '%'
+                           OR p.pdt_name ILIKE '%' || $6 || '%')))";
+        let count_where = format!("{where_base} {count_scope_clause}");
+        let data_where = format!("{where_base} {data_scope_clause}");
 
         // Count
-        let count_sql = format!("SELECT COUNT(*) AS cnt FROM purchase_quotations {where_clause}");
+        let count_sql = format!("SELECT COUNT(*) AS cnt FROM purchase_quotations {count_where}");
         let mut count_query = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.quotation_date_start)
-            .bind(q.quotation_date_end);
+            .bind(q.quotation_date_end)
+            .bind(q.doc_number.as_deref())
+            .bind(q.product_keyword.as_deref());
         if !matches!(data_scope, DataScope::All) {
             count_query = count_query.bind(operator_id);
         }
@@ -124,18 +162,20 @@ impl PurchaseQuotationRepo {
         let limit = page.page_size as i64;
         let offset = page.offset() as i64;
         let data_sql = format!(
-            "SELECT id, doc_number, supplier_id, quotation_date, valid_from, valid_until,
-                    status, remark, operator_id, currency, buyer_id, supplier_quotation_no,
-                    created_at, updated_at, deleted_at
-             FROM purchase_quotations {where_clause}
-             ORDER BY created_at DESC
-             LIMIT $5 OFFSET $6"
+            "SELECT purchase_quotations.id, purchase_quotations.doc_number, purchase_quotations.supplier_id, purchase_quotations.quotation_date, purchase_quotations.valid_from, purchase_quotations.valid_until,
+                    purchase_quotations.status, purchase_quotations.remark, purchase_quotations.operator_id, purchase_quotations.currency, purchase_quotations.buyer_id, purchase_quotations.supplier_quotation_no,
+                    purchase_quotations.created_at, purchase_quotations.updated_at, purchase_quotations.deleted_at
+             FROM purchase_quotations {join_clause} {data_where}
+             ORDER BY {order_clause}
+             LIMIT $7 OFFSET $8"
         );
         let mut data_query = sqlx::query_as::<_, PurchaseQuotation>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.quotation_date_start)
             .bind(q.quotation_date_end)
+            .bind(q.doc_number.as_deref())
+            .bind(q.product_keyword.as_deref())
             .bind(limit)
             .bind(offset);
         if !matches!(data_scope, DataScope::All) {

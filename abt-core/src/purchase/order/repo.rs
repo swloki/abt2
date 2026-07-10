@@ -151,26 +151,52 @@ impl PurchaseOrderRepo {
         let count_scope = if matches!(data_scope, DataScope::All) {
             ""
         } else {
-            "AND operator_id = $7"
+            "AND purchase_orders.operator_id = $7"
         };
         let data_scope_clause = if matches!(data_scope, DataScope::All) {
             ""
         } else {
-            "AND operator_id = $9"
+            "AND purchase_orders.operator_id = $9"
         };
         let where_clause = format!(
-            "WHERE deleted_at IS NULL
-              AND ($1::bigint IS NULL OR supplier_id = $1)
-              AND ($2::int2[] IS NULL OR status = ANY($2))
-              AND ($3::date IS NULL OR order_date >= $3)
-              AND ($4::date IS NULL OR order_date <= $4)
-              AND ($5::text IS NULL OR doc_number ILIKE '%' || $5 || '%')
+            "WHERE purchase_orders.deleted_at IS NULL
+              AND ($1::bigint IS NULL OR purchase_orders.supplier_id = $1)
+              AND ($2::int2[] IS NULL OR purchase_orders.status = ANY($2))
+              AND ($3::date IS NULL OR purchase_orders.order_date >= $3)
+              AND ($4::date IS NULL OR purchase_orders.order_date <= $4)
+              AND ($5::text IS NULL OR purchase_orders.doc_number ILIKE '%' || $5 || '%')
               AND ($6::text IS NULL OR EXISTS (
                     SELECT 1 FROM purchase_order_items poi
                     JOIN products p ON p.product_id = poi.product_id AND p.deleted_at IS NULL
                     WHERE poi.order_id = purchase_orders.id
-                      AND p.product_code ILIKE '%' || $6 || '%'))"
+                      AND (p.product_code ILIKE '%' || $6 || '%'
+                           OR p.pdt_name ILIKE '%' || $6 || '%')))"
         );
+
+        // 排序：白名单列名 + 方向（防注入）。sort=supplier 需 LEFT JOIN suppliers；
+        // date=交期（UI 显示 expected_delivery_date，可 NULL）；默认按 order_date（业务日期，NOT NULL）
+        let (order_col, default_asc, need_join, nullable) = match q.sort.as_deref() {
+            Some("amount") => ("total_amount", false, false, false),
+            Some("supplier") => ("s.supplier_name", true, true, true),
+            Some("doc") => ("doc_number", false, false, false),
+            Some("date") => ("expected_delivery_date", false, false, true),
+            _ => ("order_date", false, false, false),
+        };
+        let asc = match q.dir.as_deref() {
+            Some("asc") => true,
+            Some("desc") => false,
+            _ => default_asc,
+        };
+        let order_clause = format!(
+            "{order_col} {}{}",
+            if asc { "ASC" } else { "DESC" },
+            if need_join || nullable { " NULLS LAST" } else { "" }
+        );
+        let join_clause = if need_join {
+            "LEFT JOIN suppliers s ON s.supplier_id = purchase_orders.supplier_id AND s.deleted_at IS NULL"
+        } else {
+            ""
+        };
 
         // Count
         let count_sql =
@@ -192,15 +218,15 @@ impl PurchaseOrderRepo {
         let limit = page.page_size as i64;
         let offset = page.offset() as i64;
         let data_sql = format!(
-            "SELECT id, doc_number, supplier_id, order_date, expected_delivery_date,
-                    status, total_amount, currency_code, currency_rate,
-                    amount_untaxed, amount_tax, amount_total, discount_amount,
-                    payment_terms, delivery_address, remark,
-                    payment_schedule_generated,
-                    invoice_status, per_billed,
-                    operator_id, created_at, updated_at, deleted_at
-             FROM purchase_orders {where_clause} {data_scope_clause}
-             ORDER BY created_at DESC
+            "SELECT purchase_orders.id, purchase_orders.doc_number, purchase_orders.supplier_id, purchase_orders.order_date, purchase_orders.expected_delivery_date,
+                    purchase_orders.status, purchase_orders.total_amount, purchase_orders.currency_code, purchase_orders.currency_rate,
+                    purchase_orders.amount_untaxed, purchase_orders.amount_tax, purchase_orders.amount_total, purchase_orders.discount_amount,
+                    purchase_orders.payment_terms, purchase_orders.delivery_address, purchase_orders.remark,
+                    purchase_orders.payment_schedule_generated,
+                    purchase_orders.invoice_status, purchase_orders.per_billed,
+                    purchase_orders.operator_id, purchase_orders.created_at, purchase_orders.updated_at, purchase_orders.deleted_at
+             FROM purchase_orders {join_clause} {where_clause} {data_scope_clause}
+             ORDER BY {order_clause}
              LIMIT $7 OFFSET $8"
         );
         let mut data_query = sqlx::query_as::<_, PurchaseOrder>(sqlx::AssertSqlSafe(data_sql))

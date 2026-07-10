@@ -49,6 +49,14 @@ pub struct PurchaseReturnQuery {
     pub status: Option<PurchaseReturnStatus>,
     pub return_date_start: Option<chrono::NaiveDate>,
     pub return_date_end: Option<chrono::NaiveDate>,
+    /// 单号模糊匹配（ILIKE '%kw%'）
+    pub doc_number: Option<String>,
+    /// 物料关键字反查（EXISTS join items+products，product_code OR pdt_name）
+    pub product_keyword: Option<String>,
+    /// 排序列（白名单：date/amount/supplier/doc）
+    pub sort: Option<String>,
+    /// 排序方向（"asc" | "desc"，默认 desc）
+    pub dir: Option<String>,
 }
 
 // ---------------------------------------------------------------------------

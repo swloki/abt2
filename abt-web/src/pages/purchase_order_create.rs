@@ -107,6 +107,7 @@ pub async fn get_po_create(
  status: Some(PurchaseQuotationStatus::Active),
  quotation_date_start: None,
  quotation_date_end: None,
+ ..Default::default()
  },
  PageParams::new(1, 200),
  )

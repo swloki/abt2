@@ -75,8 +75,14 @@ pub struct PurchaseOrderQuery {
     pub order_date_end: Option<NaiveDate>,
     /// 单号模糊匹配（ILIKE '%kw%'）
     pub doc_number: Option<String>,
-    /// 产品编码反查：匹配明细中含该编码产品的订单（EXISTS join items+products）
+    /// 物料关键字反查：匹配明细中编码或名称含该关键字产品的订单
+    /// （EXISTS join items+products，product_code OR pdt_name ILIKE）。
+    /// 字段名沿用 `product_code` 以兼容 picker / wms_stock_in_create 现有调用方
     pub product_code: Option<String>,
+    /// 排序列（白名单：date/amount/supplier/doc），由 repo 解析为 ORDER BY
+    pub sort: Option<String>,
+    /// 排序方向（"asc" | "desc"，默认 desc）
+    pub dir: Option<String>,
 }
 
 // ---------------------------------------------------------------------------

@@ -49,6 +49,14 @@ pub struct WoStepPricePath {
     pub step_no: i32,
 }
 
+/// 下达 drawer：从 BOM 重新加载工序（覆盖当前工单工序快照；计件单价自动从主数据 bom_step_prices 回填）。
+/// 守卫复用 load_operations_from_bom（零报工 + 状态门控 Draft/Planned/Released/InProduction）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/orders/{order_id}/reload-routings")]
+pub struct WoReloadRoutingsPath {
+    pub order_id: i64,
+}
+
 /// 分批：一次事务创建多批（既有 split_order 只建 1 批，故工作中心新建多批端点）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/orders/{order_id}/split-multi")]
@@ -206,6 +214,7 @@ pub fn router() -> Router<AppState> {
         .route(WcOrderDrawerPath::PATH, get(mes_work_center::get_order_drawer))
         .route(WcReleasePath::PATH, post(mes_work_center::release_order))
         .route(WoStepPricePath::PATH, post(mes_work_center::set_step_price))
+        .route(WoReloadRoutingsPath::PATH, post(mes_work_center::reload_routings))
         .route(WcSplitMultiPath::PATH, post(mes_work_center::split_multi))
         .route(WcCancelPath::PATH, post(mes_work_center::cancel_order))
         .route(

@@ -55,7 +55,7 @@ globs: ["abt-web/**/*.rs"]
 
 核心原则说「一个页面 / 组件 = 一个 URL」。反过来也成立：**如果你发现一个页面需要多个 URL（多个端点），那不是核心原则失灵，而是这个页面该被拆成多个组件的信号** —— 把每个独立区域拆成组件，各自一个 URL、各自返回完整片段、各自用 `hx-select` 选取。页面退化为这些组件的「外壳」，只负责组装，不持有组件的端点。
 
-典型范例：工作台类页面（`pages/mes_work_center.rs:4-7` 模块注释）首页是外壳，内联 3 个 card 占位 div，每个 card 用 `hx-trigger="load"` 拉自己的 GET 端点、`hx-select="#wc-xxx-card"` 局部刷新；写操作广播事件，各 card 监听自刷新（§4）。**3 个 card = 3 个组件 = 3 个 URL**，页面本身不持有这 3 个端点。
+典型范例：`pages/mes_work_center.rs` 工作台曾是「3 个独立 card 各自端点」的多组件外壳，现已演化为**单 card + view tab**（订单行明细 / 物料汇总 / 工单 / 批次共用 `WcDemandPath` 一个端点，靠 `view` 参数切视图 + `hx-select="#wc-demand-card"` 局部刷新，属 §2 列表页单端点模式）——正因为它只有一个端点，所以**不**触发本推论、无需拆组件。真正「多组件外壳」的范例见 §4 的 data div 联动（一个写操作广播事件、多个独立 data div 各自监听刷新，页面只做外壳）。
 
 判断标准：
 
@@ -420,7 +420,7 @@ div id="wc-release-routings"
 }
 ```
 
-范本：`pages/mes_work_center.rs`（模块注释 `:4-7` 完整描述了该范式；data div `:1187-1191`；写 handler 广播 `:1493 / 1548 / 1610`）。
+范本：`pages/mes_work_center.rs`（release/split/cancel 等下达类写操作广播 `woChanged`；release drawer ② 工序区是 data div，`hx-target="this"` + `hx-select="#自己"` 自包含）。
 
 要点：
 
@@ -436,7 +436,7 @@ div id="wc-release-routings"
 |---|---|---|
 | `nodeUpdated` | `pages/bom_edit.rs:302,326` | BOM 节点树 |
 | `batchChanged` / `reportChanged` / `requisitionChanged` / `receiptChanged` | `pages/mes_order_detail.rs:320,418,502,570` | 批次 disclosure + 摘要带（`mes_order_detail.rs:930` 同时监听三个事件） |
-| `woChanged` | `pages/mes_work_center.rs:1493,1548,1610` | 工单 card |
+| `woChanged` | `pages/mes_work_center.rs`（release / split / cancel 下达类写操作） | 工作台 card（工单 / 批次 view） |
 | `poChanged` / `reconChanged` | `pages/purchase_work_center.rs:442,478` | PO card / 对账 card |
 | `routingSelected` / `routingChanged` | `pages/mes_work_center.rs:1192` / `mes_order_detail.rs:2091` | 工序编辑区 |
 | `permUpdated` | `pages/permission_config.rs:295` | 权限面板 + 统计条（oob `#stats-bar,#role-list`） |

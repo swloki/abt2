@@ -598,7 +598,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         // 复用调用方传入的连接：WorkOrderService::create / release 在各自事务内调用（同事务原子）。
         let wo = new_work_order_service(self.pool.clone())
             .find_by_id(ctx, db, work_order_id).await?;
-        if !matches!(wo.status, WorkOrderStatus::Draft | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
+        if !matches!(wo.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
             return Err(DomainError::business_rule("工单当前状态不允许加载工艺路径"));
         }
         let planned_qty = wo.planned_qty;

@@ -37,6 +37,7 @@ use abt_core::shared::types::{DomainError, PageParams, PgPoolConn};
 
 use abt_macros::require_permission;
 
+use crate::components::combo_select::{combo_select, ComboHx, ComboOption};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::bom::{
@@ -471,11 +472,18 @@ fn operation_page_content(
                 form class="flex items-center gap-2 flex-wrap"
                     hx-post=(BomOperationApplyPath { id: bom_id }.to_string())
                     hx-swap="none" {
-                    select name="routing_id" class="px-2 py-1.5 text-xs border border-border rounded-sm bg-white text-fg min-w-[220px] hover:border-accent focus:border-accent" {
-                        option value="" { "— 选择工艺路线 —" }
-                        @for r in routings {
-                            option value=(r.id) { (r.code) " · " (r.name) }
-                        }
+                    div class="min-w-[220px]" {
+                        (combo_select(
+                            "routing_id",
+                            &routings.iter().map(|r| ComboOption {
+                                value: r.id.to_string(),
+                                label: format!("{} · {}", r.code, r.name),
+                            }).collect::<Vec<_>>(),
+                            None,
+                            "— 选择工艺路线 —",
+                            "搜索工艺路线…",
+                            None,
+                        ))
                     }
                     @if has_ops {
                         button type="submit"
@@ -541,7 +549,7 @@ fn operations_table(
                 div class="p-8 text-center text-muted text-sm" { "暂无工序，点击「添加工序」手动添加，或从工艺路线模板拷贝。" }
             } @else {
                 div class="overflow-x-auto" {
-                    table class="w-full text-[13px] min-w-[1100px]" {
+                    table class="w-full text-[13px] min-w-[880px]" {
                         thead {
                             tr class="bg-surface" {
                                 th class="w-[28px] px-2 py-2 text-left text-xs font-semibold text-fg-2" { "" }
@@ -549,9 +557,6 @@ fn operations_table(
                                 th class="px-2 py-2 text-left text-xs font-semibold text-fg-2" { "工序" }
                                 th class="w-[130px] px-2 py-2 text-left text-xs font-semibold text-fg-2" { "工作中心" }
                                 th class="w-[160px] px-2 py-2 text-left text-xs font-semibold text-fg-2" { "产出品" }
-                                th class="w-[80px] px-2 py-2 text-right text-xs font-semibold text-fg-2" { "工时(分)" }
-                                th class="w-[64px] px-2 py-2 text-right text-xs font-semibold text-fg-2" { "损耗%" }
-                                th class="w-[90px] px-2 py-2 text-right text-xs font-semibold text-fg-2" { "标准成本/h" }
                                 th class="w-[120px] px-2 py-2 text-left text-xs font-semibold text-fg-2" { "备注" }
                                 th class="w-[120px] px-2 py-2 text-center text-xs font-semibold text-fg-2" { "属性" }
                                 th class="w-[50px] px-2 py-2 text-center text-xs font-semibold text-fg-2" { "" }
@@ -596,16 +601,23 @@ fn operation_row(
                 input type="hidden" name="step_order" value=(step) {};
             }
             td class="px-2 py-2 text-muted font-mono" { (step) }
-            // 工序（change → 刷新整行，带默认值联动）
+            // 工序（可搜索下拉；选中 change → 刷新整行，带默认值联动）
             td class="px-2 py-2" {
-                select name="process_code" class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg text-[13px] hover:border-border focus:border-accent focus:bg-bg cursor-pointer"
-                    hx-post=(post.clone()) hx-target=(target.clone()) hx-swap="outerHTML" hx-include=(target.clone())
-                    hx-trigger="change" {
-                    option value="" selected[op.process_code.is_empty()] { "— 选择 —" }
-                    @for p in processes {
-                        option value=(p.code) selected[p.code == op.process_code] { (p.name) }
-                    }
-                }
+                (combo_select(
+                    "process_code",
+                    &processes.iter().map(|p| ComboOption {
+                        value: p.code.clone(),
+                        label: p.name.clone(),
+                    }).collect::<Vec<_>>(),
+                    if op.process_code.is_empty() { None } else { Some(op.process_code.as_str()) },
+                    "— 选择 —",
+                    "搜索工序…",
+                    Some(&ComboHx {
+                        post: post.clone(),
+                        target: target.clone(),
+                        include: target.clone(),
+                    }),
+                ))
             }
             // 工作中心（change → 静默保存）
             td class="px-2 py-2" {
@@ -629,27 +641,6 @@ fn operation_row(
                     }
                 }
             }
-            // 工时（blur changed → 静默保存）
-            td class="px-2 py-2" {
-                input type="number" step="0.000001" name="standard_time"
-                    value=(fmt_dec(op.standard_time))
-                    class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg text-[13px] text-right focus:border-accent focus:bg-bg"
-                    hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="blur changed" {}
-            }
-            // 损耗（blur changed → 静默保存）
-            td class="px-2 py-2" {
-                input type="number" step="0.000001" name="allowed_loss_rate"
-                    value=(fmt_dec(if op.allowed_loss_rate == Decimal::ZERO { None } else { Some(op.allowed_loss_rate) }))
-                    class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg text-[13px] text-right focus:border-accent focus:bg-bg"
-                    hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="blur changed" {}
-            }
-            // 标准成本（blur changed → 静默保存）
-            td class="px-2 py-2" {
-                input type="number" step="0.000001" name="standard_cost"
-                    value=(fmt_dec(op.standard_cost))
-                    class="w-full px-1.5 py-1 border border-border rounded-sm bg-transparent text-fg text-[13px] text-right focus:border-accent focus:bg-bg"
-                    hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="blur changed" {}
-            }
             // 备注（blur changed → 静默保存）
             td class="px-2 py-2" {
                 input type="text" name="remark"
@@ -661,6 +652,10 @@ fn operation_row(
             // 检验点去掉 UI 编辑，用 hidden 保留原值，避免编辑他字段时被 hx-include 覆盖成 false
             td class="px-2 py-2 text-center whitespace-nowrap" {
                 input type="hidden" name="is_inspection_point" value=(if op.is_inspection_point { "true" } else { "false" }) {};
+                // 工时/标准成本/损耗：UI 不展示，用 hidden 保留原值，避免编辑他字段时 hx-include 提交清零（同 is_inspection_point 范式）
+                input type="hidden" name="standard_time" value=(fmt_dec(op.standard_time)) {};
+                input type="hidden" name="standard_cost" value=(fmt_dec(op.standard_cost)) {};
+                input type="hidden" name="allowed_loss_rate" value=(fmt_dec(if op.allowed_loss_rate == Decimal::ZERO { None } else { Some(op.allowed_loss_rate) })) {};
                 label class="inline-flex items-center gap-1 text-xs text-fg-2 cursor-pointer" {
                     input type="checkbox" value="true" name="is_outsourced" checked[op.is_outsourced] class="accent-accent"
                         hx-post=(post.clone()) hx-include=(target.clone()) hx-swap="none" hx-trigger="change" {};

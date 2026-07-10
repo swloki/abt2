@@ -26,9 +26,6 @@ pub struct RoutingStep {
     pub created_at: Option<DateTime<Utc>>,
     #[sqlx(default)]
     pub process_name: Option<String>,
-    /// 产出品名称（JOIN products.pdt_name，LEFT JOIN 可能为 None）
-    #[sqlx(default)]
-    pub product_name: Option<String>,
     // migration 045 新增工序属性
     #[sqlx(default)]
     pub work_center_id: Option<i64>,
@@ -37,15 +34,11 @@ pub struct RoutingStep {
     #[sqlx(default)]
     pub standard_cost: Option<Decimal>,
     #[sqlx(default)]
-    pub unit_price: Option<Decimal>,
-    #[sqlx(default)]
     pub allowed_loss_rate: Option<Decimal>,
     #[sqlx(default)]
     pub is_outsourced: bool,
     #[sqlx(default)]
     pub is_inspection_point: bool,
-    #[sqlx(default)]
-    pub product_id: Option<i64>,
 }
 
 /// BOM-工艺路线关联
@@ -89,11 +82,9 @@ pub struct RoutingStepInput {
     pub work_center_id: Option<i64>,
     pub standard_time: Option<Decimal>,
     pub standard_cost: Option<Decimal>,
-    pub unit_price: Option<Decimal>,
     pub allowed_loss_rate: Option<Decimal>,
     pub is_outsourced: bool,
     pub is_inspection_point: bool,
-    pub product_id: Option<i64>,
 }
 
 /// 工艺路线查询

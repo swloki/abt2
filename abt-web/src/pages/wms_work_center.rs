@@ -40,7 +40,7 @@ use abt_core::shared::identity::UserService;
 use crate::errors::Result;
 use abt_core::shared::types::error::DomainError;
 use crate::layout::page::admin_page;
-use abt_core::master_data::print_template::PrintTemplateService;
+use abt_core::master_data::print_template::{PrintTemplate, PrintTemplateService};
 use crate::components::print_dropdown::print_dropdown;
 use crate::routes::print_template::PrintTemplateListPath;
 use crate::routes::shipping::ShippingPrintPath;
@@ -1339,6 +1339,39 @@ pub async fn get_wms_work_center(
     render_work_center_page(ctx, &q).await
 }
 
+/// Issue #219：direct_ship 成功后的「出库成功」对话框（hx-swap-oob，根 id=wc-ship-success-modal）。
+/// 含 print_dropdown 打印按钮（set #wc-ship-print-frame src → print_shipping 自带 window.print()）
+/// +「完成」按钮。背景点击 / 完成 关闭。开：app.js 监听 openShipSuccess（= HX-Trigger-After-Settle
+/// 广播）给本节点加 .is-open；用 JS 监听而非 hyperscript from:body（后者在本项目不可靠，对齐
+/// wms_stock_in_create 的 body 事件走 document.addEventListener 范式）。
+fn ship_success_modal(doc_number: &str, picking_id: i64, print_templates: &[PrintTemplate], manage_url: &str) -> Markup {
+    let print_url = ShippingPrintPath { id: picking_id }.to_string();
+    html! {
+        div id="wc-ship-success-modal" hx-swap-oob="true"
+            class="fixed inset-0 z-[1100] grid place-items-center bg-[rgba(15,23,42,0.45)] \
+                   backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 \
+                   [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+            _="on click[me is event.target] remove .is-open from me" {
+            div class="modal bg-bg rounded-xl w-[440px] max-w-[92vw] flex flex-col overflow-hidden shadow-xl"
+                _="on click halt the event" {
+                div class="px-6 pt-6 pb-3 flex flex-col items-center text-center" {
+                    (icon::check_circle_icon("w-11 h-11 text-success"))
+                    div class="mt-2 text-lg font-bold text-fg" { "出库成功" }
+                    div class="mt-1 text-sm text-muted" {
+                        "发货单 " span class="font-mono text-fg-2" { (doc_number) } " 已确认发出，可打印送货单"
+                    }
+                }
+                div class="px-6 py-4 bg-surface border-t border-border-soft flex items-center justify-end gap-3" {
+                    button type="button"
+                        class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm font-medium cursor-pointer hover:bg-surface"
+                        _="on click remove .is-open from #wc-ship-success-modal" { "完成" }
+                    (print_dropdown("wc-ship-print-frame", &print_url, print_templates, manage_url, true))
+                }
+            }
+        }
+    }
+}
+
 /// 作业中心唯一 POST：执行就地操作，返回「当前 tab 主体 + 总数 badge oob」片段。
 /// 客户端 hx-target=#wc-domain-card 替换 tab 主体、响应内 #wc-total-badge(hx-swap-oob) 更新顶栏总数、hyperscript 关 drawer。
 #[require_permission("INVENTORY", "update")]
@@ -1400,6 +1433,27 @@ pub async fn post_work_center_action(
         // 顶栏总数 badge：hx-swap-oob 自动替换页面 #wc-total-badge
         (total_badge(summary.total(), true))
     };
+    // Issue #219：direct_ship 成功后弹「出库成功」对话框（含打印按钮），不再直接弹打印预览。
+    // 对话框经 hx-swap-oob 替换页面 #wc-ship-success-modal，并用 HX-Trigger-After-Settle
+    // 触发 openShipSuccess 事件（等 OOB swap 完对话框监听器就位再弹，§4.4 时序）。
+    if form.action == "direct_ship" {
+        let picking = state
+            .picking_service()
+            .find_by_id(&service_ctx, &mut conn, form.id)
+            .await?;
+        let print_templates = state
+            .print_template_service()
+            .list_by_document_type(&mut conn, "delivery_note")
+            .await
+            .unwrap_or_default();
+        let manage_url = format!("{}?document_type=delivery_note", PrintTemplateListPath::PATH);
+        let modal = ship_success_modal(&picking.doc_number, form.id, &print_templates, &manage_url);
+        let body = format!("{}{}", fragment.into_string(), modal.into_string());
+        return Ok((
+            [("HX-Trigger-After-Settle", r#"{"openShipSuccess":""}"#)],
+            Html(body),
+        ));
+    }
     Ok(([("HX-Trigger", "showToast")], Html(fragment.into_string())))
 }
 
@@ -1761,6 +1815,12 @@ async fn render_work_center_page(
             (domain_markup)
             // 共享 drawer overlay（各域 GET ?drawer=&id= 把 body 填入 #wc-drawer-body）
             (wc_drawer_shell())
+            // Issue #219：确认发货（direct_ship）成功后弹「出库成功」对话框 + 打印按钮。
+            // 隐藏打印 iframe（点打印按钮 set 其 src → print_shipping 响应自带 window.print()）。
+            iframe id="wc-ship-print-frame" class="hidden" {}
+            // 「出库成功」对话框占位：direct_ship 成功时 POST 响应以 hx-swap-oob 替换它，
+            // 并经 HX-Trigger-After-Settle: openShipSuccess 加 .is-open 弹出（§4.4 时序）。
+            div id="wc-ship-success-modal" class="hidden" {}
             // 各 domain 创建 drawer（新建按钮 hx-get 填 body；submit 保 tab）
             (render_drawer_overlay("wc-cycle-count-create-overlay", "wc-cycle-count-create-drawer-body", "新建盘点单", "w-[900px] max-w-[94vw]"))
             (render_drawer_overlay("wc-requisition-create-overlay", "wc-requisition-create-drawer-body", "新建领料单", "w-[1000px] max-w-[94vw]"))

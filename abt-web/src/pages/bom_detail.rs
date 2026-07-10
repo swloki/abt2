@@ -14,9 +14,7 @@ use abt_macros::require_permission;
 use crate::components::icon;
 use crate::components::overlay::drawer_shell;
 use crate::layout::page::admin_page;
-use crate::routes::bom::{BomCostDrawerPath, BomCostTempPricePath, BomCostClearTempPath, BomDeletePath, BomDetailPath, BomEditPath, BomLaborCostDrawerPath, BomListPath, BomPublishPath};
-use crate::routes::routing::RoutingListPath;
-use axum_extra::routing::TypedPath;
+use crate::routes::bom::{BomCostDrawerPath, BomCostTempPricePath, BomCostClearTempPath, BomDeletePath, BomDetailPath, BomEditPath, BomLaborCostDrawerPath, BomListPath, BomOperationsPath, BomPublishPath};
 use crate::utils::RequestContext;
 
 #[derive(Deserialize)]
@@ -254,6 +252,7 @@ fn bom_detail_page(
                         hx-get=(cost_drawer_path.to_string())
                         hx-target="#cost-drawer-body"
                         hx-swap="innerHTML"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #cost-drawer"
                     { (icon::currency_icon("w-3.5 h-3.5")) "查看成本" }
                 } @else if can_view_labor_cost {
                     button
@@ -262,7 +261,7 @@ fn bom_detail_page(
                         hx-get=(labor_drawer_path.to_string())
                         hx-target="#labor-drawer-body"
                         hx-swap="innerHTML"
-                        _="on click show #labor-drawer"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #labor-drawer"
                     { (icon::bolt_icon("w-3.5 h-3.5")) "查看人工成本" }
                 }
                 @if can_edit {
@@ -1004,7 +1003,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                 }
                 @if has_any_zero_price {
                     a class="text-[11px] text-accent ml-2 underline hover:text-accent-hover"
-                        href=(RoutingListPath::PATH) { "去工艺路径配置计件单价 →" }
+                        href=(BomOperationsPath { id: report.bom_id }.to_string()) { "管理工序 →" }
                 }
             }
         }

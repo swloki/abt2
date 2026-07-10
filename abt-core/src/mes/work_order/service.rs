@@ -74,4 +74,16 @@ pub trait WorkOrderService: Send + Sync {
         batch_id: Option<i64>,
     ) -> Result<MaterialAvailability>;
 
+    /// 工单下达时填计件单价（release drawer 内联编辑）：
+    /// (a) bom_step_prices upsert（真相源，跨工单共享）+ (b) 本工单快照 unit_price。
+    /// 守卫：该 step 已报工（wage 已冻结）→ 拒绝改价（§4.4 has_report 两步解析）。
+    async fn set_work_order_step_price(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        step_no: i32,
+        unit_price: rust_decimal::Decimal,
+    ) -> Result<()>;
+
 }

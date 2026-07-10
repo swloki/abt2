@@ -321,6 +321,18 @@ impl AppState {
         abt_core::master_data::routing::new_routing_service(self.pool.clone())
     }
 
+    pub fn bom_operation_service(
+        &self,
+    ) -> impl abt_core::master_data::bom_operation::BomOperationService {
+        abt_core::master_data::bom_operation::new_bom_operation_service(self.pool.clone())
+    }
+
+    pub fn bom_step_price_service(
+        &self,
+    ) -> impl abt_core::master_data::bom_step_price::BomStepPriceService {
+        abt_core::master_data::bom_step_price::new_bom_step_price_service(self.pool.clone())
+    }
+
     pub fn work_center_service(
         &self,
     ) -> impl abt_core::master_data::work_center::WorkCenterService {

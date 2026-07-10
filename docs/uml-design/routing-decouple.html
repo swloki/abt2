@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>工艺路线解耦设计 · Routing Decouple</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --fg:#0f172a; --muted:#64748b; --border:#e2e8f0; --bg:#f8fafc; --card:#fff;
+    --accent:#2563eb; --accent-bg:#eff6ff; --danger:#dc2626; --danger-bg:#fef2f2;
+    --success:#16a34a; --success-bg:#f0fdf4; --warn:#d97706; --warn-bg:#fffbeb;
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+       color:var(--fg); background:var(--bg); margin:0; line-height:1.65;}
+  .wrap{max-width:1080px; margin:0 auto; padding:40px 28px 80px;}
+  header{border-bottom:3px solid var(--accent); padding-bottom:18px; margin-bottom:32px;}
+  header h1{margin:0 0 6px; font-size:28px;}
+  header .sub{color:var(--muted); font-size:15px;}
+  .tag{display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; font-weight:600; margin-right:6px;}
+  .tag.draft{background:var(--warn-bg); color:var(--warn);}
+  .tag.scope{background:var(--accent-bg); color:var(--accent);}
+  nav{position:sticky; top:0; background:var(--bg); padding:10px 0; border-bottom:1px solid var(--border); margin:0 -28px 28px; padding-left:28px; padding-right:28px; z-index:5; font-size:14px;}
+  nav a{color:var(--muted); text-decoration:none; margin-right:18px;}
+  nav a:hover{color:var(--accent);}
+  section{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:26px 28px; margin-bottom:24px;}
+  h2{margin-top:0; font-size:21px; border-left:4px solid var(--accent); padding-left:12px;}
+  h3{font-size:17px; margin-top:24px;}
+  h4{font-size:15px; margin-bottom:6px;}
+  .lead{font-size:15.5px; color:var(--muted); margin-top:0;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
+  .card{background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px;}
+  .card.bad{border-color:#fecaca; background:var(--danger-bg);}
+  .card.good{border-color:#bbf7d0; background:var(--success-bg);}
+  .card.bad h4{color:var(--danger);} .card.good h4{color:var(--success);}
+  table{border-collapse:collapse; width:100%; font-size:14px; margin:8px 0;}
+  th,td{border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top;}
+  th{background:var(--accent-bg); color:var(--accent); font-weight:600;}
+  td.center{text-align:center;}
+  .pill{display:inline-block; padding:1px 8px; border-radius:6px; font-size:12px; font-weight:600;}
+  .pill.r{background:var(--danger-bg); color:var(--danger);}
+  .pill.g{background:var(--success-bg); color:var(--success);}
+  .pill.y{background:var(--warn-bg); color:var(--warn);}
+  .pill.b{background:var(--accent-bg); color:var(--accent);}
+  .mermaid{background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:18px; margin:14px 0; text-align:center;}
+  code{background:#f1f5f9; padding:1px 6px; border-radius:4px; font-size:13px; color:#be185d;}
+  pre{background:#0f172a; color:#e2e8f0; padding:14px; border-radius:8px; overflow-x:auto; font-size:13px;}
+  .note{border-left:3px solid var(--warn); background:var(--warn-bg); padding:10px 14px; border-radius:0 8px 8px 0; font-size:14px; margin:12px 0;}
+  .insight{border-left:3px solid var(--accent); background:var(--accent-bg); padding:10px 14px; border-radius:0 8px 8px 0; font-size:14px; margin:12px 0;}
+  ul{margin:8px 0;} li{margin:4px 0;}
+  .step-num{display:inline-block; width:26px; height:26px; line-height:26px; text-align:center; background:var(--accent); color:#fff; border-radius:50%; font-size:14px; font-weight:700; margin-right:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>工艺路线解耦设计 · Routing Decouple</h1>
+  <div class="sub">
+    <span class="tag draft">设计评审中</span>
+    <span class="tag scope">master_data · mes</span>
+    把 045/063 迁移焊进 <code>routing_steps</code> 的「产出品」与「计件价」下沉回 per-BOM 覆盖层，让工艺路线回归「纯模板、可跨产品复用」。
+  </div>
+</header>
+
+<nav>
+  <a href="#problem">① 现状问题</a>
+  <a href="#erp">② 三家ERP对比</a>
+  <a href="#audit">③ 现网实测</a>
+  <a href="#design">④ 目标设计</a>
+  <a href="#flow">⑤ 数据怎么流</a>
+  <a href="#pr">⑥ 落地路径</a>
+  <a href="#decide">⑦ 待决策</a>
+</nav>
+
+<!-- ============ 1. 现状问题 ============ -->
+<section id="problem">
+  <h2>① 现状问题：为什么每个 BOM 都要配一条 routing？</h2>
+  <p class="lead">根因：<code>routing_steps</code> 这张「工艺模板行」同时塞进了<b>三个本应分离的维度</b>，任一差异整条分叉。</p>
+
+  <div class="mermaid">
+flowchart LR
+  subgraph RS["routing_steps · 一行工序"]
+    direction TB
+    P["✅ 工艺结构<br/>process_code / step_order<br/>work_center_id / standard_time<br/>is_outsourced / is_inspection_point<br/><i>跨产品可共享</i>"]
+    O["🔴 产出品 product_id<br/>迁移 063 引入<br/><i>应属于具体 BOM</i>"]
+    U["🔴 计件价 unit_price<br/>迁移 045 引入<br/><i>应属于商务/产品</i>"]
+  end
+  RS -->|"产出或价格不同<br/>整条 routing 分叉"| R["每个 BOM 配一条专属 routing<br/>现网 12/15 绑定是 1:1"]
+  style O fill:#fee2e2,stroke:#dc2626
+  style U fill:#fee2e2,stroke:#dc2626
+  style P fill:#dcfce7,stroke:#16a34a
+  style R fill:#fef2f2,stroke:#dc2626
+  </div>
+
+  <div class="grid3">
+    <div class="card">
+      <h4>工艺结构</h4>
+      <p style="margin:0">"焊接 5 分钟、需 IPQC" — 无论焊哪个产品都成立，<b>可共享</b>。</p>
+    </div>
+    <div class="card bad">
+      <h4>产出品 product_id</h4>
+      <p style="margin:0">"这道工序产出哪个中间品" — 属于<b>具体 BOM 的中间品</b>，不同产品不同。</p>
+    </div>
+    <div class="card bad">
+      <h4>计件价 unit_price</h4>
+      <p style="margin:0">"这道工序计件工资多少" — <b>商务/产品特定</b>，不同产品差异巨大。</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>关键反转</b>：<code>bom_labor_processes</code> 表（迁移 013）<b>本来就是</b> per-BOM 计件价表。
+    045 把 <code>unit_price</code> 复制到 <code>routing_steps</code>、063 又复制 <code>product_id</code> ——
+    <b>是这两次复制制造了耦合</b>，而不是 ABT 缺覆盖层。<code>09-master-data</code> 原本就设计了「三层工艺解耦」，是后来偏离了。
+  </div>
+</section>
+
+<!-- ============ 2. 三家 ERP 对比 ============ -->
+<section id="erp">
+  <h2>② 三家 ERP 怎么做（横向对比）</h2>
+  <p class="lead">查了本地的 ERPNext / Odoo / Apache OFBiz 三家开源 ERP，对工艺路线的处理高度一致。</p>
+
+  <table>
+    <tr>
+      <th>维度</th><th>ABT 现状</th><th>ERPNext</th><th>Odoo</th><th>OFBiz</th>
+    </tr>
+    <tr>
+      <td><b>产出品归属</b></td>
+      <td><span class="pill r">焊模板 routing_steps</span></td>
+      <td><span class="pill g">BOM.item</span>，绝不在 operation</td>
+      <td><span class="pill g">mrp.bom.product_id</span>，副产品走 byproduct</td>
+      <td><span class="pill g">边表 WorkEffortGoodStandard</span></td>
+    </tr>
+    <tr>
+      <td><b>价格 / 工时</b></td>
+      <td><span class="pill r">焊一行 unit_price+工时</span></td>
+      <td colspan="3" class="center"><span class="pill g">彻底分离</span>：价格归<b>工作中心</b>（hour_rate / costs_hour），工时归工序，运行时相乘</td>
+    </tr>
+    <tr>
+      <td><b>工序复用</b></td>
+      <td>process_code 引字典但被锁死</td>
+      <td><span class="pill g">全局可复用</span> Operation 主数据</td>
+      <td>拷贝语义（从属 BOM）</td>
+      <td><span class="pill g">全局可复用</span> ROU_TASK 边表多对多</td>
+    </tr>
+  </table>
+
+  <h3>四条铁律（三家无一例外）</h3>
+  <div class="grid2">
+    <div class="card good"><h4>① 产出品不在 routing/operation</h4>产出品归 BOM 或独立边表，绝不焊在工艺主数据上。</div>
+    <div class="card good"><h4>② 价格归工作中心，工时归工序</h4>调价只改工作中心，不动工艺主数据。运行时 工时×费率。</div>
+    <div class="card good"><h4>③ 复用靠引用/快照</h4>共享模板 + per-instance 覆盖分层，不靠字段堆叠。</div>
+    <div class="card good"><h4>④ copy-on-write 可接受</h4>模板改了不自动回流到已建工单（快照断层），三家共识。</div>
+  </div>
+
+  <div class="insight">
+    <b>ABT 已有两个被低估的解耦基础设施</b>：<code>labor_process_dicts</code> ≡ ERPNext Operation（全局工序库已存在）；
+    <code>work_center.costs_hour</code> 已是 Odoo 式制费（<code>overhead = work_hours × costs_hour</code> 已正确计算）。<br>
+    <b>问题精确锁定在两个字段的搬家</b>，无需大重构。<br>
+    <b>China 特色</b>：三家都是工时制，ABT 的 <code>unit_price</code>（计件工资）是独有 — 既不能纯归工作中心也不能留模板，唯一正确归属是 <b>per-BOM-per-step</b>。
+  </div>
+</section>
+
+<!-- ============ 3. 现网实测 ============ -->
+<section id="audit">
+  <h2>③ 现网实测（abt_v2 · 2026-07-08）</h2>
+  <p class="lead">连数据库跑了 DATA AUDIT，结论推翻了几个假设。</p>
+  <table>
+    <tr><th>指标</th><th>实测</th><th>判定</th></tr>
+    <tr><td>bom_routings 分布</td><td>RT000001=<b>388</b>、RT000002=<b>130</b>、RT000007=3、其余 13 条各绑 1</td><td><span class="pill r">80% 绑定是 1:1 per-BOM</span></td></tr>
+    <tr><td>RT000001 同族性</td><td>388 BOM 全是"注塑模组/滴胶模组"不同型号</td><td><span class="pill g">真·同构家族，模板复用合理</span></td></tr>
+    <tr><td>RT000002 模板</td><td><b>19 step 全 NULL product_id、全 0 unit_price</b></td><td><span class="pill r">空壳 routing，无工艺数据</span></td></tr>
+    <tr><td>work_order_routings 快照</td><td><b>3820 行仅 73 行有 product_id（98.1% 断裂）</b></td><td><span class="pill r">现网 bug · OM 委外/领料读不到产出品</span></td></tr>
+    <tr><td>RT000001 工单快照</td><td>770 行，<b>0 行</b>有 product_id</td><td><span class="pill r">063 迁移前的历史快照永久 NULL</span></td></tr>
+    <tr><td>bom_labor_processes</td><td>6994 行 / 534 产品</td><td><span class="pill y">真实人工成本数据源，不能无视</span></td></tr>
+  </table>
+  <div class="note">load 逻辑（<code>production_batch/implt.rs:613-624</code>）其实<b>没错</b>——INSERT 已 <code>.bind(step.product_id)</code>。是 063 迁移前的历史快照 product_id 永久 NULL、无回填机制。所以 PR-A 是<b>纯数据回填</b>，零代码风险。</div>
+</section>
+
+<!-- ============ 4. 目标设计 ============ -->
+<section id="design">
+  <h2>④ 目标设计（After）</h2>
+  <p class="lead">把产出品 + 计件价从 <code>routing_steps</code> 下沉到 per-BOM 覆盖层，routing 回归纯工艺模板。</p>
+
+  <div class="mermaid">
+erDiagram
+  routings ||--o{ routing_steps : "纯工艺模板"
+  routings ||--o{ bom_routings : "1:N 绑定(已有)"
+  products ||--o{ bom_routings : "成品 product_code"
+  products ||--o{ bom_routing_outputs : "成品"
+  products ||--o{ bom_routing_outputs : "output 中间品"
+  work_centers ||--o{ routing_steps : "默认工作中心"
+  work_centers ||--o{ bom_routing_outputs : "覆盖工作中心"
+
+  routing_steps {
+    bigint id PK
+    bigint routing_id FK
+    string process_code "→labor_process_dicts"
+    int    step_order
+    bigint work_center_id "工艺属性 保留"
+    decimal standard_time "工艺属性 保留"
+    bool   is_outsourced "工艺属性 保留"
+    bigint product_id "降级为可空默认"
+    decimal unit_price "降级为可空默认"
+  }
+  bom_routing_outputs {
+    bigint id PK
+    string product_code "成品"
+    bigint routing_id FK
+    int    step_order "对齐模板"
+    bigint output_product_id "该工序产出的中间品"
+    decimal unit_price "该BOM该工序计件价"
+    bigint work_center_id "可空覆盖"
+  }
+  bom_routings {
+    bigint id PK
+    string product_code "UNIQUE 1BOM:1routing"
+    bigint routing_id FK
+  }
+  bom_labor_processes {
+    bigint id PK
+    string product_code "无routing的独立人工"
+    bigint labor_process_dict_id
+    decimal unit_price "按quantity计费"
+    decimal quantity "legacy 保留双轨"
+  }
+  </div>
+
+  <div class="grid2">
+    <div class="card good">
+      <h4>routing_steps（瘦身）</h4>
+      <ul>
+        <li><b>保留</b>：工艺结构（工序/工作中心/工时/委外/检验点）— 真正可共享</li>
+        <li><b>降级</b>：<code>product_id</code> / <code>unit_price</code> → 可空模板默认（RT000001 家族沿用）</li>
+        <li>首期<b>不删列</b>，保守 additive</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>bom_routing_outputs（新增）</h4>
+      <ul>
+        <li>per-BOM-per-step 的<b>产出品 + 计件价覆盖</b></li>
+        <li>≡ Odoo <code>bom.byproduct.operation_id</code> / OFBiz 边表</li>
+        <li>工序在 A 产品的产出/价格，不影响共享同一模板的 B/C/D</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>bom_labor_processes（保持 legacy）</h4>
+      <ul>
+        <li>角色收敛为<b>"无 routing 的独立人工工序"</b></li>
+        <li>带 <code>quantity</code> 按数量计费，与覆盖层计费模型不同</li>
+        <li>审计证实强行合并会丢信息 → <b>双轨</b></li>
+      </ul>
+    </div>
+    <div class="card good">
+      <h4>work_order_routings（快照）</h4>
+      <ul>
+        <li><b>列不变</b>，只改 load 的数据来源</li>
+        <li>下游报工 / 领料 / 委外 <b>零侵入</b></li>
+        <li>copy-on-write 断层（三家共识）</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. 数据流 ============ -->
+<section id="flow">
+  <h2>⑤ 数据怎么流（取数优先级）</h2>
+  <p class="lead">核心：<b>按 BOM 是否绑定 routing 切分</b>，产出品/计件价两条路径不重叠 → 消灭多源歧义。</p>
+
+  <div class="mermaid">
+flowchart TD
+  START["BOM 要算人工成本 / 工单下达"] --> Q{"该 BOM 绑定了 routing?"}
+  Q -->|是 绑定| CV["读 bom_routing_outputs<br/>per-BOM 覆盖层"]
+  CV -->|有覆盖行| USE1["用覆盖的<br/>产出品/计件价/工作中心"]
+  CV -->|无覆盖行| TM["回退 routing_steps<br/>模板默认 (RT000001家族)"]
+  Q -->|否 未绑定| LG["读 bom_labor_processes<br/>legacy 独立人工(按quantity)"]
+  USE1 --> WO["work_order_routings 工单快照<br/>→ 报工工资 / 工序领料 / 委外 / 成本核算"]
+  TM --> WO
+  LG --> WO2["BOM 人工成本报表<br/>(无routing路径)"]
+  style CV fill:#dbeafe,stroke:#2563eb
+  style TM fill:#f0fdf4,stroke:#16a34a
+  style LG fill:#fffbeb,stroke:#d97706
+  </div>
+
+  <table>
+    <tr><th>BOM 情形</th><th>产出品 / 计件价取数</th><th>说明</th></tr>
+    <tr><td><b>绑定 routing</b></td><td>bom_routing_outputs（覆盖）→ 回退 routing_steps（模板默认）</td><td>两层覆盖关系，正常模板+覆盖</td></tr>
+    <tr><td><b>未绑定 routing</b></td><td>bom_labor_processes（legacy）</td><td>无 routing 的产品，按 quantity 计费</td></tr>
+  </table>
+  <div class="insight"><b>不存在三源并存</b>：有 routing 走覆盖链，无 routing 走 legacy，互斥切分。这就是消灭架构评审担心的"三个 unit_price 来源"的关键。</div>
+</section>
+
+<!-- ============ 6. PR 路径 ============ -->
+<section id="pr">
+  <h2>⑥ 怎么落地（PR 拆分）</h2>
+
+  <div class="mermaid">
+flowchart LR
+  A["PR-A · 快照回填<br/>零架构改动<br/>立即可上"] --> B["PR-B · 覆盖层 + load切换 + 前端解耦"]
+  B --> C["阶段0 · 终态决策<br/>保守additive / clean break"]
+  style A fill:#f0fdf4,stroke:#16a34a
+  style B fill:#dbeafe,stroke:#2563eb
+  style C fill:#fffbeb,stroke:#d97706
+  </div>
+
+  <h3><span class="step-num">A</span>PR-A · 快照 product_id 回填（修现网 bug）</h3>
+  <div class="card good">
+    <ul>
+      <li><b>纯数据 migration</b>：按 <code>work_orders.routing_id + step_no</code> JOIN <code>routing_steps</code> 回填历史快照的 <code>product_id</code></li>
+      <li>仅回填 RT000001 同构家族（模板有 product_id）；RT000002 模板空 → 业务单独补齐</li>
+      <li><b>不改任何代码路径</b> → 零回归，单独修复 OM 委外读不到产出品的现网 bug</li>
+    </ul>
+  </div>
+
+  <h3><span class="step-num">B</span>PR-B · 覆盖层 + 前端解耦</h3>
+  <div class="card">
+    <ul>
+      <li><b>建表</b>：<code>bom_routing_outputs</code> + 新模块 <code>master_data/bom_routing_output/</code> + Service trait</li>
+      <li><b>load 切换</b>：<code>load_routings_from_template</code> 加 <code>product_code</code> 参数，读覆盖层回退模板（INSERT 列不变）</li>
+      <li><b>前端</b>：routing 编辑页<b>删"产出品/计件价"两列</b> + 详情页按关联 BOM tab 填差异（<b>彻底消灭 Issue #212 候选裁剪</b>）</li>
+      <li><b>复用入口</b>：<code>find_matching_routing</code> 接入 Web 新建流程（命中复用+提示填覆盖）</li>
+    </ul>
+  </div>
+
+  <h3>护栏</h3>
+  <div class="grid3">
+    <div class="card"><h4>step 关联键</h4>对"有覆盖"的 routing 禁止破坏性 step 重排（参照已报工锁定先例），仅允许末尾 append</div>
+    <div class="card"><h4>InProduction 锁</h4>切换数据源期间，对在制工单禁止 reload（避免成本快照前后不一致）</div>
+    <div class="card"><h4>多源截止</h4>保守 additive 设硬性升迁截止，禁止长期向 routing_steps 写新 product_id/unit_price</div>
+  </div>
+</section>
+
+<!-- ============ 7. 待决策 ============ -->
+<section id="decide">
+  <h2>⑦ 待你拍板（4 点）</h2>
+  <table>
+    <tr><th>决策点</th><th>推荐</th><th>备选</th></tr>
+    <tr><td><b>1. 覆盖层落点</b></td><td><span class="pill g">新建 bom_routing_outputs</span>（双轨，计费模型不同）</td><td>演进 bom_labor_processes 单表</td></tr>
+    <tr><td><b>2. step 关联键</b></td><td><span class="pill g">编辑约束</span>（禁止重排）</td><td>引入 step_key UUID</td></tr>
+    <tr><td><b>3. PR-A 节奏</b></td><td><span class="pill g">PR-A 先独立上线</span>（修现网 bug）</td><td>合并进 PR-B</td></tr>
+    <tr><td><b>4. 字段终态</b></td><td>先保守 additive（可空默认）</td><td>clean break（DROP 列+全量回填）</td></tr>
+  </table>
+  <div class="insight">详细字段/接口/迁移 SQL 见 <code>docs/uml-design/routing-decouple.md</code>。按 Interface &amp; Model First 原则，<b>评审确认后才实现</b>。</div>
+</section>
+
+</div>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: {
+    primaryColor:'#eff6ff', primaryTextColor:'#0f172a', primaryBorderColor:'#2563eb',
+    lineColor:'#64748b', fontSize:'14px'
+  }, flowchart:{ curve:'basis', useMaxWidth:true }, er:{ useMaxWidth:true } });
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@ use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::pages::{bom_list, bom_create, bom_detail, bom_edit};
+use crate::pages::{bom_list, bom_create, bom_detail, bom_edit, bom_operations};
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -100,6 +100,33 @@ pub struct BomCostClearTempPath {
     pub id: i64,
 }
 
+// ── BOM 内联工序（bom_operations）── 路径设计：动态段 {step_order} 下沉第三层，
+//    /operations/X 层全静态段，避免 axum matchit 同层静态+动态混用 404（见 memory reference-axum-matchit-route-conflict）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/operations")]
+pub struct BomOperationsPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/operations/reorder")]
+pub struct BomOperationReorderPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/operations/delete/{step_order}")]
+pub struct BomOperationDeletePath {
+    pub id: i64,
+    pub step_order: i32,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/operations/apply")]
+pub struct BomOperationApplyPath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -120,4 +147,8 @@ pub fn router() -> Router<AppState> {
         .route(BomLaborCostDrawerPath::PATH, get(bom_detail::get_labor_cost_drawer))
         .route(BomCostTempPricePath::PATH, post(bom_detail::save_temp_price))
         .route(BomCostClearTempPath::PATH, delete(bom_detail::clear_temp_prices))
+        .route(BomOperationsPath::PATH, get(bom_operations::get_operation_page).post(bom_operations::upsert_bom_operation))
+        .route(BomOperationDeletePath::PATH, post(bom_operations::delete_bom_operation))
+        .route(BomOperationReorderPath::PATH, post(bom_operations::reorder_bom_operation))
+        .route(BomOperationApplyPath::PATH, post(bom_operations::apply_routing_to_bom))
 }

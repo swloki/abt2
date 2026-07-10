@@ -48,26 +48,38 @@ impl WorkOrderServiceImpl {
     ///
     /// 复用调用方传入的连接（同事务原子）：`create` 自动调用、`release` 对无工序老工单兜底。
     /// 三家 ERP（ERPNext/Odoo/OFBiz）共识——工单工序在创建时从工艺模板复制。
-    async fn try_load_routings_from_bom(
+    async fn try_load_operations_from_bom(
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
         work_order_id: i64,
         product_id: i64,
     ) -> Result<()> {
+        use crate::master_data::bom_operation::{new_bom_operation_service, service::BomOperationService};
         use crate::mes::production_batch::{new_production_batch_service, ProductionBatchService};
         let product = new_product_service(self.pool.clone())
             .get(ctx, db, product_id)
             .await?;
-        if let Some(detail) = new_routing_service(self.pool.clone())
-            .get_bom_routing(ctx, db, product.product_code.clone())
-            .await?
-        {
-            let routing_id = detail.routing.id;
-            new_production_batch_service(self.pool.clone())
-                .load_routings_from_template(ctx, db, work_order_id, routing_id)
-                .await?;
-            WorkOrderRepo::update_routing_id(&mut *db, work_order_id, routing_id)
+        let ops = new_bom_operation_service(self.pool.clone())
+            .list_operations(ctx, db, product.product_code.clone())
+            .await?;
+        if ops.is_empty() {
+            return Ok(());
+        }
+        new_production_batch_service(self.pool.clone())
+            .load_operations_from_bom(ctx, db, work_order_id, product.product_code.clone())
+            .await?;
+        // routing_id 作纯溯源（D9）：优先 bom_operations.source_routing_id 首行，回退 bom_routings 绑定
+        let routing_id = if let Some(srid) = ops[0].source_routing_id {
+            Some(srid)
+        } else {
+            new_routing_service(self.pool.clone())
+                .get_bom_routing(ctx, db, product.product_code.clone())
+                .await.ok().flatten()
+                .map(|d| d.routing.id)
+        };
+        if let Some(rid) = routing_id {
+            WorkOrderRepo::update_routing_id(&mut *db, work_order_id, rid)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
@@ -105,7 +117,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .await?;
 
         // 工序：自动从 BOM 关联的工艺路线加载（无关联则留空，由下达 drawer 引导 + release 兜底）
-        self.try_load_routings_from_bom(ctx, db, work_order.id, req.product_id)
+        self.try_load_operations_from_bom(ctx, db, work_order.id, req.product_id)
             .await?;
 
         Ok(work_order.id)
@@ -120,6 +132,34 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("WorkOrder"))
+    }
+
+    async fn set_work_order_step_price(
+        &self, ctx: &ServiceContext, db: PgExecutor<'_>,
+        work_order_id: i64, step_no: i32, unit_price: rust_decimal::Decimal,
+    ) -> Result<()> {
+        use crate::mes::production_batch::repo::WorkOrderRoutingRepo;
+        use crate::master_data::bom_step_price::{new_bom_step_price_service, service::BomStepPriceService};
+        // §4.4 has_report 两步解析：get_by_work_order_and_step → has_report(wor.id)
+        let wor = WorkOrderRoutingRepo::get_by_work_order_and_step(&mut *db, work_order_id, step_no)
+            .await?
+            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+        if WorkOrderRoutingRepo::has_report(&mut *db, wor.id).await? {
+            return Err(DomainError::business_rule("该工序已报工，wage 已冻结，不可改价"));
+        }
+        let wo = WorkOrderRepo::get_by_id(&mut *db, work_order_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found("WorkOrder"))?;
+        let product = new_product_service(self.pool.clone()).get(ctx, db, wo.product_id).await?;
+        // (a) bom_step_prices upsert（真相源，跨工单共享；source_type 标工单下达 + source_wo_id 溯源）
+        new_bom_step_price_service(self.pool.clone())
+            .upsert_price(ctx, db, product.product_code, step_no, unit_price,
+                "work_order_release".into(), Some(work_order_id)).await?;
+        // (b) 本工单快照（copy-on-write 执行价；work_order_routings 无 updated_at 列）
+        sqlx::query("UPDATE work_order_routings SET unit_price = $1 WHERE work_order_id = $2 AND step_no = $3")
+            .bind(unit_price).bind(work_order_id).bind(step_no).execute(&mut *db).await?;
+        Ok(())
     }
 
     /// 下达工单：Draft/Planned -> Released
@@ -190,11 +230,12 @@ impl WorkOrderService for WorkOrderServiceImpl {
             None
         };
 
-        // 5. 工序兜底：改造前创建的无工序老工单（routing_id 为空），若 BOM 有关联 routing 则补加载；
-        //    新工单在 create 时已自动加载（routing_id 已 Some），此处跳过。
-        //    BOM 仍无关联 routing → 工序留空，release_order 校验拦截并引导用户去关联。
-        if work_order.routing_id.is_none() {
-            self.try_load_routings_from_bom(ctx, db, id, work_order.product_id)
+        // 5. 工序兜底：工序快照为空（不依赖 routing_id；R-11 + 修复 routing_id=Some 但快照空的 edge case）
+        //    → 从 BOM 内联工序补加载。新工单 create 时已加载（快照非空），此处跳过。
+        let ops_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM work_order_routings WHERE work_order_id = $1")
+            .bind(id).fetch_one(&mut *db).await.unwrap_or(0);
+        if ops_count == 0 {
+            self.try_load_operations_from_bom(ctx, db, id, work_order.product_id)
                 .await?;
         }
 
@@ -259,6 +300,11 @@ impl WorkOrderService for WorkOrderServiceImpl {
             }
         }
 
+        // R-11：has_routing 改读 work_order_routings 实际存在性（非 routing_id.is_some()，
+        // 后者对「有 bom_operations 但无 routing_id」误判为无工艺工单）
+        let has_routing: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM work_order_routings WHERE work_order_id = $1)")
+            .bind(id).fetch_one(&mut *db).await.unwrap_or(false);
         // 发布领域事件
         new_domain_event_bus(self.pool.clone())
             .publish(
@@ -271,7 +317,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
                         "product_id": work_order.product_id,
                         "planned_qty": work_order.planned_qty,
                         "bom_snapshot_id": bom_snapshot_id,
-                        "has_routing": work_order.routing_id.is_some(),
+                        "has_routing": has_routing,
                     }),
                     idempotency_key: None,
                 },
@@ -770,9 +816,17 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .into_iter()
             .find(|r| r.id == routing_id)
             .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
-        let output_pid = routing.product_id.ok_or_else(|| {
-            DomainError::BusinessRule("该工序未配置产出品，无法计算齐套".into())
-        })?;
+        // 无产出工序（检测/检验）→ 无消耗物料 → 齐套为空（无需料），学 Odoo 自然跳过
+        let output_pid = match routing.product_id {
+            Some(pid) => pid,
+            None => {
+                return Ok(MaterialAvailability {
+                    level: MaterialAvailabilityLevel::Available,
+                    headline: None,
+                    lines: Vec::new(),
+                });
+            }
+        };
 
         // 2. 工单成品 → 成品已发布 BOM → 产出品节点的直接子级（物料清单）
         let wo = self.find_by_id(ctx, db, work_order_id).await?;

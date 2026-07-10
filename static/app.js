@@ -160,9 +160,17 @@ function pcUpdateBatchBar() {
     if (!btn) return;
     var ids = [];
     checked.forEach(function (c) { ids.push(c.value); });
-    var sid = bar.getAttribute('data-supplier-id');
-    // 批量转单 drawer URL（同供应商多物料多选 → 一张 PO），由 .pc-batch-create-btn 的 hx-target 装载
-    btn.setAttribute('hx-get', '/admin/purchase/work-center/batch-convert/' + sid + '/drawer?demand_ids=' + ids.join(','));
+    var pid = bar.getAttribute('data-product-id');
+    var url;
+    if (pid) {
+      // 物料汇总批量栏（无 supplier_id 上下文）：单物料转单 drawer，勾选子集 → drawer 内选供应商
+      url = '/admin/purchase/work-center/products/' + pid + '/convert-po-drawer?demand_ids=' + ids.join(',');
+    } else {
+      // 采购明细批量栏（同供应商多物料多选 → 一张 PO），由 .pc-batch-create-btn 的 hx-target 装载
+      var sid = bar.getAttribute('data-supplier-id');
+      url = '/admin/purchase/work-center/batch-convert/' + sid + '/drawer?demand_ids=' + ids.join(',');
+    }
+    btn.setAttribute('hx-get', url);
     if (window.htmx) htmx.process(btn);
   });
 }
@@ -281,6 +289,14 @@ document.addEventListener('htmx:validation:halted', function (e) {
 // ── Export download handler ──
 document.addEventListener('exportDone', function (e) {
     window.location.href = e.detail.url;
+});
+
+// ── Issue #219: 确认发货成功后弹「出库成功」对话框 ──
+// 后端 direct_ship 成功响应以 hx-swap-oob 替换 #wc-ship-success-modal，并经
+// HX-Trigger-After-Settle 广播 openShipSuccess（swap 完对话框已在 DOM）。此处给它加 .is-open 弹出。
+document.addEventListener('openShipSuccess', function () {
+    var modal = document.getElementById('wc-ship-success-modal');
+    if (modal) modal.classList.add('is-open');
 });
 
 
@@ -572,6 +588,85 @@ window.selectCat = function(btn) {
     if (label) label.textContent = name;
     if (dropdown) dropdown.style.display = 'none';
     if (backdrop) backdrop.style.display = 'none';
+};
+
+// ===== Combo Select (searchable dropdown, fixed-position for overflow containers) =====
+// 通用可搜索下拉单选。dropdown 用 position:fixed + JS 按 trigger rect 定位，
+// 使其在 overflow 容器（如工序表格 overflow-x-auto）内也不被裁剪。
+// Hyperscript 调用：on click call comboToggle(me) / filterComboOptions(me) / comboSelect(me) / comboClose(me)
+
+window.comboToggle = function (btn) {
+    var wrapper = btn.closest('.combo-select');
+    if (!wrapper) return;
+    var dropdown = wrapper.querySelector('.combo-dropdown');
+    var backdrop = wrapper.querySelector('.combo-backdrop');
+    if (!dropdown) return;
+    // 已展开 → 收起
+    if (dropdown.style.display !== 'none') {
+        dropdown.style.display = 'none';
+        if (backdrop) backdrop.style.display = 'none';
+        return;
+    }
+    // 按 trigger 按钮 rect 定位（fixed）；空间不足则向上展开
+    var rect = btn.getBoundingClientRect();
+    dropdown.style.minWidth = rect.width + 'px';
+    dropdown.style.left = rect.left + 'px';
+    var spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceBelow > 300 || spaceBelow > rect.top) {
+        dropdown.style.top = (rect.bottom + 2) + 'px';
+        dropdown.style.bottom = '';
+    } else {
+        dropdown.style.top = '';
+        dropdown.style.bottom = (window.innerHeight - rect.top + 2) + 'px';
+    }
+    dropdown.style.display = 'block';
+    if (backdrop) backdrop.style.display = 'block';
+    // 清空过滤 + 聚焦搜索框
+    var search = dropdown.querySelector('.combo-search');
+    if (search) {
+        search.value = '';
+        window.filterComboOptions(search);
+        setTimeout(function () { search.focus(); }, 0);
+    }
+};
+
+window.filterComboOptions = function (searchInput) {
+    var kw = searchInput.value.toLowerCase().trim();
+    var dropdown = searchInput.closest('.combo-dropdown');
+    if (!dropdown) return;
+    dropdown.querySelectorAll('.combo-option').forEach(function (opt) {
+        var label = (opt.getAttribute('data-label') || opt.textContent || '').toLowerCase();
+        opt.style.display = label.indexOf(kw) !== -1 ? '' : 'none';
+    });
+};
+
+window.comboSelect = function (opt) {
+    var wrapper = opt.closest('.combo-select');
+    if (!wrapper) return;
+    var hidden = wrapper.querySelector('input[type=hidden]');
+    var labelEl = wrapper.querySelector('.combo-label');
+    var dropdown = wrapper.querySelector('.combo-dropdown');
+    var backdrop = wrapper.querySelector('.combo-backdrop');
+    var value = opt.getAttribute('data-value') || '';
+    var text = opt.getAttribute('data-label') || opt.textContent.trim();
+    if (hidden) hidden.value = value;
+    if (labelEl) {
+        labelEl.textContent = text;
+        labelEl.classList.remove('text-muted');
+        labelEl.classList.add('text-fg');
+    }
+    if (dropdown) dropdown.style.display = 'none';
+    if (backdrop) backdrop.style.display = 'none';
+    // 派发 change(bubbles) → 触发 hidden input 上的 HTMX（工序行刷新）
+    if (hidden) hidden.dispatchEvent(new Event('change', { bubbles: true }));
+};
+
+window.comboClose = function (backdrop) {
+    var wrapper = backdrop.closest('.combo-select');
+    if (!wrapper) return;
+    var dropdown = wrapper.querySelector('.combo-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    backdrop.style.display = 'none';
 };
 
 // ===== Drawer Slide Animation =====
@@ -1022,5 +1117,44 @@ document.addEventListener('htmx:afterSettle', function (e) {
 });
 
 // 打印模板编辑器启动由 edit_form 的 hyperscript（on load）触发，加载 print-template-edit.js 到 <head>。
+
+// ── 行展开：全部展开/收起切换（复用 row_expand 控件，scope 内遍历 chev）──
+// 展开：对每个未 .open 的 chev 派发 loadItem（htmx 各自请求）+ 标记 .open；
+// 收起：所有展开行 .row-expand-anim 加 .closing 播放收起动画，220ms 后统一移除。btn.dataset.expanded 切换文案。
+window.rowExpandToggleAll = function (btn, scopeSelector) {
+    const scope = document.querySelector(scopeSelector);
+    if (!scope) return;
+    // 切按钮图标：展开态显示 chevrons-up（下一步收起），收起态显示 chevrons-down（下一步展开）
+    const setIcon = function (expanded) {
+        const exp = btn.querySelector('.ico-expand');
+        const col = btn.querySelector('.ico-collapse');
+        if (exp) exp.classList.toggle('hidden', expanded);
+        if (col) col.classList.toggle('hidden', !expanded);
+    };
+    const expand = btn.dataset.expanded !== '1';
+    if (expand) {
+        scope.querySelectorAll('button.row-expand-toggle').forEach(function (chev) {
+            const tr = chev.closest('tr');
+            if (tr && !tr.classList.contains('open')) {
+                tr.classList.add('open');
+                chev.dispatchEvent(new CustomEvent('loadItem'));
+            }
+        });
+        btn.dataset.expanded = '1';
+        setIcon(true);
+    } else {
+        const details = scope.querySelectorAll('tr.row-detail');
+        details.forEach(function (tr) {
+            const anim = tr.querySelector('.row-expand-anim');
+            if (anim) anim.classList.add('closing');
+        });
+        setTimeout(function () {
+            details.forEach(function (tr) { tr.remove(); });
+            scope.querySelectorAll('tr.open').forEach(function (tr) { tr.classList.remove('open'); });
+        }, 220);
+        btn.dataset.expanded = '0';
+        setIcon(false);
+    }
+};
 
 

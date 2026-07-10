@@ -48,7 +48,7 @@ use abt_core::shared::types::{DomainError, PageParams};
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
-use abt_core::purchase::misc_request::model::{MiscRequestQuery, MiscellaneousRequest};
+use abt_core::purchase::misc_request::model::{MiscRequestItem, MiscRequestQuery, MiscellaneousRequest};
 use abt_core::purchase::misc_request::MiscellaneousRequestService;
 use rust_decimal::Decimal;
 use abt_core::purchase::quotation::model::{
@@ -58,6 +58,7 @@ use abt_core::purchase::quotation::PurchaseQuotationService;
 use axum::Form;
 use crate::components::alert;
 use crate::components::icon;
+use crate::components::row_expand;
 use crate::components::overlay::drawer_shell;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
@@ -316,7 +317,17 @@ pub async fn get_orders_card(
     } = ctx;
     let svc = state.purchase_order_service();
     let summary = cached_summary(&state, &service_ctx, &mut conn).await;
-    let status = p.status.and_then(PurchaseOrderStatus::from_i16);
+    // 筛选值 2 = 「在途订单」= Confirmed(未到货) ∪ PartiallyReceived(部分到货)；其余按单状态
+    let (status, statuses) = match p.status {
+        Some(2) => (
+            None,
+            Some(vec![
+                PurchaseOrderStatus::Confirmed,
+                PurchaseOrderStatus::PartiallyReceived,
+            ]),
+        ),
+        other => (other.and_then(PurchaseOrderStatus::from_i16), None),
+    };
     let page = p.page.unwrap_or(1);
     let result = svc
         .list(
@@ -324,6 +335,7 @@ pub async fn get_orders_card(
             &mut conn,
             PurchaseOrderQuery {
                 status,
+                statuses,
                 doc_number: p.keyword.clone(),
                 ..Default::default()
             },
@@ -665,14 +677,14 @@ pub async fn get_settlement_row_detail(
         .purchase_work_center_service()
         .get_settlement_hub_summary(&service_ctx, &mut conn, recon_type, path.ref_id)
         .await?;
-    Ok(Html(settlement_row_detail_tr(&summary).into_string()))
+    let row_id = format!("{}-row-{}", path.recon_type, path.ref_id);
+    Ok(Html(settlement_row_detail_tr(&row_id, &summary).into_string()))
 }
 
-// ── 转采购单 drawer（就地转单，复用 create_order_from_demands）──
-
+/// 订单行展开：懒加载该 PO 的产品明细子表（物料/数量/单价/小计），返回单 `<tr class="row-detail">`。
 #[require_permission("PURCHASE_ORDER", "read")]
-pub async fn get_convert_po_drawer(
-    path: PcConvertPoDrawerPath,
+pub async fn get_po_items_row(
+    path: PcPoItemsRowPath,
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let RequestContext {
@@ -681,18 +693,198 @@ pub async fn get_convert_po_drawer(
         service_ctx,
         ..
     } = ctx;
-    let demands = state
-        .purchase_demand_service()
-        .list_pending_demands(
-            &service_ctx,
-            &mut conn,
-            DemandPoolQuery {
-                product_id: Some(path.product_id),
-                ..Default::default()
-            },
-            PageParams::new(1, 100),
-        )
-        .await?;
+    let svc = state.purchase_order_service();
+    let items = svc
+        .list_items(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+    let (codes, names): (HashMap<i64, String>, HashMap<i64, String>) = {
+        let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        if ids.is_empty() {
+            (HashMap::new(), HashMap::new())
+        } else {
+            let products = state
+                .product_service()
+                .get_by_ids(&service_ctx, &mut conn, ids)
+                .await
+                .unwrap_or_default();
+            (
+                products
+                    .iter()
+                    .map(|p| (p.product_id, p.product_code.clone()))
+                    .collect(),
+                products
+                    .iter()
+                    .map(|p| (p.product_id, p.pdt_name.clone()))
+                    .collect(),
+            )
+        }
+    };
+    Ok(Html(
+        po_items_expand_row(path.id, &items, &codes, &names).into_string(),
+    ))
+}
+
+/// 报价行展开：懒加载该报价的产品明细（产品/单价/起订量/交期/优选）。
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_quotation_items_row(
+    path: PcQuotationItemsRowPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let items = state
+        .purchase_quotation_service()
+        .list_items(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+    let (codes, names): (HashMap<i64, String>, HashMap<i64, String>) = {
+        let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        if ids.is_empty() {
+            (HashMap::new(), HashMap::new())
+        } else {
+            let products = state
+                .product_service()
+                .get_by_ids(&service_ctx, &mut conn, ids)
+                .await
+                .unwrap_or_default();
+            (
+                products
+                    .iter()
+                    .map(|p| (p.product_id, p.product_code.clone()))
+                    .collect(),
+                products
+                    .iter()
+                    .map(|p| (p.product_id, p.pdt_name.clone()))
+                    .collect(),
+            )
+        }
+    };
+    Ok(Html(
+        quotation_items_expand_row(path.id, &items, &codes, &names).into_string(),
+    ))
+}
+
+/// 退货行展开：懒加载该退货的产品明细（产品/退货数/单价/金额）。
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_return_items_row(
+    path: PcReturnItemsRowPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let items = state
+        .purchase_return_service()
+        .list_items(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+    let (codes, names): (HashMap<i64, String>, HashMap<i64, String>) = {
+        let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        if ids.is_empty() {
+            (HashMap::new(), HashMap::new())
+        } else {
+            let products = state
+                .product_service()
+                .get_by_ids(&service_ctx, &mut conn, ids)
+                .await
+                .unwrap_or_default();
+            (
+                products
+                    .iter()
+                    .map(|p| (p.product_id, p.product_code.clone()))
+                    .collect(),
+                products
+                    .iter()
+                    .map(|p| (p.product_id, p.pdt_name.clone()))
+                    .collect(),
+            )
+        }
+    };
+    Ok(Html(
+        return_items_expand_row(path.id, &items, &codes, &names).into_string(),
+    ))
+}
+
+/// 请购行展开：懒加载该请购的物品明细（物品名/规格/数量/估价/备注，自由物品无 product_id）。
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_misc_items_row(
+    path: PcMiscItemsRowPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let items = state
+        .misc_request_service()
+        .list_items(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+    Ok(Html(misc_items_expand_row(path.id, &items).into_string()))
+}
+
+// ── 转采购单 drawer（就地转单，复用 create_order_from_demands）──
+
+/// 单物料转单 drawer 的 query 参数（可选 demand_ids：物料汇总批量栏勾选的子集）。
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct ConvertDrawerQuery {
+    /// 逗号分隔的 demand id（物料汇总批量栏 JS 拼接）；缺省 → 该物料全部 pending 需求。
+    #[serde(default)]
+    pub demand_ids: Option<String>,
+}
+
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_convert_po_drawer(
+    path: PcConvertPoDrawerPath,
+    ctx: RequestContext,
+    Query(q): Query<ConvertDrawerQuery>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    // 物料汇总批量栏带 demand_ids（勾选子集）；行尾「转采购单」按钮不带（转该物料全部 pending）。
+    let demand_ids: Vec<i64> = q
+        .demand_ids
+        .as_deref()
+        .map(|s| {
+            s.split(',')
+                .filter_map(|x| x.trim().parse::<i64>().ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    let demands = if demand_ids.is_empty() {
+        state
+            .purchase_demand_service()
+            .list_pending_demands(
+                &service_ctx,
+                &mut conn,
+                DemandPoolQuery {
+                    product_id: Some(path.product_id),
+                    ..Default::default()
+                },
+                PageParams::new(1, 100),
+            )
+            .await?
+            .items
+    } else {
+        state
+            .purchase_demand_service()
+            .get_demands_by_ids(&service_ctx, &mut conn, &demand_ids)
+            .await?
+    };
     let quotes = state
         .purchase_quotation_service()
         .compare(&service_ctx, &mut conn, path.product_id)
@@ -701,7 +893,7 @@ pub async fn get_convert_po_drawer(
     let supplier_ids: Vec<i64> = quotes.iter().map(|q| q.supplier_id).collect();
     let names = supplier_names(&state, &service_ctx, &mut conn, &supplier_ids).await;
     Ok(Html(
-        render_convert_po_body(path.product_id, &demands.items, &quotes, &names, None).into_string(),
+        render_convert_po_body(path.product_id, &demands, &quotes, &names, None).into_string(),
     ))
 }
 
@@ -979,6 +1171,15 @@ fn render_convert_po_body(
     supplier_names: &HashMap<i64, String>,
     errors: Option<&HashMap<&str, String>>,
 ) -> Markup {
+    // 无可转需求时只给提示，不渲染可提交的 form——避免提交空 demand_ids 报错
+    if demands.is_empty() {
+        return html! {
+            div class="p-6 m-1 text-center" {
+                div class="text-warn text-sm font-medium mb-1.5" { "该物料暂无可转的采购需求" }
+                div class="text-muted text-xs leading-relaxed" { "可能已全部转单或处理，请关闭后重试。" }
+            }
+        };
+    }
     let demand_ids: Vec<String> = demands.iter().map(|d| d.id.to_string()).collect();
     let demand_ids_str = demand_ids.join(",");
     let product_name = demands
@@ -1006,9 +1207,33 @@ fn render_convert_po_body(
                 div class="font-semibold text-fg text-sm" { (product_name) }
                 div class="text-xs text-muted font-mono" { (product_code) }
             }
-            div class="grid grid-cols-2 gap-4 mb-4" {
-                (field_readonly("待转需求数", &format!("{}", demands.len())));
-                (field_readonly("总需求量", &fmt_plain(total_qty)));
+            // 需求明细列表（一条条列出，对齐 MES 创建工单 drawer）
+            div class="mb-4" {
+                div class="text-xs font-semibold text-fg mb-2" {
+                    "需求明细 · " (demands.len()) " 条 · 总数量 " (fmt_plain(total_qty))
+                }
+                div class="max-h-[220px] overflow-y-auto border border-border-soft rounded-sm" {
+                    table class="w-full text-xs" {
+                        thead {
+                            tr class="bg-surface text-muted" {
+                                th class="text-left font-medium py-1.5 px-2" { "来源订单" }
+                                th class="text-right font-medium py-1.5 px-2" { "数量" }
+                                th class="text-left font-medium py-1.5 px-2" { "需求日期" }
+                            }
+                        }
+                        tbody {
+                            @for d in demands {
+                                tr class="border-t border-border-soft" {
+                                    td class="py-2 px-2 font-mono text-accent" {
+                                        (d.order_no.as_deref().unwrap_or("—"))
+                                    }
+                                    td class="py-2 px-2 text-right font-mono" { (fmt_plain(d.quantity)) (unit_suffix(&d.uom)) }
+                                    td class="py-2 px-2 font-mono text-fg-2" { (fmt_date(d.required_date)) }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             // 顶部兜底 alert（校验失败重渲染显示）
             @if let Some(m) = errors.and_then(|e| e.get("__all__")) {
@@ -1081,6 +1306,15 @@ fn render_batch_convert_body(
     demands: &[DemandSummary],
     errors: Option<&HashMap<&str, String>>,
 ) -> Markup {
+    // 无可转需求时只给提示，不渲染可提交的 form——避免提交空 demand_ids 报错
+    if demands.is_empty() {
+        return html! {
+            div class="p-6 m-1 text-center" {
+                div class="text-warn text-sm font-medium mb-1.5" { "暂无可转的采购需求" }
+                div class="text-muted text-xs leading-relaxed" { "所选需求可能已处理，请关闭后重新选择。" }
+            }
+        };
+    }
     let demand_ids: Vec<String> = demands.iter().map(|d| d.id.to_string()).collect();
     let demand_ids_str = demand_ids.join(",");
     let product_count = demands
@@ -1217,6 +1451,81 @@ struct PoItemWeb {
     discount_pct: Option<String>,
     #[serde(default)]
     tax_rate_id: Option<String>,
+}
+
+/// 解析 drawer 表单为 update 请求 + 明细行。
+/// update_po / confirm_po / submit_po 复用——确保 Draft 状态下「直接确认 / 提交审批」
+/// 会先持久化 drawer 内编辑（含补单价），避免「填了单价未保存直接确认」被校验拦截（Issue #221）。
+fn parse_po_drawer_form(
+    form: &PoDrawerForm,
+    existing: &PurchaseOrder,
+) -> Result<(UpdatePurchaseOrderRequest, Vec<CreateOrderItemRequest>), DomainError> {
+    if form.supplier_id == 0 {
+        return Err(DomainError::validation("请选择供应商"));
+    }
+    let expected_delivery_date = form
+        .expected_delivery_date
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                .map_err(|e| DomainError::validation(format!("无效交货日期: {e}")))
+        })
+        .transpose()?;
+    let web_items: Vec<PoItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效明细数据: {e}")))?;
+    if web_items.is_empty() {
+        return Err(DomainError::validation("请至少保留一个明细行"));
+    }
+    let items: Vec<CreateOrderItemRequest> = web_items
+        .into_iter()
+        .enumerate()
+        .map(|(idx, it)| {
+            let quantity: rust_decimal::Decimal = it
+                .quantity
+                .parse()
+                .map_err(|_| DomainError::validation(format!("第 {} 行无效数量", idx + 1)))?;
+            let unit_price: rust_decimal::Decimal = it
+                .unit_price
+                .parse()
+                .map_err(|_| DomainError::validation(format!("第 {} 行无效单价", idx + 1)))?;
+            let item_delivery = it
+                .item_delivery_date
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+            Ok(CreateOrderItemRequest {
+                product_id: it.product_id.parse().unwrap_or(0),
+                line_no: (idx as i32) + 1,
+                description: it.description.unwrap_or_default(),
+                quantity,
+                unit_price,
+                quotation_item_id: None,
+                expected_delivery_date: item_delivery,
+                discount_pct: it
+                    .discount_pct
+                    .as_deref()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(rust_decimal::Decimal::ZERO),
+                tax_rate_id: it
+                    .tax_rate_id
+                    .as_deref()
+                    .and_then(|s| s.parse().ok())
+                    .filter(|&v: &i64| v > 0),
+            })
+        })
+        .collect::<Result<Vec<_>, DomainError>>()?;
+    let req = UpdatePurchaseOrderRequest {
+        supplier_id: form.supplier_id,
+        expected_delivery_date,
+        payment_terms: form.payment_terms.clone(),
+        delivery_address: form.delivery_address.clone(),
+        remark: form.remark.clone().unwrap_or_default(),
+        currency_code: existing.currency_code.clone(),
+        currency_rate: existing.currency_rate,
+        discount_amount: existing.discount_amount,
+    };
+    Ok((req, items))
 }
 
 // ── 从零新建 PO drawer（复用 purchase_order_create::po_create_page，drawer 模式）──
@@ -1440,7 +1749,7 @@ pub async fn get_misc_detail_drawer(
     ))
 }
 
-/// Draft PO 编辑保存（复用 purchase_order_edit::update_po 的解析逻辑，但广播 poChanged 而非 HX-Redirect）。
+/// Draft PO 编辑保存（解析逻辑见 parse_po_drawer_form，广播 poChanged）。
 #[require_permission("PURCHASE_ORDER", "update")]
 pub async fn update_po(
     path: PcPoUpdatePath,
@@ -1458,71 +1767,7 @@ pub async fn update_po(
     if existing.status != PurchaseOrderStatus::Draft {
         return Err(DomainError::business_rule("仅草稿状态的订单可以编辑").into());
     }
-    if form.supplier_id == 0 {
-        return Err(DomainError::validation("请选择供应商").into());
-    }
-    let expected_delivery_date = form
-        .expected_delivery_date
-        .as_deref()
-        .filter(|s| !s.is_empty())
-        .map(|s| {
-            chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
-                .map_err(|e| DomainError::validation(format!("无效交货日期: {e}")))
-        })
-        .transpose()?;
-    let web_items: Vec<PoItemWeb> = serde_json::from_str(&form.items_json)
-        .map_err(|e| DomainError::validation(format!("无效明细数据: {e}")))?;
-    if web_items.is_empty() {
-        return Err(DomainError::validation("请至少保留一个明细行").into());
-    }
-    let items: Vec<CreateOrderItemRequest> = web_items
-        .into_iter()
-        .enumerate()
-        .map(|(idx, it)| {
-            let quantity: rust_decimal::Decimal = it
-                .quantity
-                .parse()
-                .map_err(|_| DomainError::validation(format!("第 {} 行无效数量", idx + 1)))?;
-            let unit_price: rust_decimal::Decimal = it
-                .unit_price
-                .parse()
-                .map_err(|_| DomainError::validation(format!("第 {} 行无效单价", idx + 1)))?;
-            let item_delivery = it
-                .item_delivery_date
-                .as_deref()
-                .filter(|s| !s.is_empty())
-                .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
-            Ok(CreateOrderItemRequest {
-                product_id: it.product_id.parse().unwrap_or(0),
-                line_no: (idx as i32) + 1,
-                description: it.description.unwrap_or_default(),
-                quantity,
-                unit_price,
-                quotation_item_id: None,
-                expected_delivery_date: item_delivery,
-                discount_pct: it
-                    .discount_pct
-                    .as_deref()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(rust_decimal::Decimal::ZERO),
-                tax_rate_id: it
-                    .tax_rate_id
-                    .as_deref()
-                    .and_then(|s| s.parse().ok())
-                    .filter(|&v: &i64| v > 0),
-            })
-        })
-        .collect::<Result<Vec<_>, DomainError>>()?;
-    let req = UpdatePurchaseOrderRequest {
-        supplier_id: form.supplier_id,
-        expected_delivery_date,
-        payment_terms: form.payment_terms,
-        delivery_address: form.delivery_address,
-        remark: form.remark.unwrap_or_default(),
-        currency_code: existing.currency_code.clone(),
-        currency_rate: existing.currency_rate,
-        discount_amount: existing.discount_amount,
-    };
+    let (req, items) = parse_po_drawer_form(&form, &existing)?;
     svc.update(&service_ctx, &mut tx, path.id, req, items).await?;
     tx.commit()
         .await
@@ -1532,17 +1777,26 @@ pub async fn update_po(
 }
 
 #[require_permission("PURCHASE_ORDER", "update")]
-pub async fn submit_po(path: PcPoSubmitPath, ctx: RequestContext) -> Result<impl IntoResponse> {
+pub async fn submit_po(
+    path: PcPoSubmitPath,
+    ctx: RequestContext,
+    Form(form): Form<PoDrawerForm>,
+) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
+    let svc = state.purchase_order_service();
     let mut tx = state
         .pool
         .begin()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    state
-        .purchase_order_service()
-        .submit(&service_ctx, &mut tx, path.id, None)
-        .await?;
+    let existing = svc.get(&service_ctx, &mut tx, path.id).await?;
+    if existing.status != PurchaseOrderStatus::Draft {
+        return Err(DomainError::business_rule("仅草稿状态的订单可以提交").into());
+    }
+    // 先保存 drawer 内编辑（含补单价），再提交审批——Issue #221。
+    let (req, items) = parse_po_drawer_form(&form, &existing)?;
+    svc.update(&service_ctx, &mut tx, path.id, req, items).await?;
+    svc.submit(&service_ctx, &mut tx, path.id, None).await?;
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -1551,17 +1805,26 @@ pub async fn submit_po(path: PcPoSubmitPath, ctx: RequestContext) -> Result<impl
 }
 
 #[require_permission("PURCHASE_ORDER", "update")]
-pub async fn confirm_po(path: PcPoConfirmPath, ctx: RequestContext) -> Result<impl IntoResponse> {
+pub async fn confirm_po(
+    path: PcPoConfirmPath,
+    ctx: RequestContext,
+    Form(form): Form<PoDrawerForm>,
+) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
+    let svc = state.purchase_order_service();
     let mut tx = state
         .pool
         .begin()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    state
-        .purchase_order_service()
-        .confirm(&service_ctx, &mut tx, path.id, None)
-        .await?;
+    let existing = svc.get(&service_ctx, &mut tx, path.id).await?;
+    if existing.status != PurchaseOrderStatus::Draft {
+        return Err(DomainError::business_rule("仅草稿状态的订单可以确认").into());
+    }
+    // 先保存 drawer 内编辑（含补单价），再确认——避免「填了单价未保存直接确认」被校验拦截（Issue #221）。
+    let (req, items) = parse_po_drawer_form(&form, &existing)?;
+    svc.update(&service_ctx, &mut tx, path.id, req, items).await?;
+    svc.confirm(&service_ctx, &mut tx, path.id, None).await?;
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -1631,7 +1894,8 @@ fn render_po_detail_drawer_body(
         form id="pc-po-drawer-form"
             hx-post=(PcPoUpdatePath { id: order.id }.to_string())
             hx-swap="none"
-            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #po-detail-overlay then call showToast('订单已保存')" {
+            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #po-detail-overlay then call showToast(#po-action's value) then set #po-action's value to ''" {
+            input type="hidden" id="po-action" {};
             input type="hidden" id="pc-po-items-json" name="items_json" value="[]" {};
             input type="hidden" name="supplier_id" value=(order.supplier_id) {};
             (po_drawer_info_grid(order, supplier_name, operator_name, is_draft))
@@ -1880,19 +2144,18 @@ fn po_drawer_actions(order: &PurchaseOrder) -> Markup {
                     _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #po-detail-overlay then call showToast('订单已取消')" {
                     "取消订单"
                 }
-                button type="button" class=(ghost)
-                    hx-post=(PcPoConfirmPath { id: order.id }.to_string()) hx-swap="none"
-                    hx-confirm="直接确认此订单？"
-                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #po-detail-overlay then call showToast('订单已确认')" {
+                button type="submit" class=(ghost)
+                    formaction=(PcPoConfirmPath { id: order.id }.to_string())
+                    _="on click set #po-action's value to '订单已确认' then call confirm('直接确认此订单？') then if not it then halt the event" {
                     "直接确认"
                 }
-                button type="button" class=(ghost)
-                    hx-post=(PcPoSubmitPath { id: order.id }.to_string()) hx-swap="none"
-                    hx-confirm="提交审批？"
-                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #po-detail-overlay then call showToast('已提交审批')" {
+                button type="submit" class=(ghost)
+                    formaction=(PcPoSubmitPath { id: order.id }.to_string())
+                    _="on click set #po-action's value to '已提交审批' then call confirm('提交审批？') then if not it then halt the event" {
                     "提交审批"
                 }
-                button type="submit" class=(primary) { "保存修改" }
+                button type="submit" class=(primary)
+                    _="on click set #po-action's value to '订单已保存'" { "保存修改" }
             } @else if order.status == PurchaseOrderStatus::PendingApproval {
                 button type="button" class=(ghost)
                     hx-post=(PcOrderRejectPath { id: order.id }.to_string()) hx-swap="none"
@@ -3056,14 +3319,26 @@ fn demand_mat_row(item: &MaterialAggSummary) -> Markup {
                     _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #convert-po-overlay" { "转采购单" }
             }
         }
-        // 展开区（懒加载 demand-rows，.expanded 切换显隐）
-        div class="mat-expand bg-surface-raised border-b border-border-soft" id=(format!("pc-demand-toggle-{pid}")) {
+        // 展开区（懒加载 demand-rows，.expanded 切换显隐；.pc-batch-scope 限定批量栏计数作用域）
+        div class="mat-expand pc-batch-scope bg-surface-raised border-b border-border-soft" id=(format!("pc-demand-toggle-{pid}")) {
             div class="p-4" {
                 table class="w-full text-sm" {
+                    thead {
+                        tr class="text-xs text-muted border-b border-border-soft" {
+                            th class="w-10 py-1.5 px-2" {
+                                input type="checkbox" title="全选"
+                                    _="on change call pcToggleAllDemands(me, closest <table/>)";
+                            }
+                            th class="text-left py-1.5 px-4 font-semibold" { "来源订单" }
+                            th class="text-right py-1.5 px-3 font-semibold" { "数量" }
+                            th class="text-left py-1.5 px-3 font-semibold" { "需求日期" }
+                        }
+                    }
                     tbody id=(format!("pc-demand-expand-{pid}")) {
-                        tr { td colspan="3" class="text-center text-muted py-4" { "点击物料加载需求明细…" } }
+                        tr { td colspan="4" class="text-center text-muted py-4" { "点击物料加载需求明细…" } }
                     }
                 }
+                (pc_batch_bar_for_material(pid))
             }
         }
     }
@@ -3195,6 +3470,28 @@ fn pc_batch_bar(supplier_id: i64) -> Markup {
     }
 }
 
+/// 物料汇总批量栏（.pc-batch-bar，对齐采购明细 pc_batch_bar 范式）。勾选 .pc-demand-cb
+/// 后由 app.js（pcUpdateBatchBar）显示，并拼接单物料转单 drawer URL（勾选子集 →
+/// convert-po-drawer?demand_ids=...，drawer 内选供应商）。与采购明细批量栏的区别：
+/// 容器带 data-product-id（物料汇总无 supplier_id 上下文）。
+fn pc_batch_bar_for_material(product_id: i64) -> Markup {
+    html! {
+        div class="pc-batch-bar hidden show:flex items-center gap-4 fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-md bg-fg text-white text-sm shadow-lg"
+            data-product-id=(product_id) {
+            span {
+                "已选 "
+                span class="pc-batch-count inline-block px-2 rounded-full bg-white/15 font-mono font-bold" { "0" }
+                " 条需求 · 可转采购单"
+            }
+            a class="pc-batch-create-btn ml-auto inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 no-underline"
+                hx-target="#convert-po-drawer-body" hx-swap="innerHTML"
+                _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #convert-po-overlay" { "转采购单" }
+            button class="pc-batch-clear-btn inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150"
+                type="button" { "清除选择" }
+        }
+    }
+}
+
 // ── 订单 card 渲染 ──
 
 /// 详情 drawer 打印区：单个「打印 ▾」下拉按钮 —— 点击展开菜单选模板打印。
@@ -3244,8 +3541,7 @@ fn orders_filter_bar(status: Option<i16>, p: &OrdersCardParams) -> Markup {
                 name="status" {
                 option value="" selected[status.is_none()] { "全部状态" }
                 option value="1" selected[status == Some(1)] { "草稿" }
-                option value="2" selected[status == Some(2)] { "已确认" }
-                option value="3" selected[status == Some(3)] { "部分收货" }
+                option value="2" selected[status == Some(2)] { "在途订单" }
                 option value="4" selected[status == Some(4)] { "已收货" }
                 option value="5" selected[status == Some(5)] { "已关闭" }
                 option value="6" selected[status == Some(6)] { "已取消" }
@@ -3264,12 +3560,30 @@ fn orders_filter_bar(status: Option<i16>, p: &OrdersCardParams) -> Markup {
     }
 }
 
+/// thead 展开列 th：全部展开/收起图标按钮（chevrons-down↔up 切换），scope 限当前 #pc-card。
+/// 复用于订单/报价/请购/退货四个列表。
+fn pc_expand_all_th() -> Markup {
+    html! {
+        th class="w-12 py-2 px-1 text-center" {
+            button type="button" class="pc-expand-all inline-flex items-center justify-center text-muted hover:text-accent cursor-pointer rounded-sm hover:bg-surface p-0.5"
+                data-expanded="0"
+                title="展开/收起全部明细"
+                aria-label="展开/收起全部明细"
+                _="on click call rowExpandToggleAll(me, '#pc-card')" {
+                (icon::raw("i-lucide-chevrons-down", "ico-expand w-[15px] h-[15px]"))
+                (icon::raw("i-lucide-chevrons-up", "ico-collapse hidden w-[15px] h-[15px]"))
+            }
+        }
+    }
+}
+
 fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>) -> Markup {
     html! {
         div class="overflow-x-auto" {
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
+                        (pc_expand_all_th())
                         th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "订单号" }
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "供应商" }
                         th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "金额" }
@@ -3280,10 +3594,16 @@ fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>) -> Markup
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无待处理订单" } }
+                        tr { td colspan="7" class="text-center text-muted py-8" { "暂无待处理订单" } }
                     }
                     @for o in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg" {
+                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
+                            td class="py-2.5 px-2 text-center" {
+                                (row_expand::row_expand_toggle(
+                                    &format!("po-items-{}", o.id),
+                                    &PcPoItemsRowPath { id: o.id }.to_string(),
+                                ))
+                            }
                             td class="py-2.5 px-5 font-mono text-accent font-medium" {
                                 (doc_number_detail_btn(&o.doc_number, &PcPoDetailDrawerPath { id: o.id }.to_string(), "#po-detail-drawer-body", "#po-detail-overlay"))
                             }
@@ -3315,11 +3635,175 @@ fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>) -> Markup
     }
 }
 
+/// 订单行展开明细：物料(名+编码)/数量/单价/小计 子表，用 [`row_expand::row_expand_detail`]
+/// 包裹成单 `<tr class="row-detail" id="po-items-{order_id}">`（`row_id` 与触发器一致）。
+fn po_items_expand_row(
+    order_id: i64,
+    items: &[PurchaseOrderItem],
+    codes: &HashMap<i64, String>,
+    names: &HashMap<i64, String>,
+) -> Markup {
+    let row_id = format!("po-items-{order_id}");
+    let body = html! {
+        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
+            table class="w-full text-xs" {
+                thead {
+                    tr class="text-muted border-b border-border-soft" {
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物料" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "数量" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "单价" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "小计" }
+                    }
+                }
+                tbody {
+                    @for it in items {
+                        tr class="border-b border-border-soft/40 last:border-none" {
+                            td class="py-1.5 px-2" {
+                                div class="text-fg" { (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                div class="text-muted font-mono" { (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.quantity)) }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.unit_price)) }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.quantity * it.unit_price)) }
+                        }
+                    }
+                    @if items.is_empty() {
+                        tr { td colspan="4" class="text-center text-muted py-4" { "暂无明细" } }
+                    }
+                }
+            }
+        }
+    };
+    row_expand::row_expand_detail(&row_id, 7, body)
+}
+
+/// 报价行展开明细：产品(名+编码)/单价(+币种)/起订量/交期/优选。
+fn quotation_items_expand_row(
+    quotation_id: i64,
+    items: &[PurchaseQuotationItem],
+    codes: &HashMap<i64, String>,
+    names: &HashMap<i64, String>,
+) -> Markup {
+    let row_id = format!("quotation-items-{quotation_id}");
+    let body = html! {
+        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
+            table class="w-full text-xs" {
+                thead {
+                    tr class="text-muted border-b border-border-soft" {
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物料" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "单价" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "起订量" }
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "交期" }
+                        th class="text-center font-semibold py-1.5 px-2 uppercase tracking-wide" { "优选" }
+                    }
+                }
+                tbody {
+                    @for it in items {
+                        tr class="border-b border-border-soft/40 last:border-none" {
+                            td class="py-1.5 px-2" {
+                                div class="text-fg" { (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                div class="text-muted font-mono" { (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            }
+                            td class="py-1.5 px-2 text-right font-mono whitespace-nowrap" { (fmt_plain(it.unit_price)) " " (it.currency.as_str()) }
+                            td class="py-1.5 px-2 text-right font-mono" { (it.min_order_qty.map(fmt_plain).unwrap_or_else(|| "—".into())) }
+                            td class="py-1.5 px-2 text-muted" { @if let Some(d) = it.lead_time_days { (d) " 天" } @else { "—" } }
+                            td class="py-1.5 px-2 text-center" { @if it.is_preferred { span class="text-success font-bold" { "✓" } } @else { "—" } }
+                        }
+                    }
+                    @if items.is_empty() {
+                        tr { td colspan="5" class="text-center text-muted py-4" { "暂无明细" } }
+                    }
+                }
+            }
+        }
+    };
+    row_expand::row_expand_detail(&row_id, 6, body)
+}
+
+/// 退货行展开明细：产品(名+编码)/退货数/单价/金额。
+fn return_items_expand_row(
+    return_id: i64,
+    items: &[PurchaseReturnItem],
+    codes: &HashMap<i64, String>,
+    names: &HashMap<i64, String>,
+) -> Markup {
+    let row_id = format!("return-items-{return_id}");
+    let body = html! {
+        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
+            table class="w-full text-xs" {
+                thead {
+                    tr class="text-muted border-b border-border-soft" {
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物料" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "退货数" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "单价" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "金额" }
+                    }
+                }
+                tbody {
+                    @for it in items {
+                        tr class="border-b border-border-soft/40 last:border-none" {
+                            td class="py-1.5 px-2" {
+                                div class="text-fg" { (names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                div class="text-muted font-mono" { (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                            }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.returned_qty)) }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.unit_price)) }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_plain(it.amount)) }
+                        }
+                    }
+                    @if items.is_empty() {
+                        tr { td colspan="4" class="text-center text-muted py-4" { "暂无明细" } }
+                    }
+                }
+            }
+        }
+    };
+    row_expand::row_expand_detail(&row_id, 6, body)
+}
+
+/// 请购行展开明细：物品名(+规格)/数量(+单位)/估价/备注（自由物品，无 product_id）。
+fn misc_items_expand_row(request_id: i64, items: &[MiscRequestItem]) -> Markup {
+    let row_id = format!("misc-items-{request_id}");
+    let body = html! {
+        div class="px-5 py-3 border-t border-dashed border-border-soft border-b border-border-soft" {
+            table class="w-full text-xs" {
+                thead {
+                    tr class="text-muted border-b border-border-soft" {
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "物品" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "数量" }
+                        th class="text-right font-semibold py-1.5 px-2 uppercase tracking-wide" { "估价" }
+                        th class="text-left font-semibold py-1.5 px-2 uppercase tracking-wide" { "备注" }
+                    }
+                }
+                tbody {
+                    @for it in items {
+                        tr class="border-b border-border-soft/40 last:border-none" {
+                            td class="py-1.5 px-2" {
+                                div class="text-fg" { (it.item_name.as_str()) }
+                                @if let Some(spec) = &it.specification {
+                                    div class="text-muted text-[11px]" { (spec.as_str()) }
+                                }
+                            }
+                            td class="py-1.5 px-2 text-right font-mono whitespace-nowrap" { (fmt_plain(it.quantity)) " " (it.unit.as_str()) }
+                            td class="py-1.5 px-2 text-right font-mono" { (it.estimated_price.map(fmt_plain).unwrap_or_else(|| "—".into())) }
+                            td class="py-1.5 px-2 text-muted" { (it.remark.as_deref().unwrap_or("—")) }
+                        }
+                    }
+                    @if items.is_empty() {
+                        tr { td colspan="4" class="text-center text-muted py-4" { "暂无明细" } }
+                    }
+                }
+            }
+        }
+    };
+    row_expand::row_expand_detail(&row_id, 6, body)
+}
+
 fn po_status_pill(status: PurchaseOrderStatus) -> Markup {
     use PurchaseOrderStatus::*;
     match status {
         PendingApproval => pill("progress", "待审批"),
-        Confirmed => pill("info", "待收货"),
+        Confirmed => pill("info", "在途"),
         PartiallyReceived => pill("partial", "部分收货"),
         Received => pill("completed", "已收货"),
         Closed => pill("completed", "已关闭"),
@@ -3395,7 +3879,7 @@ fn recon_table(items: &[PurchaseReconciliation], names: &HashMap<i64, String>) -
                         tr { td colspan="5" class="text-center text-muted py-8" { "暂无草稿对账单" } }
                     }
                     @for r in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg" {
+                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
                             td class="py-2.5 px-5 font-mono text-accent font-medium" { (r.doc_number) }
                             td class="py-2.5 px-3 text-fg" {
                                 a class="text-fg hover:text-accent hover:underline cursor-pointer"
@@ -3410,13 +3894,10 @@ fn recon_table(items: &[PurchaseReconciliation], names: &HashMap<i64, String>) -
                                     hx-target="this" hx-swap="none"
                                     _="on 'htmx:afterRequest'[detail.xhr.status < 400] call showToast('对账单已确认')"
                                     { "确认对账" }
-                                button class="expand-btn inline-flex items-center justify-center w-[26px] h-[26px] ml-1 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg align-middle transition-all"
-                                    title="展开详情"
-                                    hx-get=(PcSettlementRowDetailPath { recon_type: "draft".into(), ref_id: r.id }.to_string())
-                                    hx-target="this" hx-swap="afterend"
-                                    _="on click toggle .open on closest <tr/>" {
-                                    (icon::chevron_right_icon("w-[15px] h-[15px]"))
-                                }
+                                (row_expand::row_expand_toggle(
+                                    &format!("draft-row-{}", r.id),
+                                    &PcSettlementRowDetailPath { recon_type: "draft".into(), ref_id: r.id }.to_string(),
+                                ))
                             }
                         }
                     }
@@ -3444,7 +3925,7 @@ fn payment_table(items: &[PaymentRequest], names: &HashMap<i64, String>) -> Mark
                         tr { td colspan="5" class="text-center text-muted py-8" { "暂无待审批付款" } }
                     }
                     @for pay in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg" {
+                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
                             td class="py-2.5 px-5 font-mono text-accent font-medium" { (pay.doc_number) }
                             td class="py-2.5 px-3 text-fg" {
                                 a class="text-fg hover:text-accent hover:underline cursor-pointer"
@@ -3458,13 +3939,10 @@ fn payment_table(items: &[PaymentRequest], names: &HashMap<i64, String>) -> Mark
                                     hx-get=(PcPaymentApproveDrawerPath { id: pay.id }.to_string())
                                     hx-target="#pay-drawer-body" hx-swap="innerHTML"
                                     _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #pay-overlay" { "审批付款" }
-                                button class="expand-btn inline-flex items-center justify-center w-[26px] h-[26px] ml-1 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg align-middle transition-all"
-                                    title="展开详情"
-                                    hx-get=(PcSettlementRowDetailPath { recon_type: "payment".into(), ref_id: pay.id }.to_string())
-                                    hx-target="this" hx-swap="afterend"
-                                    _="on click toggle .open on closest <tr/>" {
-                                    (icon::chevron_right_icon("w-[15px] h-[15px]"))
-                                }
+                                (row_expand::row_expand_toggle(
+                                    &format!("payment-row-{}", pay.id),
+                                    &PcSettlementRowDetailPath { recon_type: "payment".into(), ref_id: pay.id }.to_string(),
+                                ))
                             }
                         }
                     }
@@ -3514,6 +3992,7 @@ fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>) -> Mark
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
+                        (pc_expand_all_th())
                         th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "退货单号" }
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "供应商" }
                         th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "金额" }
@@ -3523,10 +4002,16 @@ fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>) -> Mark
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="5" class="text-center text-muted py-8" { "暂无退货" } }
+                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无退货" } }
                     }
                     @for r in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg" {
+                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
+                            td class="py-2.5 px-2 text-center" {
+                                (row_expand::row_expand_toggle(
+                                    &format!("return-items-{}", r.id),
+                                    &PcReturnItemsRowPath { id: r.id }.to_string(),
+                                ))
+                            }
                             td class="py-2.5 px-5 font-mono text-accent font-medium" {
                                 (doc_number_detail_btn(&r.doc_number, &PcReturnDetailDrawerPath { id: r.id }.to_string(), "#return-detail-drawer-body", "#return-detail-overlay"))
                             }
@@ -3617,6 +4102,7 @@ fn quotation_table(items: &[PurchaseQuotation], names: &HashMap<i64, String>) ->
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
+                        (pc_expand_all_th())
                         th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "报价单号" }
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "供应商" }
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "有效期" }
@@ -3626,10 +4112,16 @@ fn quotation_table(items: &[PurchaseQuotation], names: &HashMap<i64, String>) ->
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="5" class="text-center text-muted py-8" { "暂无报价" } }
+                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无报价" } }
                     }
                     @for q in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg" {
+                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
+                            td class="py-2.5 px-2 text-center" {
+                                (row_expand::row_expand_toggle(
+                                    &format!("quotation-items-{}", q.id),
+                                    &PcQuotationItemsRowPath { id: q.id }.to_string(),
+                                ))
+                            }
                             td class="py-2.5 px-5 font-mono text-accent font-medium" {
                                 (doc_number_detail_btn(&q.doc_number, &PcQuotationDetailDrawerPath { id: q.id }.to_string(), "#quotation-detail-drawer-body", "#quotation-detail-overlay"))
                             }
@@ -3697,6 +4189,7 @@ fn misc_table(items: &[MiscellaneousRequest]) -> Markup {
             table class="w-full text-sm" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
+                        (pc_expand_all_th())
                         th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "请购单号" }
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "用途" }
                         th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "金额" }
@@ -3706,10 +4199,16 @@ fn misc_table(items: &[MiscellaneousRequest]) -> Markup {
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="5" class="text-center text-muted py-8" { "暂无请购" } }
+                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无请购" } }
                     }
                     @for m in items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg" {
+                        tr class="border-b border-border-soft hover:bg-accent-bg [&.open_.row-chev]:rotate-90" {
+                            td class="py-2.5 px-2 text-center" {
+                                (row_expand::row_expand_toggle(
+                                    &format!("misc-items-{}", m.id),
+                                    &PcMiscItemsRowPath { id: m.id }.to_string(),
+                                ))
+                            }
                             td class="py-2.5 px-5 font-mono text-accent font-medium" {
                                 (doc_number_detail_btn(&m.doc_number, &PcMiscDetailDrawerPath { id: m.id }.to_string(), "#misc-detail-drawer-body", "#misc-detail-overlay"))
                             }
@@ -3963,11 +4462,9 @@ fn hub_link(href: &str, text: &str) -> Markup {
 }
 
 /// 对账付款行展开详情（draft / payment 两套 grid）。
-fn settlement_row_detail_tr(s: &SettlementHubSummary) -> Markup {
-    html! {
-        tr class="row-detail" {
-            td colspan="5" class="p-0 border-none bg-surface-raised" {
-                div class="p-5 border-t border-dashed border-border-soft border-b border-border-soft" {
+fn settlement_row_detail_tr(row_id: &str, s: &SettlementHubSummary) -> Markup {
+    let body = html! {
+        div class="p-5 border-t border-dashed border-border-soft border-b border-border-soft" {
                     @if let Some(d) = &s.draft_recon {
                         div class="grid grid-cols-4 gap-5 mb-4" {
                             (detail_block("对账明细", html! {
@@ -4018,10 +4515,9 @@ fn settlement_row_detail_tr(s: &SettlementHubSummary) -> Markup {
                             (hub_link("/admin/purchase/payments", "付款详情"))
                         }
                     }
-                }
-            }
         }
-    }
+    };
+    row_expand::row_expand_detail(row_id, 5, body)
 }
 
 /// 需求物料行懒加载的需求明细 rows（注入展开 tbody，照 mes demand_expand_rows）。
@@ -4029,6 +4525,9 @@ fn demand_expand_rows(items: &[DemandSummary]) -> Markup {
     html! {
         @for d in items {
             tr class="bg-accent-bg/30" {
+                td class="py-1.5 px-2 text-center" {
+                    input type="checkbox" class="pc-demand-cb" value=(d.id) data-product-id=(d.product_id);
+                }
                 td class="py-1.5 px-4 font-mono text-xs text-accent" {
                     (d.order_no.as_deref().unwrap_or("—"))
                 }
@@ -4037,7 +4536,7 @@ fn demand_expand_rows(items: &[DemandSummary]) -> Markup {
             }
         }
         @if items.is_empty() {
-            tr { td colspan="3" class="text-center text-muted py-4" { "暂无需求明细" } }
+            tr { td colspan="4" class="text-center text-muted py-4" { "暂无需求明细" } }
         }
     }
 }

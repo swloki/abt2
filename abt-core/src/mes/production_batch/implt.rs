@@ -221,7 +221,19 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         )))?;
 
         // --- d. 计算工资 ---
-        let unit_price = routing.unit_price.unwrap_or(Decimal::ZERO);
+        // Q3/R-27：未定价（None 或 Zero）拒绝报工（防 NULL 价冻结 0 工资静默失败；消息可操作化）
+        let unit_price = routing.unit_price.ok_or_else(|| {
+            DomainError::business_rule(format!(
+                "工序 {}「{}」未定价，无法报工。请联系车间主任/IE 在工单下达页（工作中心→下达）填写计件单价后重试",
+                step_no, routing.process_name
+            ))
+        })?;
+        if unit_price.is_zero() {
+            return Err(DomainError::business_rule(format!(
+                "工序 {}「{}」计件单价为 0，无法报工。请联系车间主任/IE 在工单下达页（工作中心→下达）填写单价后重试",
+                step_no, routing.process_name
+            )));
+        }
         let non_operator_defect_qty = match req.defect_reason {
             Some(reason) if reason.affect_wage() => req.defect_qty,
             _ => Decimal::ZERO,
@@ -576,61 +588,64 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         })
     }
 
-    async fn load_routings_from_template(
+    async fn load_operations_from_bom(
         &self, ctx: &ServiceContext, db: PgExecutor<'_>,
-        work_order_id: i64, routing_id: i64,
+        work_order_id: i64, product_code: String,
     ) -> Result<usize> {
-        use crate::master_data::routing::{new_routing_service, service::RoutingService};
-        // 复用调用方传入的连接：WorkOrderService::create / release 在各自事务内调用（同事务原子），
-        // post_apply_from_routing 由 handler 自包事务。不再内部 acquire/begin/commit。
+        use crate::master_data::bom_operation::{new_bom_operation_service, service::BomOperationService};
+        use crate::master_data::bom_step_price::{new_bom_step_price_service, service::BomStepPriceService};
+        use std::collections::HashMap;
+        // 复用调用方传入的连接：WorkOrderService::create / release 在各自事务内调用（同事务原子）。
         let wo = new_work_order_service(self.pool.clone())
             .find_by_id(ctx, db, work_order_id).await?;
-        if !matches!(wo.status, WorkOrderStatus::Draft | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
+        if !matches!(wo.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
             return Err(DomainError::business_rule("工单当前状态不允许加载工艺路径"));
         }
         let planned_qty = wo.planned_qty;
-        // 1) 获取工艺路径模板步骤
-        let detail = new_routing_service(self.pool.clone())
-            .get_detail(ctx, db, routing_id).await?;
-        // 2) 删除已有工序（跳过已报工的），同时记录被锁定的 step_no
-        let mine = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, work_order_id).await?;
-        let mut deleted = 0usize;
-        let mut locked_step_nos: std::collections::HashSet<i32> = std::collections::HashSet::new();
-        for r in &mine {
-            if WorkOrderRoutingRepo::has_report(&mut *db, r.id).await? {
-                locked_step_nos.insert(r.step_no);
-            } else {
-                sqlx::query("DELETE FROM work_order_routings WHERE id = $1")
-                    .bind(r.id).execute(&mut *db).await?;
-                deleted += 1;
-            }
+        // R-9：FOR UPDATE 锁工单行，防并发报工撞 work_reports.routing_id FK（TOCTOU）
+        sqlx::query("SELECT id FROM work_orders WHERE id = $1 FOR UPDATE")
+            .bind(work_order_id).execute(&mut *db).await?;
+        // R-8/D8：per-order lock — 任一 step 报工即整单工序结构冻结，跳过 reload
+        let has_any = WorkOrderRoutingRepo::has_any_report(&mut *db, work_order_id).await?;
+        if has_any {
+            return Ok(0);
         }
-        // 3) 插入模板步骤（跳过与被锁定 step_no 冲突的）
+        // 取 bom_operations（自洽工序行）+ bom_step_prices（价 + quantity）
+        let ops = new_bom_operation_service(self.pool.clone())
+            .list_operations(ctx, db, product_code.clone()).await?;
+        if ops.is_empty() {
+            return Ok(0);
+        }
+        let prices = new_bom_step_price_service(self.pool.clone())
+            .find_prices_by_product(ctx, db, product_code).await?;
+        let price_map: HashMap<i32, rust_decimal::Decimal> = prices
+            .iter().filter_map(|p| p.unit_price.map(|u| (p.step_order, u))).collect();
+        // 全无报工 → 安全清空已有工序快照后整批插入（per-order lock 保证不丢已报工数据）
+        sqlx::query("DELETE FROM work_order_routings WHERE work_order_id = $1")
+            .bind(work_order_id).execute(&mut *db).await?;
         let mut inserted = 0usize;
-        for step in &detail.steps {
-            if locked_step_nos.contains(&step.step_order) { continue; }
-            let process_name = step.process_name.as_deref().unwrap_or(&step.process_code);
+        for op in &ops {
+            let unit_price = price_map.get(&op.step_order).copied();
             sqlx::query(
                 r#"INSERT INTO work_order_routings
                    (work_order_id, step_no, process_name, work_center_id, standard_time, standard_cost,
                     unit_price, allowed_loss_rate, planned_qty, is_outsourced, is_inspection_point, product_id)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)"#,
             )
-            .bind(work_order_id).bind(step.step_order).bind(process_name)
-            .bind(step.work_center_id).bind(step.standard_time).bind(step.standard_cost)
-            .bind(step.unit_price).bind(step.allowed_loss_rate)
-            .bind(planned_qty).bind(step.is_outsourced).bind(step.is_inspection_point)
-            .bind(step.product_id)
+            .bind(work_order_id).bind(op.step_order).bind(&op.process_name)
+            .bind(op.work_center_id).bind(op.standard_time).bind(op.standard_cost)
+            .bind(unit_price).bind(op.allowed_loss_rate)
+            .bind(planned_qty).bind(op.is_outsourced).bind(op.is_inspection_point)
+            .bind(op.output_product_id)
             .execute(&mut *db).await?;
             inserted += 1;
         }
-        // 4) 审计日志
-        if inserted > 0 || deleted > 0 {
+        if inserted > 0 {
             new_audit_log_service(self.pool.clone())
                 .record(ctx, db, RecordAuditLogReq {
                     entity_type: "WorkOrder", entity_id: work_order_id,
                     action: AuditAction::Update,
-                    changes: Some(json!(format!("从工艺路径加载工序（删除{deleted}行，插入{inserted}行，跳过{}行已报工）", locked_step_nos.len()))),
+                    changes: Some(json!(format!("从 BOM 内联工序加载 {inserted} 行（per-order lock：任一报工即整单冻结）"))),
                     context: None,
                 }).await?;
         }

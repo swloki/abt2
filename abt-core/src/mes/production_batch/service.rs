@@ -71,10 +71,12 @@ pub trait ProductionBatchService: Send + Sync {
         work_order_id: i64,
     ) -> Result<Vec<WorkOrderRouting>>;
 
-    /// 从工艺路径模板加载工序步骤到工单（删除未报工旧行 → 插入模板步骤）。返回插入行数
-    async fn load_routings_from_template(
+    /// 从 BOM 内联工序（bom_operations）加载到工单快照。返回插入行数。
+    /// per-order lock（D8）：任一 step 报工即整单冻结，跳过 reload。
+    /// 价从 bom_step_prices LEFT JOIN（未定价则 NULL，由 release drawer 填）。
+    async fn load_operations_from_bom(
         &self, ctx: &ServiceContext, db: PgExecutor<'_>,
-        work_order_id: i64, routing_id: i64,
+        work_order_id: i64, product_code: String,
     ) -> Result<usize>;
 
     async fn delete_routing(

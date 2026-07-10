@@ -9,14 +9,16 @@ pub struct LaborProcessDictRepo;
 impl LaborProcessDictRepo {
     pub async fn create(&self, executor: PgExecutor<'_>, code: &str, req: &CreateLaborProcessDictReq, operator_id: i64) -> Result<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            r#"INSERT INTO labor_process_dicts (code, name, description, sort_order, operator_id)
-               VALUES ($1, $2, $3, $4, $5)
+            r#"INSERT INTO labor_process_dicts (code, name, description, sort_order, default_work_center_id, default_standard_time, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
                RETURNING id"#,
         )
         .bind(code)
         .bind(&req.name)
         .bind(&req.description)
         .bind(req.sort_order)
+        .bind(req.default_work_center_id)
+        .bind(req.default_standard_time)
         .bind(operator_id)
         .fetch_one(executor)
         .await?;
@@ -31,6 +33,8 @@ impl LaborProcessDictRepo {
         if req.name.is_some() { sets.push(format!("name = ${param_idx}")); param_idx += 1; }
         if req.description.is_some() { sets.push(format!("description = ${param_idx}")); param_idx += 1; }
         if req.sort_order.is_some() { sets.push(format!("sort_order = ${param_idx}")); param_idx += 1; }
+        if req.default_work_center_id.is_some() { sets.push(format!("default_work_center_id = ${param_idx}")); param_idx += 1; }
+        if req.default_standard_time.is_some() { sets.push(format!("default_standard_time = ${param_idx}")); param_idx += 1; }
 
         if sets.is_empty() {
             return Ok(());
@@ -44,6 +48,8 @@ impl LaborProcessDictRepo {
         if let Some(ref v) = req.name { q = q.bind(v); }
         if let Some(ref v) = req.description { q = q.bind(v); }
         if let Some(v) = req.sort_order { q = q.bind(v); }
+        if let Some(v) = req.default_work_center_id { q = q.bind(v); }
+        if let Some(v) = req.default_standard_time { q = q.bind(v); }
         q = q.bind(operator_id);
 
         q.execute(executor).await?;
@@ -60,7 +66,7 @@ impl LaborProcessDictRepo {
 
     pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<LaborProcessDict>> {
         let row = sqlx::query_as::<sqlx::Postgres, LaborProcessDict>(
-            "SELECT id, code, name, description, sort_order, operator_id, created_at, updated_at, deleted_at FROM labor_process_dicts WHERE id = $1 AND deleted_at IS NULL",
+            "SELECT id, code, name, description, sort_order, default_work_center_id, default_standard_time, operator_id, created_at, updated_at, deleted_at FROM labor_process_dicts WHERE id = $1 AND deleted_at IS NULL",
         )
         .bind(id)
         .fetch_optional(executor)
@@ -102,7 +108,7 @@ impl LaborProcessDictRepo {
         let offset_idx = param_idx;
 
         let data_sql = format!(
-            "SELECT id, code, name, description, sort_order, operator_id, created_at, updated_at, deleted_at FROM labor_process_dicts WHERE {where_clause} ORDER BY sort_order, id LIMIT ${limit_idx} OFFSET ${offset_idx}",
+            "SELECT id, code, name, description, sort_order, default_work_center_id, default_standard_time, operator_id, created_at, updated_at, deleted_at FROM labor_process_dicts WHERE {where_clause} ORDER BY sort_order, id LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
         let mut data_q = sqlx::query_as::<sqlx::Postgres, LaborProcessDict>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = keyword_param { data_q = data_q.bind(v); }

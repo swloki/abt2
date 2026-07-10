@@ -210,6 +210,12 @@ select:disabled {
 .toast.toast-dismiss { animation: toast-out 0.3s ease forwards; }
 .toast.toast-dismiss::after { display: none; }
 
+/* Row expand: 展开行滑动（入场 0.3s 高度展开+淡入；收起 0.22s 反向，.closing 触发）；max-height 上限覆盖常规明细 */
+@keyframes row-expand-in { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 640px; } }
+@keyframes row-expand-out { from { opacity: 1; max-height: 640px; } to { opacity: 0; max-height: 0; } }
+.row-expand-anim { overflow: hidden; animation: row-expand-in 0.3s ease-out; }
+.row-expand-anim.closing { animation: row-expand-out 0.22s ease-in forwards; }
+
 .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; transition: grid-template-columns var(--motion-base) var(--ease-standard); }
 .app-shell.sidebar-collapsed { grid-template-columns: 56px 1fr; }
 .sidebar-collapsed .sidebar-body { display: none; }

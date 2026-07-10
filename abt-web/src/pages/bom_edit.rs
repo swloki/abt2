@@ -23,8 +23,8 @@ use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::bom::{
- BomEditPath, BomListPath, BomNodeMovePath, BomNodePath, BomNodesPath, BomProductsPath,
- BomPublishPath, BomSaveAsPath, BomUpdateCategoryPath,
+ BomEditPath, BomListPath, BomNodeMovePath, BomNodePath, BomNodesPath, BomOperationsPath,
+ BomProductsPath, BomPublishPath, BomSaveAsPath, BomUpdateCategoryPath,
 };
 use crate::utils::RequestContext;
 use crate::toast::{toast_response, ToastType};
@@ -663,6 +663,18 @@ fn bom_edit_page(
                 }
             }
         }
+        // ── 工艺工序入口（工序按产品维护，在独立页 /boms/{id}/operations 编辑）──
+        div class="data-card mb-5 flex items-center justify-between gap-3 flex-wrap" {
+            div {
+                div class="text-sm font-semibold text-fg" { "工艺工序" }
+                div class="text-xs text-muted mt-0.5" {
+                    "工序按产品维护，该产品所有 BOM 版本共享。点击进入工序管理页编辑（表格内联 + 拖拽排序）。"
+                }
+            }
+            a class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover no-underline cursor-pointer transition-all duration-150"
+                href=(BomOperationsPath { id: bom.bom_id }.to_string())
+            { "管理工序 →" }
+        }
         // ── Node Table ──
         div class="data-card p-0 overflow-hidden" {
             @if bom.bom_detail.nodes.is_empty() {
@@ -1074,3 +1086,4 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
     }
 }
 }
+

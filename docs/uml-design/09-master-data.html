@@ -1456,7 +1456,7 @@ classDiagram
         <span style="color:#e06c75;">Supplier</span> → <a href="02-purchase.html" style="color:#e5c07b;">Purchase</a>（采购报价/订单/付款关联 supplier_id）| <a href="07-fms.html" style="color:#98c379;">FMS</a>（应付账款/付款核销）| <a href="05-outsourcing.html" style="color:#e5a655;">OM</a>（委外供应商）| Blacklisted 事件触发 Purchase 拦截<br>
         <span style="color:#e5c07b;">Routing</span> → 可复用工序模板 | BomRouting 绑定产品 | <a href="04-mes.html" style="color:#e06c75;">MES</a> 工单创建时快照 RoutingSteps → WorkOrderRouting | find_matching_routing 支持 Excel 自动匹配<br>
         <span style="color:#c678dd;">LaborProcessDict</span> → 全局工序编码主数据 | RoutingStep.process_code + BomLaborProcess.process_code 双引用 | 删除前级联校验<br>
-        <span style="color:#56b6c2;">BomLaborProcess</span> → 按产品管理劳务工序 | BomCostReport.labor_costs 数据来源 | MES WorkOrderRouting.unit_price 引用
+        <span style="color:#56b6c2;">BomLaborProcess</span> → 按产品管理劳务工序 | BomCostReport.labor_costs 数据来源（无 routing 的 BOM；有 routing 走 BomRoutingOutput 覆盖层）| MES WorkOrderRouting.unit_price 引用
       </div>
     </div>
 
@@ -1627,6 +1627,20 @@ classDiagram
           &nbsp;&nbsp;updated_at: DateTime?<br>
           &nbsp;&nbsp;<span style="color:#888;">// UNIQUE(product_code)</span><br>
           }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BomRoutingOutput</span> {<br>
+          &nbsp;&nbsp;<span style="color:#888;">// per-BOM 产出覆盖层（routing 解耦）：产出品/计件价/工作中心覆盖，下沉自原 routing_steps.product_id/unit_price（迁移 045/063）</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;product_code: String <span style="color:#888;">// 成品编码（与 BomRouting 对齐）</span><br>
+          &nbsp;&nbsp;routing_id: i64 <span style="color:#888;">FK→routings</span><br>
+          &nbsp;&nbsp;step_order: i32 <span style="color:#888;">// 对齐 routing_steps.step_order（覆盖层关联键）</span><br>
+          &nbsp;&nbsp;output_product_id: i64? <span style="color:#888;">FK→products，须 ∈ 该 BOM 非叶子节点（handler 校验）</span><br>
+          &nbsp;&nbsp;unit_price: Decimal(18,6)? <span style="color:#888;">// 该 BOM 该工序计件单价（空→报"未定价"）</span><br>
+          &nbsp;&nbsp;work_center_id: i64? <span style="color:#888;">// 工作中心覆盖（空→用模板 routing_steps.work_center_id）</span><br>
+          &nbsp;&nbsp;operator_id: i64?<br>
+          &nbsp;&nbsp;created_at: DateTime<br>
+          &nbsp;&nbsp;updated_at: DateTime?<br>
+          &nbsp;&nbsp;<span style="color:#888;">// UNIQUE(product_code, step_order) — 一道工序最多一个产出映射</span><br>
+          }<br><br>
           <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">RoutingStepInput</span> {<br>
           &nbsp;&nbsp;process_code: String<br>
           &nbsp;&nbsp;step_order: i32<br>
@@ -1655,9 +1669,21 @@ classDiagram
           &nbsp;&nbsp;&nbsp;&nbsp;→ Option&lt;RoutingDetail&gt;<br>
           &nbsp;&nbsp;list_boms_by_routing(ctx, db,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;routing_id) → Vec&lt;BomRouting&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomRoutingOutputService</span> {<br>
+          &nbsp;&nbsp;<span style="color:#888;">// per-BOM 产出覆盖层（routing 解耦新增，独立模块避免 RoutingService 膨胀）</span><br>
+          &nbsp;&nbsp;list_steps_with_output(ctx, db, product_code)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Vec&lt;StepWithOutput&gt; <span style="color:#888;">// 工序步骤 + 覆盖视图（详情页编辑分区用）</span><br>
+          &nbsp;&nbsp;upsert_output(ctx, db, req: UpsertBomOutputReq) → Unit<br>
+          &nbsp;&nbsp;delete_output(ctx, db, product_code, step_order) → Unit<br>
+          &nbsp;&nbsp;find_outputs_by_product(ctx, db, product_code)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Vec&lt;BomRoutingOutput&gt; <span style="color:#888;">// load_routings_from_template 内部取数</span><br>
           }
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>工艺路线解耦（clean break）：</strong>产出品/计件价从 <code>routing_steps</code> 下沉到 per-BOM 覆盖层 <code>bom_routing_outputs</code>，<code>routing_steps</code> 回归纯工艺模板（可跨产品复用）。<br>
+          <strong>Labor cost 取数链路：</strong>有 routing 的 BOM → <code>bom_routing_outputs</code>（unit_price + output_product_id）；无 routing → <code>bom_labor_processes</code>（按 quantity 计费，legacy）。<code>load_routings_from_template</code> 快照时从覆盖层取值写入 WorkOrderRouting。<br>
+          <strong>编辑约束：</strong>有 <code>bom_routing_outputs</code> 覆盖的 routing，update 禁止破坏性 step 删除/重排（仅允许末尾追加），防止覆盖行 step_order 错位（参照 has_report 锁定先例）。<br>
           <strong>共享层：</strong>审计日志 | 领域事件(RoutingCreated/Updated/Deleted, BomRoutingChanged) | <strong>MES 集成：</strong>WorkOrderRouting 快照 RoutingSteps → 工单报工
         </p>
       </div>
@@ -1751,7 +1777,7 @@ classDiagram
           }
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
-          <strong>下游：</strong>BomCostReport.labor_costs ← BomLaborProcess | <a href="04-mes.html" style="color:#e06c75;">MES</a> WorkOrderRouting.unit_price ← 引用 | Excel 批量导入
+          <strong>下游：</strong>BomCostReport.labor_costs ← BomLaborProcess（无 routing 时；有 routing 走 BomRoutingOutput）| <a href="04-mes.html" style="color:#e06c75;">MES</a> WorkOrderRouting.unit_price ← 引用 | Excel 批量导入
         </p>
       </div>
 

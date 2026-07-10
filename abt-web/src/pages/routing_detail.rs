@@ -1,14 +1,16 @@
+use std::collections::HashMap;
+
 use axum::extract::Query;
 use axum::response::Html;
 use maud::{Markup, html, PreEscaped};
 
+use abt_core::master_data::bom_operation::BomOperationService;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::routing::RoutingService;
 use abt_core::master_data::routing::model::*;
-use abt_core::master_data::work_center::{new_work_center_service, service::WorkCenterService};
+use abt_core::master_data::work_center::service::WorkCenterService;
 use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
-use std::collections::HashMap;
 
 use abt_macros::require_permission;
 
@@ -17,8 +19,8 @@ use crate::components::pagination::pagination;
 use crate::components::product_picker;
 use crate::layout::page::admin_page;
 use crate::routes::routing::{
-    RoutingBindBomPath, RoutingBomListPath, RoutingCopyPath, RoutingDeletePath, RoutingDetailPath,
-    RoutingEditPath, RoutingListPath, RoutingUnbindBomPath,
+    RoutingApplyToBomPath, RoutingBindBomPath, RoutingBomListPath, RoutingCopyPath, RoutingDeletePath,
+    RoutingDetailPath, RoutingEditPath, RoutingListPath, RoutingUnbindBomPath,
 };
 use crate::utils::RequestContext;
 
@@ -40,6 +42,14 @@ pub struct BindBomForm {
 #[derive(Debug, serde::Deserialize)]
 pub struct UnbindBomForm {
  pub product_code: String,
+}
+
+/// copy-on-write 拷贝 form（product_code + force）。
+#[derive(Debug, serde::Deserialize)]
+pub struct ApplyToBomForm {
+    pub product_code: String,
+    #[serde(default)]
+    pub force: Option<bool>,
 }
 
 // ── Handlers ──
@@ -70,20 +80,8 @@ pub async fn get_routing_detail(
  None
  };
 
- // 工序产出品 / 工作中心名称映射（详情表格展示用）
- let pids: Vec<i64> = detail.steps.iter().filter_map(|s| s.product_id).collect();
- let product_map: HashMap<i64, String> = if pids.is_empty() {
- HashMap::new()
- } else {
- state.product_service()
- .get_by_ids(&service_ctx, &mut conn, pids)
- .await
- .unwrap_or_default()
- .into_iter()
- .map(|p| (p.product_id, p.pdt_name))
- .collect()
- };
- let wc_map: HashMap<i64, String> = new_work_center_service(state.pool.clone())
+ // 工作中心名称映射（详情表格展示用）
+ let wc_map: HashMap<i64, String> = state.work_center_service()
  .list_active(&service_ctx, &mut conn)
  .await
  .unwrap_or_default()
@@ -91,7 +89,7 @@ pub async fn get_routing_detail(
  .map(|wc| (wc.id, wc.name))
  .collect();
 
- let content = routing_detail_page(&detail, &boms, &qp.keyword, &creator_name, &product_map, &wc_map);
+ let content = routing_detail_page(&detail, &boms, &qp.keyword, &creator_name, &wc_map);
  let detail_path_str = RoutingDetailPath { id: path.id }.to_string();
  let page_html = admin_page(
  is_htmx,
@@ -169,6 +167,39 @@ pub async fn unbind_bom(
  Ok(Html(bom_list_fragment(path.id, &None, &boms, None).into_string()))
 }
 
+/// copy-on-write：从 routing 模板拷贝工序到 BOM（force=false 守卫拒覆盖；R-24）。
+/// 成功/失败都刷新关联 BOM 列表（带 msg），符合 §5.6 form 校验失败字段级回显（非 toast）。
+#[require_permission("ROUTING", "update")]
+pub async fn apply_routing_to_bom(
+    path: RoutingApplyToBomPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ApplyToBomForm>,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let result = state.bom_operation_service()
+        .apply_routing_to_bom(&service_ctx, &mut tx, form.product_code.clone(), path.id, form.force.unwrap_or(false))
+        .await;
+    match result {
+        Ok(n) => {
+            tx.commit().await
+                .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+            let boms = state.routing_service()
+                .paginate_boms_by_routing(&service_ctx, &mut conn, path.id, None, PageParams::new(1, 10)).await?;
+            Ok(Html(bom_list_fragment(path.id, &None, &boms, Some(&format!("已拷贝 {n} 道工序到此 BOM（后续修改模板不影响本 BOM）"))).into_string()))
+        }
+        Err(e) => {
+            let _ = tx.rollback().await;
+            let boms = state.routing_service()
+                .paginate_boms_by_routing(&service_ctx, &mut conn, path.id, None, PageParams::new(1, 10)).await?;
+            let raw = format!("{e}");
+            let msg = ["Business rule: ", "Validation: "].iter().find_map(|p| raw.strip_prefix(p)).unwrap_or(&raw).to_string();
+            Ok(Html(bom_list_fragment(path.id, &None, &boms, Some(&msg)).into_string()))
+        }
+    }
+}
+
 // ── Components ──
 
 /// id → 名称（无则 —）
@@ -186,7 +217,6 @@ fn routing_detail_page(
  boms: &abt_core::shared::types::PaginatedResult<BomRouting>,
  keyword: &Option<String>,
  creator_name: &Option<String>,
- product_map: &HashMap<i64, String>,
  wc_map: &HashMap<i64, String>,
 ) -> Markup {
  let routing = &detail.routing;
@@ -329,9 +359,7 @@ fn routing_detail_page(
                         tr {
                             th class="w-[60px]" { "序号" }
                             th { "工序名称" }
-                            th class="w-[180px]" { "产出品" }
                             th class="w-[140px]" { "工作中心" }
-                            th class="w-[100px] text-right" { "计件单价" }
                             th class="w-[90px] text-right" { "标准工时" }
                             th class="w-[60px] text-center" { "委外" }
                             th class="w-[70px] text-center" { "必经" }
@@ -343,9 +371,7 @@ fn routing_detail_page(
                             tr {
                                 td class="font-mono tabular-nums" { (step.step_order) }
                                 td { (step.process_name.as_deref().unwrap_or(&step.process_code)) }
-                                td class="text-fg-2" { (map_name(step.product_id, product_map)) }
                                 td class="text-fg-2" { (map_name(step.work_center_id, wc_map)) }
-                                td class="text-right font-mono tabular-nums text-fg-2" { (fmt_opt_decimal(step.unit_price)) }
                                 td class="text-right font-mono tabular-nums text-fg-2" { (fmt_opt_decimal(step.standard_time)) }
                                 td class="text-center" {
                                     @if step.is_outsourced {
@@ -423,7 +449,7 @@ fn bom_list_fragment(
                         th { "产品编码" }
                         th { "产品名称" }
                         th style="width:160px" { "关联时间" }
-                        th class="w-[80px]" { "操作" }
+                        th class="w-[150px]" { "操作" }
                     }
                 }
                 tbody {
@@ -435,15 +461,26 @@ fn bom_list_fragment(
                                 @if let Some(dt) = bom.created_at { (dt.format("%Y-%m-%d %H:%M")) } @else { "—" }
                             }
                             td {
-                                button type="button"
-                                    class="text-danger text-xs hover:underline cursor-pointer bg-transparent border-none"
-                                    hx-post=(&unbind_path)
-                                    hx-vals=(serde_json::json!({ "product_code": bom.product_code }).to_string())
-                                    hx-confirm=(format!("确定取消产品 {} 的工艺路线关联吗？", bom.product_code))
-                                    hx-target="#routing-bom-list"
-                                    hx-select="#routing-bom-list"
-                                    hx-swap="outerHTML"
-                                { "取消" }
+                                div class="flex items-center gap-2" {
+                                    button type="button"
+                                        class="text-accent text-xs hover:underline cursor-pointer bg-transparent border-none whitespace-nowrap"
+                                        hx-post=(RoutingApplyToBomPath { id: routing_id }.to_string())
+                                        hx-vals=(serde_json::json!({ "product_code": bom.product_code }).to_string())
+                                        hx-confirm="拷贝工序到此 BOM？拷贝后独立，修改模板不再影响本 BOM。"
+                                        hx-target="#routing-bom-list"
+                                        hx-select="#routing-bom-list"
+                                        hx-swap="outerHTML"
+                                    { "拷贝工序" }
+                                    button type="button"
+                                        class="text-danger text-xs hover:underline cursor-pointer bg-transparent border-none"
+                                        hx-post=(&unbind_path)
+                                        hx-vals=(serde_json::json!({ "product_code": bom.product_code }).to_string())
+                                        hx-confirm=(format!("确定取消产品 {} 的工艺路线关联吗？", bom.product_code))
+                                        hx-target="#routing-bom-list"
+                                        hx-select="#routing-bom-list"
+                                        hx-swap="outerHTML"
+                                    { "取消" }
+                                }
                             }
                         }
                     }
@@ -492,3 +529,4 @@ document.body.addEventListener('productSelected', () => {{
 }
 
 // ── Helpers ──
+

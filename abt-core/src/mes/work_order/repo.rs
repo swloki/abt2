@@ -2,12 +2,32 @@ use sqlx::FromRow;
 use crate::shared::types::Result;
 
 use super::super::enums::WorkOrderStatus;
-use super::model::{WorkOrder, WorkOrderFilter};
+use super::model::{WoProductBrief, WorkOrder, WorkOrderFilter};
 use crate::shared::types::pagination::PaginatedResult;
 
 pub struct WorkOrderRepo;
 
 impl WorkOrderRepo {
+    /// 批量取工单产品摘要（id/product_id/planned_qty）——wms 待收货明细等只需产品+数量场景。
+    pub async fn find_product_brief_by_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        ids: &[i64],
+    ) -> Result<Vec<WoProductBrief>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        sqlx::query_as::<_, WoProductBrief>(
+            r#"
+            SELECT id, product_id, planned_qty
+            FROM work_orders
+            WHERE id = ANY($1) AND deleted_at IS NULL
+            "#,
+        )
+        .bind(ids)
+        .fetch_all(executor)
+        .await.map_err(Into::into)
+    }
+
     pub async fn insert(
         executor: &mut sqlx::postgres::PgConnection,
         doc_number: &str,

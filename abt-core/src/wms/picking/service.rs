@@ -137,6 +137,14 @@ pub trait PickingService: Send + Sync {
         requisition_ids: &[i64],
     ) -> Result<Vec<StockPickingItem>>;
 
+    /// 批量取多个作业单据明细（按 picking_ids），wms 待出库/待领料/待调拨主从表用。
+    async fn list_items_by_picking_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        picking_ids: &[i64],
+    ) -> Result<Vec<StockPickingItem>>;
+
     /// 查询批次已领料的工序 routing_id 集合（驱动批次矩阵动作位推进）
     async fn list_requisitioned_routing_ids(
         &self,

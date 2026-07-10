@@ -86,4 +86,12 @@ pub trait WorkOrderService: Send + Sync {
         unit_price: rust_decimal::Decimal,
     ) -> Result<()>;
 
+    /// 批量取工单产品摘要（id/product_id/planned_qty），wms 待收货明细渲染用。
+    async fn list_product_brief_by_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        ids: &[i64],
+    ) -> Result<Vec<WoProductBrief>>;
+
 }

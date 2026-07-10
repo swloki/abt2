@@ -108,6 +108,33 @@ impl CycleCountRepo {
             .collect::<Vec<_>>())
     }
 
+    /// 批量查多个盘点单的明细（避免 N+1）
+    pub async fn list_by_count_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        count_ids: &[i64],
+    ) -> Result<Vec<CycleCountItem>> {
+        if count_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query(
+            r#"
+            SELECT id, count_id, bin_id, product_id, batch_no, system_qty, counted_qty,
+                   variance_qty, variance_reason, is_adjusted
+            FROM cycle_count_items
+            WHERE count_id = ANY($1)
+            ORDER BY id
+            "#,
+        )
+        .bind(count_ids)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        Ok(rows
+            .iter()
+            .filter_map(|r| CycleCountItem::from_row(r).ok())
+            .collect::<Vec<_>>())
+    }
+
     /// 更新盘点单状态
     pub async fn update_status(
         executor: &mut sqlx::postgres::PgConnection,

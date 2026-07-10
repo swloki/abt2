@@ -134,6 +134,17 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .ok_or_else(|| DomainError::not_found("WorkOrder"))
     }
 
+    async fn list_product_brief_by_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        ids: &[i64],
+    ) -> Result<Vec<WoProductBrief>> {
+        WorkOrderRepo::find_product_brief_by_ids(&mut *db, ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn set_work_order_step_price(
         &self, ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64, step_no: i32, unit_price: rust_decimal::Decimal,

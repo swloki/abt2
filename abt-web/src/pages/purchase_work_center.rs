@@ -3926,7 +3926,7 @@ fn returns_table(
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "产品名称" }
                         th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "退货数" }
                         th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "单价" }
-                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "金额" }
+                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "小计" }
                         (sortable_th("金额", "amount", cur_sort, cur_dir, PcReturnsPath::PATH, "text-right font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
                         (sortable_th("退货日期", "date", cur_sort, cur_dir, PcReturnsPath::PATH, "text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft"))
                         th class="text-left font-semibold py-2 px-3 uppercase tracking-wide whitespace-nowrap border border-border-soft" { "原因" }

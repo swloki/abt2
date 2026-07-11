@@ -18,13 +18,14 @@ use std::time::Instant;
 
 use abt_core::master_data::customer::model::{Customer, CustomerQuery};
 use abt_core::master_data::customer::CustomerService;
-use abt_core::sales::quotation::model::{Quotation, QuotationQuery, QuotationStatus};
+use abt_core::master_data::product::ProductService;
+use abt_core::sales::quotation::model::{Quotation, QuotationItem, QuotationQuery, QuotationStatus};
 use abt_core::sales::quotation::QuotationService;
-use abt_core::sales::reconciliation::model::{Reconciliation, ReconciliationQuery, ReconciliationStatus};
+use abt_core::sales::reconciliation::model::{Reconciliation, ReconciliationItem, ReconciliationQuery, ReconciliationStatus};
 use abt_core::sales::reconciliation::ReconciliationService;
-use abt_core::sales::sales_order::model::{SalesOrder, SalesOrderQuery, SalesOrderStatus};
+use abt_core::sales::sales_order::model::{SalesOrder, SalesOrderItem, SalesOrderQuery, SalesOrderStatus};
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::sales::sales_return::model::{ReturnQuery, ReturnStatus, SalesReturn};
+use abt_core::sales::sales_return::model::{ReturnQuery, ReturnStatus, SalesReturn, SalesReturnItem};
 use abt_core::sales::sales_return::SalesReturnService;
 use abt_core::sales::work_center::{
     QuotationHubSummary, ReconciliationAggregate, SalesOrderHubSummary, SalesOrderSourceChain,
@@ -221,6 +222,17 @@ pub async fn get_quotations_card(
         .await?;
     let cust_ids: Vec<i64> = result.items.iter().map(|q| q.customer_id).collect();
     let names = customer_names(&state, &service_ctx, &mut conn, &cust_ids).await;
+    let mut quo_items: HashMap<i64, Vec<QuotationItem>> = HashMap::new();
+    let mut product_ids: Vec<i64> = Vec::new();
+    for q in &result.items {
+        if let Ok(items) = svc.list_items(&service_ctx, &mut conn, q.id).await {
+            for it in &items {
+                product_ids.push(it.product_id);
+            }
+            quo_items.insert(q.id, items);
+        }
+    }
+    let (codes, pnames) = product_codes_names(&state, &service_ctx, &mut conn, product_ids).await;
 
     Ok(Html(
         html! {
@@ -240,7 +252,7 @@ pub async fn get_quotations_card(
                     }
                 }
                 (filter_bar(ScQuotationsPath::PATH, "搜索报价号", p.status, per_page, &p, quotation_status_options()))
-                (quotation_table(&result.items, &names))
+                (quotation_table(&result.items, &names, &quo_items, &codes, &pnames))
                 (pagination(ScQuotationsPath::PATH, "#sc-card", "#sc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -280,6 +292,19 @@ pub async fn get_orders_card(
         .await?;
     let cust_ids: Vec<i64> = result.items.iter().map(|o| o.customer_id).collect();
     let names = customer_names(&state, &service_ctx, &mut conn, &cust_ids).await;
+    // 批量取明细（避免 N+1）+ 产品编码/名称，供主从表 rowspan 常驻明细（同采购 orders_table）
+    let order_ids: Vec<i64> = result.items.iter().map(|o| o.id).collect();
+    let mut order_items: HashMap<i64, Vec<SalesOrderItem>> = HashMap::new();
+    let mut product_ids: Vec<i64> = Vec::new();
+    for it in svc
+        .list_items_by_order_ids(&service_ctx, &mut conn, &order_ids)
+        .await
+        .unwrap_or_default()
+    {
+        product_ids.push(it.product_id);
+        order_items.entry(it.order_id).or_default().push(it);
+    }
+    let (codes, pnames) = product_codes_names(&state, &service_ctx, &mut conn, product_ids).await;
 
     Ok(Html(
         html! {
@@ -290,7 +315,7 @@ pub async fn get_orders_card(
                 hx-target="this" hx-select="#sc-card" hx-swap="outerHTML" {
                 (sc_tab_bar("orders", &summary))
                 (filter_bar(ScOrdersPath::PATH, "搜索订单号", p.status, per_page, &p, order_status_options()))
-                (orders_table(&result.items, &names))
+                (orders_table(&result.items, &names, &order_items, &codes, &pnames))
                 (pagination(ScOrdersPath::PATH, "#sc-card", "#sc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -330,6 +355,17 @@ pub async fn get_returns_card(
         .await?;
     let cust_ids: Vec<i64> = result.items.iter().map(|r| r.customer_id).collect();
     let names = customer_names(&state, &service_ctx, &mut conn, &cust_ids).await;
+    let mut return_items: HashMap<i64, Vec<SalesReturnItem>> = HashMap::new();
+    let mut product_ids: Vec<i64> = Vec::new();
+    for r in &result.items {
+        if let Ok(items) = svc.list_items(&service_ctx, &mut conn, r.id).await {
+            for it in &items {
+                product_ids.push(it.product_id);
+            }
+            return_items.insert(r.id, items);
+        }
+    }
+    let (codes, pnames) = product_codes_names(&state, &service_ctx, &mut conn, product_ids).await;
 
     Ok(Html(
         html! {
@@ -349,7 +385,7 @@ pub async fn get_returns_card(
                     }
                 }
                 (filter_bar(ScReturnsPath::PATH, "搜索退货号", p.status, per_page, &p, return_status_options()))
-                (returns_table(&result.items, &names))
+                (returns_table(&result.items, &names, &return_items, &codes, &pnames))
                 (pagination(ScReturnsPath::PATH, "#sc-card", "#sc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -389,6 +425,17 @@ pub async fn get_settlement_card(
         .await?;
     let cust_ids: Vec<i64> = result.items.iter().map(|r| r.customer_id).collect();
     let names = customer_names(&state, &service_ctx, &mut conn, &cust_ids).await;
+    let mut recon_items: HashMap<i64, Vec<ReconciliationItem>> = HashMap::new();
+    let mut product_ids: Vec<i64> = Vec::new();
+    for r in &result.items {
+        if let Ok(items) = svc.list_items(&service_ctx, &mut conn, r.id).await {
+            for it in &items {
+                product_ids.push(it.product_id);
+            }
+            recon_items.insert(r.id, items);
+        }
+    }
+    let (codes, pnames) = product_codes_names(&state, &service_ctx, &mut conn, product_ids).await;
 
     Ok(Html(
         html! {
@@ -407,7 +454,7 @@ pub async fn get_settlement_card(
                     }
                 }
                 (filter_bar(ScSettlementPath::PATH, "搜索对账单号", p.status, per_page, &p, recon_status_options()))
-                (settlement_table(&result.items, &names))
+                (settlement_table(&result.items, &names, &recon_items, &codes, &pnames))
                 (pagination(ScSettlementPath::PATH, "#sc-card", "#sc-filter-form", result.total, result.page, result.total_pages))
             }
         }
@@ -1433,8 +1480,6 @@ fn th(label: &str, cls_extra: &str) -> Markup {
     }
 }
 
-const ROW_ROTATE: &str = "[&.open_.row-chev]:rotate-90";
-
 /// 单号列：点击打开 detail drawer（hx-get 填充 body + afterRequest add .open）。
 fn doc_drawer_btn(doc_number: &str, drawer_path: &str, body_sel: &str, overlay_sel: &str) -> Markup {
     html! {
@@ -1450,37 +1495,57 @@ fn doc_drawer_btn(doc_number: &str, drawer_path: &str, body_sel: &str, overlay_s
     }
 }
 
-fn quotation_table(items: &[Quotation], names: &HashMap<i64, String>) -> Markup {
+fn quotation_table(
+    items: &[Quotation],
+    names: &HashMap<i64, String>,
+    quo_items: &HashMap<i64, Vec<QuotationItem>>,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+) -> Markup {
     html! {
         div class="overflow-x-auto mt-2" {
             table class="w-full text-sm border-collapse" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
-                        th class="w-10 py-2 px-2 border border-border-soft" {}
                         (th("报价号", "text-left"))
                         (th("客户", "text-left"))
+                        (th("产品编码", "text-left"))
+                        (th("产品名称", "text-left"))
+                        (th("数量", "text-right"))
+                        (th("单价", "text-right"))
+                        (th("折扣%", "text-right"))
+                        (th("小计", "text-right"))
                         (th("金额", "text-right"))
                         (th("状态", "text-left"))
                     }
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="5" class="text-center text-muted py-8 border border-border-soft" { "暂无报价单" } }
+                        tr { td colspan="10" class="text-center text-muted py-8 border border-border-soft" { "暂无报价单" } }
                     } @else {
-                        @for q in items {
-                            @let row_id = format!("sc-quo-{}", q.id);
-                            tr class=(ROW_ROTATE) {
-                                td class="text-center py-2 px-2 border border-border-soft" {
-                                    (row_expand::row_expand_toggle(&row_id, &ScQuotationRowDetailPath { id: q.id }.to_string()))
+                        @for (i, q) in items.iter().enumerate() {
+                            @let cells = quo_items.get(&q.id).cloned().unwrap_or_default();
+                            @let n = if cells.is_empty() { 1usize } else { cells.len() };
+                            @let row_bg = if i % 2 == 1 { "bg-surface-raised" } else { "" };
+                            tbody class="sc-row-group" {
+                                tr class=(row_bg) {
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" {
+                                        (doc_drawer_btn(&q.doc_number, &ScQuotationDetailDrawerPath { id: q.id }.to_string(), "#sc-quo-drawer-body", "#sc-quo-overlay"))
+                                    }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" {
+                                        (name_cell(names.get(&q.customer_id)))
+                                    }
+                                    @if let Some(first) = cells.first() {
+                                        (quotation_item_cell_tds(first, codes, pnames))
+                                    } @else {
+                                        td colspan="6" class="py-2.5 px-3 text-muted text-center border border-border-soft" { "—" }
+                                    }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 text-right font-mono border border-border-soft whitespace-nowrap align-middle" { (fmt_decimal(q.total_amount)) }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" { (quotation_status_pill(q.status)) }
                                 }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" {
-                                    (doc_drawer_btn(&q.doc_number, &ScQuotationDetailDrawerPath { id: q.id }.to_string(), "#sc-quo-drawer-body", "#sc-quo-overlay"))
+                                @for c in cells.iter().skip(1) {
+                                    tr class=(row_bg) { (quotation_item_cell_tds(c, codes, pnames)) }
                                 }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" {
-                                    (name_cell(names.get(&q.customer_id)))
-                                }
-                                td class="py-2.5 px-3 text-right font-mono border border-border-soft whitespace-nowrap" { (fmt_decimal(q.total_amount)) }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" { (quotation_status_pill(q.status)) }
                             }
                         }
                     }
@@ -1490,37 +1555,58 @@ fn quotation_table(items: &[Quotation], names: &HashMap<i64, String>) -> Markup 
     }
 }
 
-fn orders_table(items: &[SalesOrder], names: &HashMap<i64, String>) -> Markup {
+fn orders_table(
+    items: &[SalesOrder],
+    names: &HashMap<i64, String>,
+    order_items: &HashMap<i64, Vec<SalesOrderItem>>,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+) -> Markup {
     html! {
         div class="overflow-x-auto mt-2" {
             table class="w-full text-sm border-collapse" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
-                        th class="w-10 py-2 px-2 border border-border-soft" {}
                         (th("订单号", "text-left"))
                         (th("客户", "text-left"))
+                        (th("产品编码", "text-left"))
+                        (th("产品名称", "text-left"))
+                        (th("数量", "text-right"))
+                        (th("已发", "text-right"))
+                        (th("未交", "text-right"))
+                        (th("单价", "text-right"))
+                        (th("小计", "text-right"))
                         (th("金额", "text-right"))
                         (th("状态", "text-left"))
                     }
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="5" class="text-center text-muted py-8 border border-border-soft" { "暂无销售订单" } }
+                        tr { td colspan="11" class="text-center text-muted py-8 border border-border-soft" { "暂无销售订单" } }
                     } @else {
-                        @for o in items {
-                            @let row_id = format!("sc-order-{}", o.id);
-                            tr class=(ROW_ROTATE) {
-                                td class="text-center py-2 px-2 border border-border-soft" {
-                                    (row_expand::row_expand_toggle(&row_id, &ScOrderRowDetailPath { id: o.id }.to_string()))
+                        @for (i, o) in items.iter().enumerate() {
+                            @let cells = order_items.get(&o.id).cloned().unwrap_or_default();
+                            @let n = if cells.is_empty() { 1usize } else { cells.len() };
+                            @let row_bg = if i % 2 == 1 { "bg-surface-raised" } else { "" };
+                            tbody class="sc-row-group" {
+                                tr class=(row_bg) {
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" {
+                                        (doc_drawer_btn(&o.doc_number, &ScOrderDetailDrawerPath { id: o.id }.to_string(), "#sc-order-drawer-body", "#sc-order-overlay"))
+                                    }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" {
+                                        (name_cell(names.get(&o.customer_id)))
+                                    }
+                                    @if let Some(first) = cells.first() {
+                                        (order_item_cell_tds(first, codes, pnames))
+                                    } @else {
+                                        td colspan="7" class="py-2.5 px-3 text-muted text-center border border-border-soft" { "—" }
+                                    }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 text-right font-mono border border-border-soft whitespace-nowrap align-middle" { (fmt_decimal(o.total_amount)) }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" { (order_status_pill(o.status)) }
                                 }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" {
-                                    (doc_drawer_btn(&o.doc_number, &ScOrderDetailDrawerPath { id: o.id }.to_string(), "#sc-order-drawer-body", "#sc-order-overlay"))
+                                @for c in cells.iter().skip(1) {
+                                    tr class=(row_bg) { (order_item_cell_tds(c, codes, pnames)) }
                                 }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" {
-                                    (name_cell(names.get(&o.customer_id)))
-                                }
-                                td class="py-2.5 px-3 text-right font-mono border border-border-soft whitespace-nowrap" { (fmt_decimal(o.total_amount)) }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" { (order_status_pill(o.status)) }
                             }
                         }
                     }
@@ -1530,41 +1616,59 @@ fn orders_table(items: &[SalesOrder], names: &HashMap<i64, String>) -> Markup {
     }
 }
 
-fn returns_table(items: &[SalesReturn], names: &HashMap<i64, String>) -> Markup {
+fn returns_table(
+    items: &[SalesReturn],
+    names: &HashMap<i64, String>,
+    return_items: &HashMap<i64, Vec<SalesReturnItem>>,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+) -> Markup {
     html! {
         div class="overflow-x-auto mt-2" {
             table class="w-full text-sm border-collapse" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
-                        th class="w-10 py-2 px-2 border border-border-soft" {}
                         (th("退货号", "text-left"))
                         (th("客户", "text-left"))
                         (th("来源单", "text-left"))
+                        (th("产品编码", "text-left"))
+                        (th("产品名称", "text-left"))
+                        (th("退货量", "text-right"))
+                        (th("单价", "text-right"))
                         (th("金额", "text-right"))
                         (th("状态", "text-left"))
                     }
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="6" class="text-center text-muted py-8 border border-border-soft" { "暂无销售退货" } }
+                        tr { td colspan="9" class="text-center text-muted py-8 border border-border-soft" { "暂无销售退货" } }
                     } @else {
-                        @for r in items {
-                            @let row_id = format!("sc-return-{}", r.id);
-                            tr class=(ROW_ROTATE) {
-                                td class="text-center py-2 px-2 border border-border-soft" {
-                                    (row_expand::row_expand_toggle(&row_id, &ScReturnRowDetailPath { id: r.id }.to_string()))
+                        @for (i, r) in items.iter().enumerate() {
+                            @let cells = return_items.get(&r.id).cloned().unwrap_or_default();
+                            @let n = if cells.is_empty() { 1usize } else { cells.len() };
+                            @let row_bg = if i % 2 == 1 { "bg-surface-raised" } else { "" };
+                            tbody class="sc-row-group" {
+                                tr class=(row_bg) {
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" {
+                                        (doc_drawer_btn(&r.doc_number, &ScReturnDetailDrawerPath { id: r.id }.to_string(), "#sc-return-drawer-body", "#sc-return-overlay"))
+                                    }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" {
+                                        (name_cell(names.get(&r.customer_id)))
+                                    }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 font-mono text-muted border border-border-soft whitespace-nowrap align-middle" {
+                                        "#" (r.order_id)
+                                    }
+                                    @if let Some(first) = cells.first() {
+                                        (return_item_cell_tds(first, codes, pnames))
+                                    } @else {
+                                        td colspan="5" class="py-2.5 px-3 text-muted text-center border border-border-soft" { "—" }
+                                    }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 text-right font-mono border border-border-soft whitespace-nowrap align-middle" { (fmt_decimal(r.total_amount)) }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" { (return_status_pill(r.status)) }
                                 }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" {
-                                    (doc_drawer_btn(&r.doc_number, &ScReturnDetailDrawerPath { id: r.id }.to_string(), "#sc-return-drawer-body", "#sc-return-overlay"))
+                                @for c in cells.iter().skip(1) {
+                                    tr class=(row_bg) { (return_item_cell_tds(c, codes, pnames)) }
                                 }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" {
-                                    (name_cell(names.get(&r.customer_id)))
-                                }
-                                td class="py-2.5 px-3 font-mono text-muted border border-border-soft whitespace-nowrap" {
-                                    "#" (r.order_id)
-                                }
-                                td class="py-2.5 px-3 text-right font-mono border border-border-soft whitespace-nowrap" { (fmt_decimal(r.total_amount)) }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" { (return_status_pill(r.status)) }
                             }
                         }
                     }
@@ -1574,41 +1678,60 @@ fn returns_table(items: &[SalesReturn], names: &HashMap<i64, String>) -> Markup 
     }
 }
 
-fn settlement_table(items: &[Reconciliation], names: &HashMap<i64, String>) -> Markup {
+fn settlement_table(
+    items: &[Reconciliation],
+    names: &HashMap<i64, String>,
+    recon_items: &HashMap<i64, Vec<ReconciliationItem>>,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+) -> Markup {
     html! {
         div class="overflow-x-auto mt-2" {
             table class="w-full text-sm border-collapse" {
                 thead {
                     tr class="bg-surface-raised text-xs text-muted" {
-                        th class="w-10 py-2 px-2 border border-border-soft" {}
                         (th("对账单号", "text-left"))
                         (th("客户", "text-left"))
                         (th("期间", "text-left"))
+                        (th("产品编码", "text-left"))
+                        (th("产品名称", "text-left"))
+                        (th("数量", "text-right"))
+                        (th("单价", "text-right"))
                         (th("金额", "text-right"))
+                        (th("合计", "text-right"))
                         (th("已确认", "text-right"))
                         (th("状态", "text-left"))
                     }
                 }
                 tbody {
                     @if items.is_empty() {
-                        tr { td colspan="7" class="text-center text-muted py-8 border border-border-soft" { "暂无对账单" } }
+                        tr { td colspan="11" class="text-center text-muted py-8 border border-border-soft" { "暂无对账单" } }
                     } @else {
-                        @for r in items {
-                            @let row_id = format!("sc-recon-{}", r.id);
-                            tr class=(ROW_ROTATE) {
-                                td class="text-center py-2 px-2 border border-border-soft" {
-                                    (row_expand::row_expand_toggle(&row_id, &ScSettlementRowDetailPath { recon_type: "draft".into(), ref_id: r.id }.to_string()))
+                        @for (i, r) in items.iter().enumerate() {
+                            @let cells = recon_items.get(&r.id).cloned().unwrap_or_default();
+                            @let n = if cells.is_empty() { 1usize } else { cells.len() };
+                            @let row_bg = if i % 2 == 1 { "bg-surface-raised" } else { "" };
+                            tbody class="sc-row-group" {
+                                tr class=(row_bg) {
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" {
+                                        (doc_drawer_btn(&r.doc_number, &ScSettlementDetailDrawerPath { id: r.id }.to_string(), "#sc-recon-drawer-body", "#sc-recon-overlay"))
+                                    }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" {
+                                        (name_cell(names.get(&r.customer_id)))
+                                    }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 font-mono text-muted border border-border-soft whitespace-nowrap align-middle" { (r.period) }
+                                    @if let Some(first) = cells.first() {
+                                        (recon_item_cell_tds(first, codes, pnames))
+                                    } @else {
+                                        td colspan="5" class="py-2.5 px-3 text-muted text-center border border-border-soft" { "—" }
+                                    }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 text-right font-mono border border-border-soft whitespace-nowrap align-middle" { (fmt_decimal(r.total_amount)) }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 text-right font-mono border border-border-soft whitespace-nowrap align-middle" { (fmt_decimal(r.confirmed_amount)) }
+                                    td rowspan=(n.to_string()) class="py-2.5 px-3 border border-border-soft whitespace-nowrap align-middle" { (recon_status_pill(r.status)) }
                                 }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" {
-                                    (doc_drawer_btn(&r.doc_number, &ScSettlementDetailDrawerPath { id: r.id }.to_string(), "#sc-recon-drawer-body", "#sc-recon-overlay"))
+                                @for c in cells.iter().skip(1) {
+                                    tr class=(row_bg) { (recon_item_cell_tds(c, codes, pnames)) }
                                 }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" {
-                                    (name_cell(names.get(&r.customer_id)))
-                                }
-                                td class="py-2.5 px-3 font-mono text-muted border border-border-soft whitespace-nowrap" { (r.period) }
-                                td class="py-2.5 px-3 text-right font-mono border border-border-soft whitespace-nowrap" { (fmt_decimal(r.total_amount)) }
-                                td class="py-2.5 px-3 text-right font-mono border border-border-soft whitespace-nowrap" { (fmt_decimal(r.confirmed_amount)) }
-                                td class="py-2.5 px-3 border border-border-soft whitespace-nowrap" { (recon_status_pill(r.status)) }
                             }
                         }
                     }
@@ -1942,4 +2065,126 @@ fn recon_status_pill(s: ReconciliationStatus) -> Markup {
 
 fn fmt_decimal(d: Decimal) -> String {
     d.round_dp(2).to_string()
+}
+
+fn fmt_plain(d: Decimal) -> String {
+    d.to_string()
+}
+
+/// 批量取产品编码/名称 map（主从表明细列共用）。
+async fn product_codes_names(
+    state: &crate::state::AppState,
+    ctx: &abt_core::shared::types::context::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    product_ids: Vec<i64>,
+) -> (HashMap<i64, String>, HashMap<i64, String>) {
+    if product_ids.is_empty() {
+        return (HashMap::new(), HashMap::new());
+    }
+    let products = state
+        .product_service()
+        .get_by_ids(ctx, db, product_ids)
+        .await
+        .unwrap_or_default();
+    (
+        products
+            .iter()
+            .map(|p| (p.product_id, p.product_code.clone()))
+            .collect(),
+        products
+            .iter()
+            .map(|p| (p.product_id, p.pdt_name.clone()))
+            .collect(),
+    )
+}
+
+/// 销售订单明细单元格（编码/名称/数量/已发/未交/单价/小计）—— 主从表明细列，首行与后续行共用。
+fn order_item_cell_tds(
+    it: &SalesOrderItem,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+) -> Markup {
+    html! {
+        td class="py-2.5 px-3 text-sm font-mono text-accent whitespace-nowrap border border-border-soft" {
+            (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+        }
+        td class="py-2.5 px-3 text-sm text-fg whitespace-nowrap border border-border-soft" {
+            span class="inline-block max-w-[200px] align-middle truncate"
+                title=(pnames.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) {
+                (pnames.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+            }
+        }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono text-success whitespace-nowrap border border-border-soft" { (fmt_plain(it.shipped_qty)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono text-warn whitespace-nowrap border border-border-soft" { (fmt_plain(it.open_qty())) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity * it.unit_price)) }
+    }
+}
+
+/// 报价明细单元格（编码/名称/数量/单价/折扣/小计）—— 主从表明细列。
+fn quotation_item_cell_tds(
+    it: &QuotationItem,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+) -> Markup {
+    html! {
+        td class="py-2.5 px-3 text-sm font-mono text-accent whitespace-nowrap border border-border-soft" {
+            (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+        }
+        td class="py-2.5 px-3 text-sm text-fg whitespace-nowrap border border-border-soft" {
+            span class="inline-block max-w-[200px] align-middle truncate"
+                title=(pnames.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) {
+                (pnames.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+            }
+        }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.discount_rate)) "%" }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.amount)) }
+    }
+}
+
+/// 销售退货明细单元格（编码/名称/退货量/单价/金额）—— 主从表明细列。
+fn return_item_cell_tds(
+    it: &SalesReturnItem,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+) -> Markup {
+    html! {
+        td class="py-2.5 px-3 text-sm font-mono text-accent whitespace-nowrap border border-border-soft" {
+            (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+        }
+        td class="py-2.5 px-3 text-sm text-fg whitespace-nowrap border border-border-soft" {
+            span class="inline-block max-w-[200px] align-middle truncate"
+                title=(pnames.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) {
+                (pnames.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+            }
+        }
+        td class="py-2.5 px-3 text-sm text-right font-mono text-danger whitespace-nowrap border border-border-soft" { (fmt_plain(it.returned_qty)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.amount)) }
+    }
+}
+
+/// 对账明细单元格（编码/名称/数量/单价/金额）—— 主从表明细列。
+fn recon_item_cell_tds(
+    it: &ReconciliationItem,
+    codes: &HashMap<i64, String>,
+    pnames: &HashMap<i64, String>,
+) -> Markup {
+    html! {
+        td class="py-2.5 px-3 text-sm font-mono text-accent whitespace-nowrap border border-border-soft" {
+            (codes.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+        }
+        td class="py-2.5 px-3 text-sm text-fg whitespace-nowrap border border-border-soft" {
+            span class="inline-block max-w-[200px] align-middle truncate"
+                title=(pnames.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—")) {
+                (pnames.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+            }
+        }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.amount)) }
+    }
 }

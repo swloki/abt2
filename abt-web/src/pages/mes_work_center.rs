@@ -50,8 +50,6 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_demand_pool::{MesDemandPoolCreatePath, MesDemandRowsPath};
 use abt_core::master_data::bom::{new_bom_query_service, service::BomQueryService};
-use abt_core::master_data::routing::{new_routing_service, service::RoutingService};
-use crate::routes::routing::{RoutingDetailPath, RoutingListPath};
 use crate::routes::mes_work_center::*;
 use crate::utils::{empty_as_none, fmt_qty, RequestContext};
 use abt_macros::require_permission;
@@ -1806,9 +1804,6 @@ struct ReleaseDrawerData {
     bom_id: Option<i64>,
     bom_name: Option<String>,
     bom_code: Option<String>,
-    /// BOM 关联的工艺路线（id + 名称），用于展示 + 跳转
-    routing_id: Option<i64>,
-    routing_name: Option<String>,
 }
 
 /// 加载下达 drawer 全量数据（order / routings / 工作中心 / 产出品 / 物料齐套 / 倒冲模式）。
@@ -1865,7 +1860,7 @@ async fn load_release_drawer_data(
             abt_core::master_data::product::model::MaterialConsumptionMode::Picking => "领料",
         })
         .unwrap_or("倒冲");
-    // BOM + 工艺路线：drawer 展示 BOM 名称/编辑入口 + routing 跳转（工序来源）
+    // BOM：drawer 展示 BOM 名称/编码
     let product_code = products
         .iter()
         .find(|p| p.product_id == order.product_id)
@@ -1881,14 +1876,6 @@ async fn load_release_drawer_data(
     };
     let bom_name = bom.as_ref().map(|b| format!("{} v{}", b.bom_name, b.version));
     let bom_code = bom.as_ref().and_then(|b| b.product_code.clone());
-    let routing_detail = match &product_code {
-        Some(pc) => new_routing_service(state.pool.clone()).get_bom_routing(ctx, db, pc.clone()).await.unwrap_or(None),
-        None => None,
-    };
-    let (routing_id, routing_name) = match routing_detail {
-        Some(d) => (Some(d.routing.id), Some(d.routing.name)),
-        None => (None, None),
-    };
     Ok(ReleaseDrawerData {
         order,
         product_name,
@@ -1901,8 +1888,6 @@ async fn load_release_drawer_data(
         bom_id,
         bom_name,
         bom_code,
-        routing_id,
-        routing_name,
     })
 }
 
@@ -2079,8 +2064,6 @@ fn render_release_drawer_body(data: &ReleaseDrawerData, errors: Option<&ReleaseE
     let bom_id = data.bom_id;
     let bom_name = data.bom_name.as_deref();
     let bom_code = data.bom_code.as_deref();
-    let routing_id = data.routing_id;
-    let routing_name = data.routing_name.as_deref();
     html! {
         // 工单信息
         div class="mb-5 pb-4 border-b border-border-soft" {
@@ -2106,19 +2089,6 @@ fn render_release_drawer_body(data: &ReleaseDrawerData, errors: Option<&ReleaseE
                 div class="text-sm mt-1 flex items-center gap-1.5" {
                     span class="text-muted" { "BOM 编码：" }
                     span class="text-fg-2 font-mono" { (bom_code.unwrap_or("—")) }
-                }
-            }
-            // 工艺路线（关联状态 + 跳转；工序来源，未关联则引导去关联）
-            div class="text-sm mt-1 flex items-center gap-1.5 flex-wrap" {
-                span class="text-muted" { "工艺路线：" }
-                @match routing_id {
-                    Some(rid) => {
-                        a class="text-accent hover:underline" href=(RoutingDetailPath { id: rid }.to_string()) target="_blank" { (routing_name.unwrap_or("查看")) }
-                    }
-                    None => {
-                        span class="text-danger" { "未关联（工序无法生成）" }
-                        a class="text-accent hover:underline" href=(RoutingListPath::PATH) target="_blank" { "去关联" }
-                    }
                 }
             }
         }
@@ -2230,15 +2200,11 @@ fn render_release_routings(
     errors: Option<&ReleaseErrors>,
 ) -> Markup {
     if routings.is_empty() {
-        // BOM 未关联工艺路线：引导去工艺路线管理关联后重新创建工单
+        // BOM 尚未配置内联工序：提示去 BOM 配置后重新创建工单
         return html! {
             div class="text-xs text-fg-2 p-3 bg-warn-bg rounded-sm flex items-start gap-2" {
                 (icon::info_icon("w-4 h-4 shrink-0 mt-0.5 text-warn"))
-                span {
-                    "该产品的 BOM 未关联工艺路线，无法生成工序。请到 "
-                    a class="text-accent underline" href=(RoutingListPath::PATH) target="_blank" { "工艺路线管理" }
-                    " 关联工艺路线后重新创建工单。"
-                }
+                span { "该产品 BOM 尚未配置工序，请先在 BOM 中配置工序后再创建工单。" }
             }
         };
     }

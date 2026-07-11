@@ -1157,4 +1157,45 @@ window.rowExpandToggleAll = function (btn, scopeSelector) {
     }
 };
 
+// ── 通用图片上传控件（image_upload 组件）：上传后同步 attachments_json、删除图 ──
+window.imageUploadSync = function (root) {
+    if (!root) return;
+    const hidden = root.querySelector('.image-upload-json');
+    if (!hidden) return;
+    let items;
+    try { items = JSON.parse(hidden.value || '[]'); } catch (e) { items = []; }
+    root.querySelectorAll('.iu-item:not([data-linked])').forEach(function (d) {
+        items.push({
+            path: d.dataset.path,
+            name: d.dataset.name,
+            type: d.dataset.type,
+            size: parseInt(d.dataset.size, 10) || 0,
+        });
+        d.dataset.linked = '1';
+    });
+    hidden.value = JSON.stringify(items);
+};
+
+window.imageRemove = function (btn) {
+    const item = btn.closest('.iu-item');
+    const root = btn.closest('.image-upload');
+    if (!item || !root) return;
+    const path = item.dataset.path;
+    const hidden = root.querySelector('.image-upload-json');
+    htmx
+        .ajax('POST', '/admin/components/delete-image?path=' + encodeURIComponent(path), {
+            target: item,
+            swap: 'none',
+        })
+        .then(function () {
+            item.remove();
+            if (hidden) {
+                let items;
+                try { items = JSON.parse(hidden.value || '[]'); } catch (e) { items = []; }
+                items = items.filter(function (i) { return i.path !== path; });
+                hidden.value = JSON.stringify(items);
+            }
+        });
+};
+
 

@@ -1,4 +1,5 @@
 pub mod audit_log;
+pub mod attachment;
 pub mod cost_entry;
 pub mod document_link;
 pub mod document_sequence;

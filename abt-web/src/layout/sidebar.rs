@@ -103,6 +103,12 @@ fn modules() -> Vec<NavModule> {
             name: "销售管理",
             items: vec![
                 NavItem {
+                    name: "作业中心",
+                    path: "/admin/sales/work-center",
+                    icon: NavIcon::Grid,
+                    permission: Some(("SALES_ORDER", "read")),
+                },
+                NavItem {
                     name: "销售总览",
                     path: "/admin",
                     icon: NavIcon::Home,
@@ -113,30 +119,6 @@ fn modules() -> Vec<NavModule> {
                     path: "/admin/customers",
                     icon: NavIcon::Users,
                     permission: Some(("CUSTOMER", "read")),
-                },
-                NavItem {
-                    name: "报价单",
-                    path: "/admin/quotations",
-                    icon: NavIcon::File,
-                    permission: Some(("SALES_ORDER", "read")),
-                },
-                NavItem {
-                    name: "销售订单",
-                    path: "/admin/orders",
-                    icon: NavIcon::Package,
-                    permission: Some(("SALES_ORDER", "read")),
-                },
-                NavItem {
-                    name: "销售退货",
-                    path: "/admin/returns",
-                    icon: NavIcon::Return,
-                    permission: Some(("SHIPPING", "read")),
-                },
-                NavItem {
-                    name: "月对账单",
-                    path: "/admin/reconciliations",
-                    icon: NavIcon::Check,
-                    permission: Some(("SALES_ORDER", "read")),
                 },
             ],
         },

@@ -15,6 +15,7 @@ pub mod order;
 pub mod payment_request;
 pub mod purchase_dashboard;
 pub mod purchase_work_center;
+pub mod sales_work_center;
 pub mod purchase_order;
 pub mod purchase_quotation;
 pub mod purchase_reconciliation;
@@ -83,6 +84,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(shipping::router())
                 .merge(sales_return::router())
                 .merge(reconciliation::router())
+                .merge(sales_work_center::router())
                 // ── Master Data (MD) ──
                 .merge(md_dashboard::router())
                 .merge(product::router())

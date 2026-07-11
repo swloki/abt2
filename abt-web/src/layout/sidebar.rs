@@ -102,6 +102,12 @@ fn modules() -> Vec<NavModule> {
             name: "销售管理",
             items: vec![
                 NavItem {
+                    name: "作业中心",
+                    path: "/admin/sales/work-center",
+                    icon: NavIcon::Grid,
+                    permission: Some(("SALES_ORDER", "read")),
+                },
+                NavItem {
                     name: "销售总览",
                     path: "/admin",
                     icon: NavIcon::Home,

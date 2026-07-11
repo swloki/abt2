@@ -19,7 +19,9 @@ use std::time::Instant;
 use abt_core::master_data::customer::model::{Customer, CustomerQuery};
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
-use abt_core::sales::quotation::model::{Quotation, QuotationItem, QuotationQuery, QuotationStatus};
+use abt_core::sales::quotation::model::{
+    Quotation, QuotationItem, QuotationQuery, QuotationStatus,
+};
 use abt_core::sales::quotation::QuotationService;
 use abt_core::sales::reconciliation::model::{Reconciliation, ReconciliationItem, ReconciliationQuery, ReconciliationStatus};
 use abt_core::sales::reconciliation::ReconciliationService;
@@ -143,6 +145,7 @@ pub async fn get_work_center(
         // detail drawer overlay 壳集合（body 由单号 hx-get 填充）
         (render_sc_drawer_overlay("sc-quo-overlay", "sc-quo-drawer-body", "报价单详情", "w-[680px] max-w-[92vw]"))
         (render_sc_drawer_overlay("sc-quo-create-overlay", "sc-quo-create-drawer-body", "新建报价单", "w-[1000px] max-w-[94vw]"))
+        (render_sc_drawer_overlay("sc-order-create-overlay", "sc-order-create-drawer-body", "新建销售订单", "w-[1000px] max-w-[94vw]"))
         (render_sc_drawer_overlay("sc-order-overlay", "sc-order-drawer-body", "销售订单详情", "w-[760px] max-w-[92vw]"))
         (render_sc_drawer_overlay("sc-return-overlay", "sc-return-drawer-body", "销售退货详情", "w-[680px] max-w-[92vw]"))
         (render_sc_drawer_overlay("sc-return-create-overlay", "sc-return-create-drawer-body", "新建退货", "w-[1000px] max-w-[94vw]"))
@@ -242,7 +245,7 @@ pub async fn get_quotations_card(
                 hx-include="#sc-filter-form"
                 hx-target="this" hx-select="#sc-card" hx-swap="outerHTML" {
                 (sc_tab_bar("quotations", &summary))
-                div class="flex items-center px-5 py-2 border-b border-border-soft" {
+                (filter_bar(ScQuotationsPath::PATH, "搜索报价号", p.status, per_page, &p, quotation_status_options(), Some(html! {
                     button type="button" class=(BTN_PRIMARY)
                         hx-get=(crate::routes::quotation::QuotationCreatePath::PATH)
                         hx-target="#sc-quo-create-drawer-body" hx-swap="innerHTML"
@@ -250,8 +253,7 @@ pub async fn get_quotations_card(
                         _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #sc-quo-create-overlay" {
                         (icon::plus_icon("w-3.5 h-3.5")) "新建报价"
                     }
-                }
-                (filter_bar(ScQuotationsPath::PATH, "搜索报价号", p.status, per_page, &p, quotation_status_options()))
+                })))
                 (quotation_table(&result.items, &names, &quo_items, &codes, &pnames))
                 (pagination(ScQuotationsPath::PATH, "#sc-card", "#sc-filter-form", result.total, result.page, result.total_pages))
             }
@@ -314,7 +316,15 @@ pub async fn get_orders_card(
                 hx-include="#sc-filter-form"
                 hx-target="this" hx-select="#sc-card" hx-swap="outerHTML" {
                 (sc_tab_bar("orders", &summary))
-                (filter_bar(ScOrdersPath::PATH, "搜索订单号", p.status, per_page, &p, order_status_options()))
+                (filter_bar(ScOrdersPath::PATH, "搜索订单号", p.status, per_page, &p, order_status_options(), Some(html! {
+                    button type="button" class=(BTN_PRIMARY)
+                        hx-get=(crate::routes::order::OrderCreatePath::PATH)
+                        hx-target="#sc-order-create-drawer-body" hx-swap="innerHTML"
+                        hx-select="#order-app"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #sc-order-create-overlay" {
+                        (icon::plus_icon("w-3.5 h-3.5")) "新建订单"
+                    }
+                })))
                 (orders_table(&result.items, &names, &order_items, &codes, &pnames))
                 (pagination(ScOrdersPath::PATH, "#sc-card", "#sc-filter-form", result.total, result.page, result.total_pages))
             }
@@ -375,7 +385,7 @@ pub async fn get_returns_card(
                 hx-include="#sc-filter-form"
                 hx-target="this" hx-select="#sc-card" hx-swap="outerHTML" {
                 (sc_tab_bar("returns", &summary))
-                div class="flex items-center px-5 py-2 border-b border-border-soft" {
+                (filter_bar(ScReturnsPath::PATH, "搜索退货号", p.status, per_page, &p, return_status_options(), Some(html! {
                     button type="button" class=(BTN_PRIMARY)
                         hx-get=(crate::routes::sales_return::ReturnCreatePath::PATH)
                         hx-target="#sc-return-create-drawer-body" hx-swap="innerHTML"
@@ -383,8 +393,7 @@ pub async fn get_returns_card(
                         _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #sc-return-create-overlay" {
                         (icon::plus_icon("w-3.5 h-3.5")) "新建退货"
                     }
-                }
-                (filter_bar(ScReturnsPath::PATH, "搜索退货号", p.status, per_page, &p, return_status_options()))
+                })))
                 (returns_table(&result.items, &names, &return_items, &codes, &pnames))
                 (pagination(ScReturnsPath::PATH, "#sc-card", "#sc-filter-form", result.total, result.page, result.total_pages))
             }
@@ -445,15 +454,14 @@ pub async fn get_settlement_card(
                 hx-include="#sc-filter-form"
                 hx-target="this" hx-select="#sc-card" hx-swap="outerHTML" {
                 (sc_tab_bar("settlement", &summary))
-                div class="flex items-center px-5 py-2 border-b border-border-soft" {
+                (filter_bar(ScSettlementPath::PATH, "搜索对账单号", p.status, per_page, &p, recon_status_options(), Some(html! {
                     button type="button" class=(BTN_PRIMARY)
                         hx-get=(ScReconCreateDrawerPath::PATH)
                         hx-target="#sc-recon-create-drawer-body" hx-swap="innerHTML"
                         _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #sc-recon-create-overlay" {
                         (icon::plus_icon("w-3.5 h-3.5")) "新建对账单"
                     }
-                }
-                (filter_bar(ScSettlementPath::PATH, "搜索对账单号", p.status, per_page, &p, recon_status_options()))
+                })))
                 (settlement_table(&result.items, &names, &recon_items, &codes, &pnames))
                 (pagination(ScSettlementPath::PATH, "#sc-card", "#sc-filter-form", result.total, result.page, result.total_pages))
             }
@@ -481,10 +489,15 @@ pub async fn get_quotation_row_detail(
         .sales_work_center_service()
         .get_quotation_hub_summary(&service_ctx, &mut conn, id)
         .await?;
+    let items = state
+        .quotation_service()
+        .list_items(&service_ctx, &mut conn, id)
+        .await
+        .unwrap_or_default();
     let row_id = format!("sc-quo-{}", id);
     Ok(Html(
         html! {
-            (row_expand::row_expand_detail(&row_id, 5, quotation_detail_grid(&hub)))
+            (row_expand::row_expand_detail(&row_id, 5, quotation_detail_grid(&hub, &items)))
         }
         .into_string(),
     ))
@@ -505,10 +518,15 @@ pub async fn get_order_row_detail(
         .sales_work_center_service()
         .get_order_hub_summary(&service_ctx, &mut conn, id)
         .await?;
+    let items = state
+        .sales_order_service()
+        .list_items(&service_ctx, &mut conn, id)
+        .await
+        .unwrap_or_default();
     let row_id = format!("sc-order-{}", id);
     Ok(Html(
         html! {
-            (row_expand::row_expand_detail(&row_id, 5, order_detail_grid(&hub)))
+            (row_expand::row_expand_detail(&row_id, 5, order_detail_grid(&hub, &items)))
         }
         .into_string(),
     ))
@@ -582,11 +600,17 @@ pub async fn get_quotation_detail_drawer(
         .sales_work_center_service()
         .get_quotation_hub_summary(&service_ctx, &mut conn, id)
         .await?;
+    let items = state
+        .quotation_service()
+        .list_items(&service_ctx, &mut conn, id)
+        .await
+        .unwrap_or_default();
     Ok(Html(
         html! {
             div class="space-y-4" {
-                (quotation_detail_grid(&hub))
+                (quotation_detail_grid(&hub, &items))
                 (quotation_drawer_actions(&hub.quotation))
+                (crate::components::image_upload::attachment_section("quotation", id))
             }
         }
         .into_string(),
@@ -608,11 +632,17 @@ pub async fn get_order_detail_drawer(
         .sales_work_center_service()
         .get_order_hub_summary(&service_ctx, &mut conn, id)
         .await?;
+    let items = state
+        .sales_order_service()
+        .list_items(&service_ctx, &mut conn, id)
+        .await
+        .unwrap_or_default();
     Ok(Html(
         html! {
             div class="space-y-4" {
-                (order_detail_grid(&hub))
+                (order_detail_grid(&hub, &items))
                 (order_drawer_actions(&hub.order))
+                (crate::components::image_upload::attachment_section("sales_order", id))
             }
         }
         .into_string(),
@@ -1386,6 +1416,7 @@ fn filter_bar(
     per_page: u32,
     p: &CardParams,
     status_opts: Vec<(i16, &'static str)>,
+    new_btn: Option<Markup>,
 ) -> Markup {
     let kw = p.keyword.as_deref().unwrap_or("");
     html! {
@@ -1407,6 +1438,10 @@ fn filter_bar(
                     value=(kw);
             }
             (per_page_select(per_page))
+            @if let Some(btn) = new_btn {
+                span class="flex-1" {}
+                (btn)
+            }
         }
         form id="sc-filter-form" class="hidden" {
             input type="hidden" name="keyword" value=(kw);
@@ -1743,7 +1778,7 @@ fn settlement_table(
 
 fn name_cell(name: Option<&String>) -> Markup {
     html! {
-        span class="inline-block max-w-[180px] truncate align-middle"
+        span class="inline-block whitespace-nowrap align-middle"
             title=(name.map(|s| s.as_str()).unwrap_or("—")) {
             (name.map(|s| s.as_str()).unwrap_or("—"))
         }
@@ -1761,20 +1796,69 @@ fn kv(label: &str, value: Markup, value_cls: &str) -> Markup {
     }
 }
 
-fn quotation_detail_grid(hub: &QuotationHubSummary) -> Markup {
+fn quo_status_badge(s: QuotationStatus) -> Markup {
+    let (label, cls) = match s {
+        QuotationStatus::Draft => ("草稿", "bg-surface text-muted"),
+        QuotationStatus::Sent => ("已发送", "bg-accent-bg text-accent"),
+        QuotationStatus::Accepted => ("已接受", "bg-success-bg text-success"),
+        QuotationStatus::Rejected => ("已拒绝", "bg-danger-bg text-danger"),
+        QuotationStatus::Expired => ("已失效", "bg-surface text-muted"),
+    };
     html! {
-        div class="grid grid-cols-3 gap-6 text-sm" {
-            (kv("客户", html! { (hub.customer_name) }, "text-fg"))
-            (kv("报价金额", html! { (fmt_decimal(hub.total_amount)) }, "text-fg"))
-            (kv("明细行数", html! { (hub.item_count) " 行" }, "text-fg"))
-            div class="col-span-3" {
-                @if hub.can_convert_to_so {
-                    span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-success-bg text-success text-[11px] font-semibold" {
-                        (icon::check_circle_icon("w-3 h-3")) "已接受，可转销售订单"
-                    }
-                } @else {
-                    span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface text-muted text-[11px] font-semibold" {
-                        (icon::info_icon("w-3 h-3")) "当前状态不可转单"
+        span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold {cls}")) {
+            (label)
+        }
+    }
+}
+
+fn quotation_detail_grid(hub: &QuotationHubSummary, items: &[QuotationItem]) -> Markup {
+    let q = &hub.quotation;
+    html! {
+        div class="space-y-4" {
+            // 头部：单号 + 状态
+            div class="flex items-center justify-between gap-2" {
+                span class="text-base font-bold text-fg font-mono" { (q.doc_number.as_str()) }
+                (quo_status_badge(q.status))
+            }
+            // 基础信息
+            div class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm" {
+                (kv("客户", html! { (hub.customer_name.as_str()) }, "text-fg"))
+                (kv("报价金额", html! { (fmt_decimal(hub.total_amount)) }, "text-fg"))
+                (kv("报价日期", html! { (q.quotation_date) }, "text-fg"))
+                (kv("有效期至", html! { (q.valid_until) }, "text-fg"))
+                (kv("付款条款", html! { (q.payment_terms.as_str()) }, "text-fg-2"))
+                (kv("交货条款", html! { (q.delivery_terms.as_str()) }, "text-fg-2"))
+            }
+            @if hub.can_convert_to_so {
+                div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-success-bg text-success text-[11px] font-semibold" {
+                    (icon::check_circle_icon("w-3 h-3")) "已接受，可转销售订单"
+                }
+            }
+            // 备注
+            @if !q.remark.is_empty() {
+                div class="text-sm" {
+                    div class="text-xs text-muted mb-1 font-semibold" { "备注" }
+                    div class="text-fg-2 whitespace-pre-wrap leading-relaxed" { (q.remark.as_str()) }
+                }
+            }
+            // 明细表
+            div class="overflow-x-auto" {
+                table class="data-table w-full" {
+                    thead { tr {
+                        th class="text-left" { "产品" }
+                        th class="text-right" { "数量" }
+                        th class="text-right" { "单价" }
+                        th class="text-right" { "金额" }
+                    } }
+                    tbody {
+                        @for it in items {
+                            tr {
+                                td { (it.description.as_str()) }
+                                td class="text-right font-mono whitespace-nowrap" { (fmt_plain(it.quantity)) " " (it.unit.as_str()) }
+                                td class="text-right font-mono whitespace-nowrap" { (fmt_decimal(it.unit_price)) }
+                                td class="text-right font-mono whitespace-nowrap" { (fmt_decimal(it.amount)) }
+                            }
+                        }
                     }
                 }
             }
@@ -1782,22 +1866,86 @@ fn quotation_detail_grid(hub: &QuotationHubSummary) -> Markup {
     }
 }
 
-fn order_detail_grid(hub: &SalesOrderHubSummary) -> Markup {
+fn so_status_badge(s: SalesOrderStatus) -> Markup {
+    let (label, cls) = match s {
+        SalesOrderStatus::Draft => ("草稿", "bg-surface text-muted"),
+        SalesOrderStatus::Confirmed => ("已确认", "bg-accent-bg text-accent"),
+        SalesOrderStatus::ReadyToShip => ("可发货", "bg-success-bg text-success"),
+        SalesOrderStatus::PartiallyShipped => ("部分发货", "bg-warn-bg text-warn"),
+        SalesOrderStatus::Shipped => ("已发货", "bg-success-bg text-success"),
+        SalesOrderStatus::ShippingRequested => ("待拣货", "bg-accent-bg text-accent"),
+        SalesOrderStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
+    };
     html! {
-        div class="text-sm" {
-            div class="grid grid-cols-4 gap-6 mb-3" {
-                (kv("客户", html! { (hub.customer_name) }, "text-fg"))
+        span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold {cls}")) {
+            (label)
+        }
+    }
+}
+
+fn order_detail_grid(hub: &SalesOrderHubSummary, items: &[SalesOrderItem]) -> Markup {
+    let o = &hub.order;
+    html! {
+        div class="space-y-4" {
+            // 头部：单号 + 状态
+            div class="flex items-center justify-between gap-2" {
+                span class="text-base font-bold text-fg font-mono" { (o.doc_number.as_str()) }
+                (so_status_badge(o.status))
+            }
+            // 基础信息
+            div class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm" {
+                (kv("客户", html! { (hub.customer_name.as_str()) }, "text-fg"))
+                (kv("订单金额", html! { (fmt_decimal(o.total_amount)) }, "text-fg"))
+                (kv("订单日期", html! { (o.order_date) }, "text-fg"))
+                (kv("来源报价", source_chain_cell(&hub.source_chain), "text-fg"))
+                (kv("付款条款", html! { (o.payment_terms.as_str()) }, "text-fg-2"))
+                (kv("交货条款", html! { (o.delivery_terms.as_str()) }, "text-fg-2"))
+            }
+            // 应收台账
+            div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm" {
                 (kv("已立应收", html! { (fmt_decimal(hub.ar_summary.ar_amount)) }, "text-fg"))
                 (kv("未清应收", html! { (fmt_decimal(hub.ar_summary.outstanding)) }, "text-warn"))
-                (kv("来源报价", source_chain_cell(&hub.source_chain), "text-fg"))
             }
+            // 发货进度
             div class="text-xs text-muted mb-1 font-semibold uppercase tracking-wide" { "发货进度" }
-            div class="flex items-center gap-4 font-mono" {
+            div class="flex items-center gap-4 font-mono text-sm" {
                 span { "订购 " (fmt_decimal(hub.progress.ordered_qty)) }
                 span class="text-success" { "已发 " (fmt_decimal(hub.progress.shipped_qty)) }
                 span class="text-warn" { "未交 " (fmt_decimal(hub.progress.open_qty)) }
                 span class="text-danger" { "已退 " (fmt_decimal(hub.progress.returned_qty)) }
                 span class="text-muted" { "(" (hub.progress.item_count) " 行 · " (fmt_decimal(hub.progress.shipped_pct)) "%)" }
+            }
+            // 备注
+            @if !o.remark.is_empty() {
+                div class="text-sm" {
+                    div class="text-xs text-muted mb-1 font-semibold" { "备注" }
+                    div class="text-fg-2 whitespace-pre-wrap leading-relaxed" { (o.remark.as_str()) }
+                }
+            }
+            // 明细表
+            div class="overflow-x-auto" {
+                table class="data-table w-full" {
+                    thead { tr {
+                        th class="text-left" { "产品" }
+                        th class="text-right" { "数量" }
+                        th class="text-right" { "已发" }
+                        th class="text-right" { "未交" }
+                        th class="text-right" { "单价" }
+                        th class="text-right" { "金额" }
+                    } }
+                    tbody {
+                        @for it in items {
+                            tr {
+                                td { (it.description.as_str()) }
+                                td class="text-right font-mono whitespace-nowrap" { (fmt_plain(it.quantity)) " " (it.unit.as_str()) }
+                                td class="text-right font-mono whitespace-nowrap" { (fmt_plain(it.shipped_qty)) }
+                                td class="text-right font-mono whitespace-nowrap" { (fmt_plain(it.open_qty())) }
+                                td class="text-right font-mono whitespace-nowrap" { (fmt_decimal(it.unit_price)) }
+                                td class="text-right font-mono whitespace-nowrap" { (fmt_decimal(it.amount)) }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -2067,8 +2215,9 @@ fn fmt_decimal(d: Decimal) -> String {
     d.round_dp(2).to_string()
 }
 
+/// 数量类格式化：normalize 去尾零（100.000000 → 100，1.500000 → 1.5）。
 fn fmt_plain(d: Decimal) -> String {
-    d.to_string()
+    d.normalize().to_string()
 }
 
 /// 批量取产品编码/名称 map（主从表明细列共用）。
@@ -2117,8 +2266,8 @@ fn order_item_cell_tds(
         td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity)) }
         td class="py-2.5 px-3 text-sm text-right font-mono text-success whitespace-nowrap border border-border-soft" { (fmt_plain(it.shipped_qty)) }
         td class="py-2.5 px-3 text-sm text-right font-mono text-warn whitespace-nowrap border border-border-soft" { (fmt_plain(it.open_qty())) }
-        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) }
-        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity * it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_decimal(it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_decimal(it.quantity * it.unit_price)) }
     }
 }
 
@@ -2139,9 +2288,9 @@ fn quotation_item_cell_tds(
             }
         }
         td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity)) }
-        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_decimal(it.unit_price)) }
         td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.discount_rate)) "%" }
-        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.amount)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_decimal(it.amount)) }
     }
 }
 
@@ -2162,8 +2311,8 @@ fn return_item_cell_tds(
             }
         }
         td class="py-2.5 px-3 text-sm text-right font-mono text-danger whitespace-nowrap border border-border-soft" { (fmt_plain(it.returned_qty)) }
-        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) }
-        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.amount)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_decimal(it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_decimal(it.amount)) }
     }
 }
 
@@ -2184,7 +2333,8 @@ fn recon_item_cell_tds(
             }
         }
         td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.quantity)) }
-        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.unit_price)) }
-        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_plain(it.amount)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_decimal(it.unit_price)) }
+        td class="py-2.5 px-3 text-sm text-right font-mono whitespace-nowrap border border-border-soft" { (fmt_decimal(it.amount)) }
     }
 }
+

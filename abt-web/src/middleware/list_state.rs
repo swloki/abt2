@@ -14,6 +14,7 @@ const LIST_URLS_KEY: &str = "list_urls";
 fn should_skip(path: &str) -> bool {
     path.starts_with("/static")
         || path.starts_with("/favicon")
+        || path.starts_with("/uploads")
         || path == "/login"
         || path == "/logout"
 }

@@ -45,6 +45,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }
 rust_decimal = { workspace = true }
+uuid = { version = "1", features = ["v4"] }
 thiserror = "2"
 dashmap = "6"
 rust_xlsxwriter = { workspace = true }

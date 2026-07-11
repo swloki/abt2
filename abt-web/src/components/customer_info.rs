@@ -21,11 +21,11 @@ pub fn customer_info_panel(
 
  html! {
     div id="customer-info-card"
-        class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+        class="bg-bg border border-border-soft rounded-lg p-4 mb-4 shadow-[var(--shadow-card)] overflow-hidden"
     {
-        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3 pb-1.5 border-b border-border-soft"
         { (crate::components::icon::users_icon("w-[18px] h-[18px]")) "客户信息" }
-        div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+        div class="grid grid-cols-2 gap-3 gap-x-6" {
             div class="form-field span-2" {
                 label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                     "客户名称"

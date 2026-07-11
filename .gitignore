@@ -42,3 +42,6 @@ e2e/blob-report/
 
 # Playwright MCP 产物（agent-browser / MCP 截图与控制台快照）
 .playwright-mcp/
+
+# 用户上传附件（报价单图片等，运行时生成）
+static/uploads/

@@ -17,7 +17,7 @@ pub async fn auth_middleware(
 ) -> Response {
     // Skip auth for public static assets
     let path = request.uri().path();
-    if path.starts_with("/static") || path.starts_with("/favicon") {
+    if path.starts_with("/static") || path.starts_with("/favicon") || path.starts_with("/uploads") {
         return next.run(request).await;
     }
 

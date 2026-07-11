@@ -2713,9 +2713,14 @@ fn render_batch_drawer_body(
                         button class="px-3 py-1.5 rounded-sm bg-success text-white border-none text-xs font-medium cursor-pointer hover:opacity-90"
                             hx-get=(WcBatchReceiptModalPath { batch_id: batch.id }.to_string())
                             hx-target="#batch-receipt-modal-slot" hx-swap="innerHTML"
-                            _="on click halt the event" { "入库" }
-                    } @else if !can_suspend && !can_resume && !can_scrap && !can_receipt {
-                        // Pending / Completed / Cancelled — 无可用操作时不显示
+                            _="on click halt the event" { "完工入库" }
+                    } @else if matches!(batch.status, BatchStatus::Pending) {
+                        // 待开工：工具栏不空白，引导到下方工序区第①道「开工」（issue #260）
+                        span class="text-xs text-muted" { "👇 请到下方工序区第①道「开工」" }
+                    } @else if matches!(batch.status, BatchStatus::Completed) {
+                        span class="text-xs text-success font-medium" { "✓ 已完工" }
+                    } @else if matches!(batch.status, BatchStatus::Cancelled) {
+                        span class="text-xs text-muted" { "已取消" }
                     }
                 }
             }
@@ -2728,7 +2733,7 @@ fn render_batch_drawer_body(
                     tr class="bg-surface-raised text-xs text-muted" {
                         th class="text-left font-semibold py-2 px-3" { "工序" }
                         th class="text-left font-semibold py-2 px-3" { "①齐套分析" }
-                        th class="text-left font-semibold py-2 px-3" { "②动作（领料 / 收料 / 报工）" }
+                        th class="text-left font-semibold py-2 px-3" { "②动作（领料 / 开工 / 报工）" }
                     }
                 }
                 tbody {
@@ -2818,11 +2823,11 @@ fn render_batch_matrix_row(
                     span class="text-success font-medium" { "✅ 已完成" }
                 } @else if is_current && is_pending {
                     @if ready {
-                        // 已领料（或无产出工序）+ Pending → 收料（=开工），成功后刷新 drawer body
+                        // 已领料（或无产出工序）+ Pending → 开工（start_batch：Pending→InProgress）
                         form hx-post=(WcBatchReceivePath { batch_id: batch.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
                             button type="submit"
                                 class="text-xs px-2 py-1 rounded-sm bg-accent text-accent-on border-none cursor-pointer hover:opacity-90 transition-all font-medium"
-                                hx-confirm="确认收料开工？" { "收料" }
+                                hx-confirm="确认开工？" { "▶ 开工" }
                         }
                     } @else if has_output && kitted {
                         // 有产出 + 未领料 + 齐套 → 领料，成功后刷新 drawer body（动作位变收料）
@@ -3127,7 +3132,7 @@ pub async fn batch_receive(
     // 刷新 drawer body（动作位变报工）+ 批次状态变更刷新卡片 + 成功 toast
     crate::toast::add_toast(
         service_ctx.operator_id,
-        "已收料，批次开工",
+        "批次已开工",
         crate::toast::ToastType::Success,
     );
     let mut conn = state.pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;

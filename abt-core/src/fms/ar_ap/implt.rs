@@ -272,21 +272,19 @@ impl ArApService for ArApServiceImpl {
             .ok_or_else(|| DomainError::not_found("ArApSettlement"))?;
 
         // Reverse amount_applied
-        if let Some(pid) = settlement.payment_ledger_id {
-            if let Some(payment_ledger) = ArApLedgerRepo::get_by_id(db, pid).await? {
+        if let Some(pid) = settlement.payment_ledger_id
+            && let Some(payment_ledger) = ArApLedgerRepo::get_by_id(db, pid).await? {
                 let new_applied = payment_ledger.amount_applied - settlement.amount;
                 ArApLedgerRepo::update_amount_applied(db, pid, new_applied.max(Decimal::ZERO))
                     .await?;
             }
-        }
 
-        if let Some(iid) = settlement.invoice_ledger_id {
-            if let Some(invoice_ledger) = ArApLedgerRepo::get_by_id(db, iid).await? {
+        if let Some(iid) = settlement.invoice_ledger_id
+            && let Some(invoice_ledger) = ArApLedgerRepo::get_by_id(db, iid).await? {
                 let new_applied = invoice_ledger.amount_applied - settlement.amount;
                 ArApLedgerRepo::update_amount_applied(db, iid, new_applied.max(Decimal::ZERO))
                     .await?;
             }
-        }
 
         // Delete settlement record
         ArApSettlementRepo::delete(db, settlement_id).await?;

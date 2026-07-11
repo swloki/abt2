@@ -97,8 +97,6 @@ let content = pq_create_page(&suppliers.items, PQCreatePath::PATH, "", true, Non
  Ok(Html(page_html.into_string()))
 }
 
-/// HTMX: search products → return HTML fragment
-
 /// HTMX: return a single item row fragment for a given product_id
 #[require_permission("PURCHASE_QUOTATION", "create")]
 pub async fn get_pq_item_row(
@@ -244,18 +242,16 @@ pub async fn do_create_pq(
             errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 单价不能为负"));
         }
         let lead_time_days: Option<i32> = item.lead_time_days.and_then(|s| s.parse().ok());
-        if let Some(d) = lead_time_days {
-            if d < 0 {
+        if let Some(d) = lead_time_days
+            && d < 0 {
                 errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 交货天数不能为负"));
             }
-        }
         let min_order_qty: Option<rust_decimal::Decimal> =
             item.min_order_qty.and_then(|s| s.parse().ok());
-        if let Some(q) = min_order_qty {
-            if q < rust_decimal::Decimal::ZERO {
+        if let Some(q) = min_order_qty
+            && q < rust_decimal::Decimal::ZERO {
                 errors.entry("__all__").or_insert_with(|| format!("第{line_no}行: 起订量不能为负"));
             }
-        }
         items.push(CreateQuotationItemRequest {
             product_id: item.product_id.parse().unwrap_or(0),
             line_no,
@@ -330,15 +326,13 @@ pub async fn create_pq(
             // 重新查询产品以恢复用户已添加的行（产品明细不丢）
             let mut preview_rows: Vec<(abt_core::master_data::product::model::Product, rust_decimal::Decimal, Option<i32>)> = Vec::new();
             for item in &saved_items {
-                if let Ok(pid) = item.product_id.parse::<i64>() {
-                    if pid > 0 {
-                        if let Ok(product) = state.product_service().get(&service_ctx, &mut conn, pid).await {
+                if let Ok(pid) = item.product_id.parse::<i64>()
+                    && pid > 0
+                        && let Ok(product) = state.product_service().get(&service_ctx, &mut conn, pid).await {
                             let price: rust_decimal::Decimal = item.unit_price.parse().unwrap_or(rust_decimal::Decimal::ZERO);
                             let ldt: Option<i32> = item.lead_time_days.as_deref().and_then(|s| s.parse().ok());
                             preview_rows.push((product, price, ldt));
                         }
-                    }
-                }
             }
             let suppliers = state
                 .supplier_service()
@@ -497,7 +491,7 @@ pub fn pq_create_page(
                         }
                         tbody id="pq-item-tbody"
                             _="on input call pqRefresh()\non 'htmx:afterSettle' call pqRefresh()" {
-                            @for (product, price, ldt) in preview_rows {
+                            @for (product, _price, ldt) in preview_rows {
                                 (item_row_fragment(product, None, *ldt))
                             }
                         }

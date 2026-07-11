@@ -151,6 +151,7 @@ impl WorkCenterRepo {
         Ok(rows)
     }
 
+    #[allow(unused_assignments)] // 动态 SET 占位符计数器：末位递增保留给后续字段扩展
     pub async fn update(
         &self,
         executor: PgExecutor<'_>,

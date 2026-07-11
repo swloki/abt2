@@ -105,10 +105,9 @@ pub async fn get_order_detail(
  let stock_svc = state.stock_ledger_service();
  let mut atp_map: HashMap<i64, Decimal> = HashMap::new();
  for pl in &plan_lines {
- if !atp_map.contains_key(&pl.product_id) {
- if let Ok(atp) = stock_svc.query_available(&service_ctx, &mut conn, pl.product_id, None).await {
+ if !atp_map.contains_key(&pl.product_id)
+ && let Ok(atp) = stock_svc.query_available(&service_ctx, &mut conn, pl.product_id, None).await {
  atp_map.insert(pl.product_id, atp);
- }
  }
  }
 

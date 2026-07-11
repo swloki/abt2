@@ -81,7 +81,7 @@ impl LedgerDetailExporter {
                 7,
                 r.line_amount.to_f64().context("Decimal 转 f64 失败")?,
             )?;
-            worksheet.write_string(row_num, 8, &r.transaction_date.format("%Y-%m-%d").to_string())?;
+            worksheet.write_string(row_num, 8, r.transaction_date.format("%Y-%m-%d").to_string())?;
         }
 
         Ok(workbook.save_to_buffer()?)

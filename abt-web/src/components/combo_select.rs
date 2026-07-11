@@ -31,7 +31,7 @@ pub fn combo_select(
     search_placeholder: &str,
     hx: Option<&ComboHx>,
 ) -> Markup {
-    let has_sel = selected_value.map_or(false, |v| options.iter().any(|o| o.value == v));
+    let has_sel = selected_value.is_some_and(|v| options.iter().any(|o| o.value == v));
     let current_label = if has_sel {
         selected_value
             .and_then(|v| options.iter().find(|o| o.value == v))

@@ -285,7 +285,7 @@ fn bin_row(item: &BinWithWarehouse, zones: &HashMap<i64, Zone>) -> Markup {
                     href=({
                         format!(
                             "{}?restore=true",
-                            BinDetailPath { id: item.bin.id }.to_string(),
+                            BinDetailPath { id: item.bin.id },
                         )
                     })
                 { (icon::edit_icon("w-4 h-4")) }

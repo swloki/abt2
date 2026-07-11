@@ -613,7 +613,7 @@ fn quick_entry_card(
  icon_key: &str,
  badge: Option<u64>,
 ) -> Markup {
- let (bg, fg) = match color {
+ let (_bg, fg) = match color {
  "blue" => ("linear-gradient(135deg,#e6f4ff,#d6e8ff)", "var(--accent)"),
  "green" => ("linear-gradient(135deg,#f0fff0,#e0ffe0)", "var(--success)"),
  "orange" => ("linear-gradient(135deg,#fff8eb,#fff0d6)", "#fa8c16"),

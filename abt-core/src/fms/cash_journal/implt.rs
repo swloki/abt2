@@ -129,11 +129,10 @@ impl CashJournalService for CashJournalServiceImpl {
 
         // Step 4: 仅当存在分录时校验借贷平衡；无分录（简单收付款单）直接放行
         // （金额 > 0 已在 create 校验，header amount 即收付款金额）
-        if total_debit != rust_decimal::Decimal::ZERO || total_credit != rust_decimal::Decimal::ZERO {
-            if total_debit != total_credit {
+        if (total_debit != rust_decimal::Decimal::ZERO || total_credit != rust_decimal::Decimal::ZERO)
+            && total_debit != total_credit {
                 return Err(DomainError::business_rule("UnbalancedEntry"));
             }
-        }
 
         // Step 5: State transition
         new_state_machine_service(self.pool.clone())

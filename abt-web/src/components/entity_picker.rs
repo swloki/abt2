@@ -39,6 +39,7 @@ impl EntityPickerItem {
  pub fn new(id: i64, label: impl Into<String>) -> Self {
  Self { id, label: label.into(), sub_label: None, disabled: false }
  }
+ #[allow(clippy::should_implement_trait, dead_code)]
  pub fn sub(mut self, s: impl Into<String>) -> Self {
  self.sub_label = Some(s.into());
  self

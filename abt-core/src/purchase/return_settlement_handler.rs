@@ -61,7 +61,7 @@ impl EventHandler for PurchaseReturnSettledHandler {
         // 2. 公共：幂等 + 按往来方币种 insert 反向 AP 台账（Debit 冲减 Credit）
         let desc = format!("采购退货冲减应付 {}", ret.doc_number);
         let inserted = ArApLedgerRepo::insert_reversal_if_absent(
-            &mut *conn,
+            &mut conn,
             CounterpartyType::Supplier,
             ret.supplier_id,
             DocumentType::PurchaseReturn,

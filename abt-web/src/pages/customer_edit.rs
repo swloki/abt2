@@ -21,7 +21,7 @@ use abt_macros::require_permission;
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-pub(crate) struct EditCustomerForm {
+pub struct EditCustomerForm {
  // 基本信息
  customer_name: String,
  short_name: Option<String>,

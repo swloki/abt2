@@ -582,8 +582,7 @@ impl ArApLedgerRepo {
         executor: PgExecutor<'_>,
         id: i64,
     ) -> Result<Option<ArApLedgerRow>> {
-        let row = sqlx::query_as::<sqlx::Postgres, ArApLedgerRow>(sqlx::AssertSqlSafe(format!(
-            r#"SELECT l.id, l.party_type, l.party_id,
+        let row = sqlx::query_as::<sqlx::Postgres, ArApLedgerRow>(sqlx::AssertSqlSafe(r#"SELECT l.id, l.party_type, l.party_id,
                       COALESCE(c.customer_name, s.supplier_name, 'Unknown') AS party_name,
                       l.source_type, l.source_id, l.source_doc_no,
                       l.direction, l.amount, l.amount_applied,
@@ -609,8 +608,7 @@ impl ArApLedgerRepo {
                FROM ar_ap_ledger l
                LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
                LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
-               WHERE l.id = $1"#
-        )))
+               WHERE l.id = $1"#.to_string()))
         .bind(id)
         .fetch_optional(executor)
         .await?;

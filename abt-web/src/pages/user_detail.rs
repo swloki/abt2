@@ -205,17 +205,17 @@ pub async fn post_change_password(
 // ── Form Data ──
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct RoleAssignForm {
+pub struct RoleAssignForm {
  pub role_ids: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct DeptAssignForm {
+pub struct DeptAssignForm {
  pub dept_ids: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct ChangePasswordForm {
+pub struct ChangePasswordForm {
  pub new_password: String,
  pub confirm_password: String,
 }
@@ -671,7 +671,7 @@ fn user_detail_page(
                                     div class="text-xs font-semibold text-fg mb-2 flex items-center gap-[6px]"
                                     { (resource_icon(code, "w-3 h-3")) " " (name) " (" (code) ")" }
                                     div class="flex flex-wrap gap-[4px]" {
-                                        @for action in actions { (perm_chip(&action)) }
+                                        @for action in actions { (perm_chip(action)) }
                                     }
                                 }
                             }

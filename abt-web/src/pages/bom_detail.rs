@@ -564,7 +564,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  && report.labor_costs.iter().any(|item| item.unit_price == Decimal::ZERO);
 
  let all_resolved = !has_uncovered_missing && !has_labor_cost_issue;
- let total_card_class = if all_resolved { "total-ok" } else { "total-warn" };
+ let _total_card_class = if all_resolved { "total-ok" } else { "total-warn" };
  let total_sub = if has_uncovered_missing && has_labor_cost_issue {
  "材料缺失单价，人工成本为0"
  } else if has_uncovered_missing {

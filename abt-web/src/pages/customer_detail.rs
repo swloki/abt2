@@ -40,7 +40,7 @@ struct TransactionRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct TransactionQueryParams {
+pub struct TransactionQueryParams {
  page: Option<u32>,
 }
 
@@ -390,7 +390,7 @@ fn avatar_chars(name: &str) -> &str {
 // ── Form Data ──
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct ContactForm {
+pub struct ContactForm {
  contact_name: String,
  phone: Option<String>,
  email: Option<String>,
@@ -399,7 +399,7 @@ pub(crate) struct ContactForm {
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct AddressForm {
+pub struct AddressForm {
  address_type: String,
  province: String,
  city: String,

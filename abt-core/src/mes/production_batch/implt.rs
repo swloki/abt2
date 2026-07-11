@@ -302,9 +302,9 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             }
 
             // 制造费用：工时 × 工作中心每小时成本
-            if req.work_hours > Decimal::ZERO {
-                if let Some(wc_id) = routing.work_center_id {
-                    if let Ok(wc) = new_work_center_service(self.pool.clone())
+            if req.work_hours > Decimal::ZERO
+                && let Some(wc_id) = routing.work_center_id
+                    && let Ok(wc) = new_work_center_service(self.pool.clone())
                         .get(ctx, db, wc_id)
                         .await
                     {
@@ -324,8 +324,6 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                             });
                         }
                     }
-                }
-            }
 
             if !report_entries.is_empty() {
                 new_cost_entry_service(self.pool.clone())
@@ -662,7 +660,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         let mut tx = self.pool.begin().await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-        let routing = WorkOrderRoutingRepo::get_by_id(&mut *tx, routing_id)
+        let routing = WorkOrderRoutingRepo::get_by_id(&mut tx, routing_id)
             .await?
             .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
         if routing.work_order_id != work_order_id {
@@ -670,14 +668,14 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         }
 
         let wo = new_work_order_service(self.pool.clone())
-            .find_by_id(ctx, &mut *tx, work_order_id)
+            .find_by_id(ctx, &mut tx, work_order_id)
             .await?;
         if !matches!(wo.status, WorkOrderStatus::Draft | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
             return Err(DomainError::business_rule("工单当前状态不允许删除工序"));
         }
 
         // 守卫：整单零报工
-        if WorkOrderRoutingRepo::has_any_report(&mut *tx, work_order_id).await? {
+        if WorkOrderRoutingRepo::has_any_report(&mut tx, work_order_id).await? {
             return Err(DomainError::business_rule("工单已有报工记录，不可删除工序"));
         }
         // 守卫：至少保留一道
@@ -692,11 +690,11 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             return Err(DomainError::business_rule("至少保留一道工序"));
         }
 
-        WorkOrderRoutingRepo::delete(&mut *tx, routing_id).await?;
-        WorkOrderRoutingRepo::renumber_steps(&mut *tx, work_order_id).await?;
+        WorkOrderRoutingRepo::delete(&mut tx, routing_id).await?;
+        WorkOrderRoutingRepo::renumber_steps(&mut tx, work_order_id).await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, &mut *tx, RecordAuditLogReq {
+            .record(ctx, &mut tx, RecordAuditLogReq {
                 entity_type: "WorkOrderRouting",
                 entity_id: routing_id,
                 action: AuditAction::Delete,

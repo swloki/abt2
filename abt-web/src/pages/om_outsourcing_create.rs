@@ -174,15 +174,13 @@ pub async fn create(
  let pids: Vec<i64> = materials.iter().map(|m| m.product_id).collect();
  let prods = state.product_service().get_by_ids(&service_ctx, &mut tx, pids).await?;
  for m in &materials {
- if let Some(p) = prods.iter().find(|p| p.product_id == m.product_id) {
- if let Some(mp) = p.min_pack_qty {
- if mp > rust_decimal::Decimal::ZERO && (m.planned_qty % mp) != rust_decimal::Decimal::ZERO {
+ if let Some(p) = prods.iter().find(|p| p.product_id == m.product_id)
+ && let Some(mp) = p.min_pack_qty
+ && mp > rust_decimal::Decimal::ZERO && (m.planned_qty % mp) != rust_decimal::Decimal::ZERO {
  return Err(abt_core::shared::types::DomainError::validation(format!(
  "物料 {} 需求数量 {} 必须是最小包装数量 {} 的整数倍",
  p.product_code, m.planned_qty, mp
  )).into());
- }
- }
  }
  }
  }
@@ -268,7 +266,7 @@ async fn build_material_rows(
          .ok_or_else(|| abt_core::shared::types::DomainError::not_found("Product"))?;
      let bom_id = state.bom_query_service().find_published_bom_by_product_code(ctx, db, &wo_product.product_code).await?
          .ok_or_else(|| abt_core::shared::types::DomainError::not_found(
-             &format!("工单产品「{}」无 BOM", wo_product.product_code)))?;
+             format!("工单产品「{}」无 BOM", wo_product.product_code)))?;
      // 加载 BOM 节点
      let bom = state.bom_query_service().get(ctx, db, bom_id).await?;
      bom.bom_detail.nodes
@@ -365,15 +363,12 @@ pub async fn wo_summary(
  // 若仅一个委外工序，预加载发料明细（OOB swap）
  let mut oob_materials = String::new();
  let outsourced_count = s.routings.iter().filter(|r| r.is_outsourced).count();
- if outsourced_count == 1 {
-     if let Some(r) = s.routings.iter().find(|r| r.is_outsourced) {
-         if r.product_id.is_some() {
-             if let Ok(rows) = build_material_rows(&state, &service_ctx, &mut conn, q.work_order_id, r.id, s.planned_qty, None).await {
+ if outsourced_count == 1
+     && let Some(r) = s.routings.iter().find(|r| r.is_outsourced)
+         && r.product_id.is_some()
+             && let Ok(rows) = build_material_rows(&state, &service_ctx, &mut conn, q.work_order_id, r.id, s.planned_qty, None).await {
                  oob_materials = format!(r#"<tbody id="material-tbody" hx-swap-oob="true">{rows}</tbody>"#);
              }
-         }
-     }
- }
 
  let mut html = routing_select_fragment(&s).into_string();
  html.push_str(&oob_materials);

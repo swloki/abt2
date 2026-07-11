@@ -1436,7 +1436,7 @@ pub async fn get_adjustment_drawer(
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct AdjCreateForm {
+pub struct AdjCreateForm {
     pub counterparty_type: i16,
     pub party_id: i64,
     pub direction: i16,
@@ -1696,7 +1696,7 @@ fcAdjUpdateRate();fcAdjCalcCny();
 
 /// 选往来方后 htmx 加载该方余额（从 fms_adjustment_create 迁入）。
 #[derive(Debug, Deserialize)]
-pub(crate) struct AdjBalanceQuery {
+pub struct AdjBalanceQuery {
     pub party_type: i16,
     pub party_id: i64,
 }
@@ -1736,11 +1736,10 @@ async fn cached_summary(
 ) -> FmsWorkCenterSummary {
     {
         let cache = state.fms_summary_cache.read().unwrap();
-        if let Some((at, s)) = cache.as_ref() {
-            if at.elapsed().as_secs() < SUMMARY_TTL_SECS {
+        if let Some((at, s)) = cache.as_ref()
+            && at.elapsed().as_secs() < SUMMARY_TTL_SECS {
                 return s.clone();
             }
-        }
     }
     // 缓存 miss：算一次（summary 内部 6 查询并行），回填
     let s = state

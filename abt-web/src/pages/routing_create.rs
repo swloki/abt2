@@ -419,7 +419,7 @@ fn routing_form_page(
 
     let is_edit = mode == FormMode::Edit;
     // 关联产品名回显由通用 picker 选中后 JS 填充，模板渲染初始为"未选择"
-    let bind_product_name = String::new();
+    let _bind_product_name = String::new();
 
     // 回填字段（编辑/复制模式预填；新建模式为空 + code 自动生成）
     let name_value: String = match (existing, mode) {

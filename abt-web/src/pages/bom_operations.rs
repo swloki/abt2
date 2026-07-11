@@ -298,7 +298,7 @@ pub async fn upsert_bom_operation(
     if let Some(pid) = output_product_id {
         let candidates = state
             .bom_query_service()
-            .list_non_leaf_product_ids_by_product_codes(&service_ctx, &mut conn, &[product_code.clone()])
+            .list_non_leaf_product_ids_by_product_codes(&service_ctx, &mut conn, std::slice::from_ref(&product_code))
             .await?;
         if !candidates.contains(&pid) {
             return Err(DomainError::business_rule("产出品必须属于该产品 BOM 的非叶子节点（成品/半成品）").into());

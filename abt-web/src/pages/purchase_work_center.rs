@@ -1563,7 +1563,7 @@ pub async fn post_po_create(
     Form(form): Form<crate::pages::purchase_order_create::POCreateForm>,
 ) -> Result<impl IntoResponse> {
     let RequestContext {
-        mut conn,
+        conn: _,
         state,
         service_ctx,
         ..
@@ -2413,15 +2413,13 @@ pub async fn post_quotation_create(
         Err((errors, saved_items)) => {
             let mut preview_rows: Vec<(abt_core::master_data::product::model::Product, rust_decimal::Decimal, Option<i32>)> = Vec::new();
             for item in &saved_items {
-                if let Ok(pid) = item.product_id.parse::<i64>() {
-                    if pid > 0 {
-                        if let Ok(product) = state.product_service().get(&service_ctx, &mut conn, pid).await {
+                if let Ok(pid) = item.product_id.parse::<i64>()
+                    && pid > 0
+                        && let Ok(product) = state.product_service().get(&service_ctx, &mut conn, pid).await {
                             let price: rust_decimal::Decimal = item.unit_price.parse().unwrap_or(rust_decimal::Decimal::ZERO);
                             let ldt: Option<i32> = item.lead_time_days.as_deref().and_then(|s| s.parse().ok());
                             preview_rows.push((product, price, ldt));
                         }
-                    }
-                }
             }
             let suppliers = state
                 .supplier_service()
@@ -3157,11 +3155,10 @@ async fn cached_summary(
 ) -> PurchaseWorkCenterSummary {
     {
         let cache = state.purchase_summary_cache.read().unwrap();
-        if let Some((at, s)) = cache.as_ref() {
-            if at.elapsed().as_secs() < SUMMARY_TTL_SECS {
+        if let Some((at, s)) = cache.as_ref()
+            && at.elapsed().as_secs() < SUMMARY_TTL_SECS {
                 return s.clone();
             }
-        }
     }
     // 缓存 miss：算一次（summary 内部 15 查询并行 ~30ms），回填
     let s = state

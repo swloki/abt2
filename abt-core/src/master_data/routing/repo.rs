@@ -115,7 +115,7 @@ impl RoutingRepo {
             None
         };
 
-        let bom_keyword_param = if let Some(ref kw) =
+        let bom_keyword_param = if let Some(kw) =
             filter.bom_keyword.as_ref().filter(|s| !s.trim().is_empty())
         {
             param_idx += 1;

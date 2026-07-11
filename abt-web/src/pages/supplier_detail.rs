@@ -137,7 +137,7 @@ pub async fn delete_supplier_bank_account(
 // ── Form Data ──
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct ContactForm {
+pub struct ContactForm {
  pub contact_name: String,
  pub phone: Option<String>,
  pub email: Option<String>,
@@ -146,7 +146,7 @@ pub(crate) struct ContactForm {
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct BankAccountForm {
+pub struct BankAccountForm {
  pub bank_name: String,
  pub account_name: String,
  pub account_number: String,

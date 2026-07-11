@@ -550,7 +550,7 @@ fn tracking_data_card(
                             _=({
                                 format!(
                                     "on click call window.open('{}', '_blank')",
-                                    detail_path.to_string(),
+                                    detail_path,
                                 )
                             })
                         {

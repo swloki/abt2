@@ -43,7 +43,7 @@ impl ProfitCenterService for ProfitCenterServiceImpl {
                 ctx,
                 db,
                 RecordAuditLogReq {
-                    entity_type: "ProfitCenter".into(),
+                    entity_type: "ProfitCenter",
                     entity_id: id,
                     action: AuditAction::Create,
                     changes: None,
@@ -73,7 +73,7 @@ impl ProfitCenterService for ProfitCenterServiceImpl {
                 ctx,
                 db,
                 RecordAuditLogReq {
-                    entity_type: "ProfitCenter".into(),
+                    entity_type: "ProfitCenter",
                     entity_id: id,
                     action: AuditAction::Update,
                     changes: None,
@@ -97,7 +97,7 @@ impl ProfitCenterService for ProfitCenterServiceImpl {
                 ctx,
                 db,
                 RecordAuditLogReq {
-                    entity_type: "ProfitCenter".into(),
+                    entity_type: "ProfitCenter",
                     entity_id: id,
                     action: AuditAction::Delete,
                     changes: None,

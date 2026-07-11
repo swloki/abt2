@@ -3,6 +3,8 @@
 //! Builds a full Router with session + auth middleware, using a MemoryStore.
 //! Pre-injects super-admin Claims into every session so auth middleware passes.
 
+#![allow(dead_code)] // 测试辅助库，HTTP 方法/断言按各用例按需取用
+
 use std::sync::{Arc, Once};
 
 use abt_core::shared::identity::model::Claims;

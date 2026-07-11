@@ -83,8 +83,6 @@ pub async fn get_cycle_count_create(
  Ok(Html(page_html.into_string()))
 }
 
-/// HTMX: search products for the modal
-
 /// HTMX: return a single item row fragment
 #[require_permission("INVENTORY", "create")]
 pub async fn get_item_row(

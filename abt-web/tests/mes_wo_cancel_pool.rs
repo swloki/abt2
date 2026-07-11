@@ -30,7 +30,7 @@ async fn create_draft_wo(app: &TestApp) -> i64 {
     let mut conn = app.state.pool.acquire().await.unwrap();
     svc.create(
         &ServiceContext::new(1),
-        &mut *conn,
+        &mut conn,
         CreateWorkOrderReq {
             plan_item_id: None,
             product_id: PRODUCT_ID,
@@ -80,7 +80,7 @@ async fn cancel_work_order_releases_demand_back_to_pool() {
     let wo = app
         .state
         .work_order_service()
-        .find_by_id(&ctx, &mut *conn, wo_id)
+        .find_by_id(&ctx, &mut conn, wo_id)
         .await
         .unwrap();
     assert_eq!(wo.status, WorkOrderStatus::Draft);
@@ -88,7 +88,7 @@ async fn cancel_work_order_releases_demand_back_to_pool() {
     // 取消工单 → 触发 release_back_to_pool（demand 回池 + 发 DemandReleased 事件）
     app.state
         .work_order_service()
-        .cancel(&ctx, &mut *conn, wo_id, wo.version)
+        .cancel(&ctx, &mut conn, wo_id, wo.version)
         .await
         .unwrap();
 

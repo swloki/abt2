@@ -257,9 +257,9 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
                 .map_err(|e| DomainError::Internal(e.into()))?;
 
             // 5.0 自动闭环：全部收货 + 全部开票 = 自动关闭 PO
-            if po_status == InvoiceStatus::FullyInvoiced {
-                if let Some(po) = PurchaseOrderRepo::get_by_id(&mut *db, po_id).await? {
-                    if po.status == PurchaseOrderStatus::Received {
+            if po_status == InvoiceStatus::FullyInvoiced
+                && let Some(po) = PurchaseOrderRepo::get_by_id(&mut *db, po_id).await?
+                    && po.status == PurchaseOrderStatus::Received {
                         new_state_machine_service(self.pool.clone())
                             .transition(ctx, db, "PurchaseOrder", po_id, "Closed", Some("对账完成自动关闭"))
                             .await?;
@@ -270,8 +270,6 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
                             &po.updated_at,
                         ).await;
                     }
-                }
-            }
         }
 
         let returns = PurchaseReturnRepo::list_shipped_by_supplier_for_orders(

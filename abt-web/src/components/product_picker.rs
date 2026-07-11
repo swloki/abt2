@@ -72,8 +72,8 @@ pub async fn search_products(
             let bom_products = svc.get_by_ids(&service_ctx, &mut conn, allowed.iter().copied().collect()).await?;
             // 本地按 name/code 过滤（不做分页限制，BOM 物料应全部展示）
             bom_products.into_iter().filter(|p| {
-                let name_match = filter.name.as_ref().map_or(true, |n| p.pdt_name.contains(n));
-                let code_match = filter.code.as_ref().map_or(true, |c| p.product_code.contains(c));
+                let name_match = filter.name.as_ref().is_none_or(|n| p.pdt_name.contains(n));
+                let code_match = filter.code.as_ref().is_none_or(|c| p.product_code.contains(c));
                 name_match && code_match
             }).collect()
         }
@@ -151,7 +151,7 @@ pub fn product_picker_modal_with_bom_filter(
             use std::fmt::Write;
             write!(&mut vals, ",\"bom_product_ids\":\"{}\"", ids).unwrap();
         }
-        vals.push_str("}");
+        vals.push('}');
         html! {
             div id="product-search-results"
                 class="max-h-[400px] overflow-y-auto"

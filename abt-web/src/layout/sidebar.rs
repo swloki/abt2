@@ -8,6 +8,7 @@ use crate::components::icon;
 // ── Navigation Data ──
 
 #[derive(Clone, Copy)]
+#[allow(dead_code)] // 图标变体随导航配置按需启用，部分暂未构造
 enum NavIcon {
     Home,
     Users,

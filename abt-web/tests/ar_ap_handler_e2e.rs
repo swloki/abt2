@@ -20,6 +20,7 @@ const CUSTOMER_ID: i64 = 135;
 const CONTACT_ID: i64 = 135;
 const SUPPLIER_ID: i64 = 129;
 const WH: i64 = 23320; // 备料周转仓
+#[allow(dead_code)] // 仅测试辅助 fn stock_in 引用
 const ZONE: i64 = 23320000;
 const BIN: i64 = 23320000;
 const PRODUCT: i64 = 565; // 外购产品，库存充足
@@ -70,6 +71,7 @@ fn redirect_id(resp: &common::TestResponse) -> i64 {
 }
 
 /// 直接入库备料（绕过 web 表单，确保发货有库存）
+#[allow(dead_code)]
 async fn stock_in(app: &TestApp, product_id: i64, qty: i64) {
     use abt_core::wms::enums::TransactionType;
     use abt_core::wms::inventory_transaction::{model::RecordTransactionReq, InventoryTransactionService};
@@ -248,9 +250,9 @@ async fn k8_purchase_po_direct_stock_in() {
 
     // 4) 验证 PO received_qty 回写 + 状态流转 Received
     let mut conn = app.state.pool.acquire().await.unwrap();
-    let po_items_after = app.state.purchase_order_service().list_items(&ctx, &mut *conn, po_id).await.unwrap();
+    let po_items_after = app.state.purchase_order_service().list_items(&ctx, &mut conn, po_id).await.unwrap();
     assert_eq!(po_items_after[0].received_qty, Decimal::from(20), "❌ PO received_qty 未回写");
-    let po = app.state.purchase_order_service().get(&ctx, &mut *conn, po_id).await.unwrap();
+    let po = app.state.purchase_order_service().get(&ctx, &mut conn, po_id).await.unwrap();
     use abt_core::purchase::enums::PurchaseOrderStatus;
     assert_eq!(po.status, PurchaseOrderStatus::Received, "❌ PO 状态未流转到 Received");
 

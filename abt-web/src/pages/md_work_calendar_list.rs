@@ -21,7 +21,7 @@ pub async fn get_work_calendar_list(
  let RequestContext {
  mut conn,
  state,
- service_ctx,
+ service_ctx: _,
  claims,
  ..
  } = ctx;

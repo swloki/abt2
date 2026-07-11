@@ -22,25 +22,25 @@ use abt_macros::require_permission;
 // ── Form Data ──
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct CreateCategoryForm {
+pub struct CreateCategoryForm {
  pub category_name: String,
  #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
  pub parent_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct UpdateCategoryForm {
+pub struct UpdateCategoryForm {
  pub category_name: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct PanelQuery {
+pub struct PanelQuery {
  #[serde(default = "default_page")]
  pub page: u32,
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct ListQuery {
+pub struct ListQuery {
  pub category_id: Option<i64>,
  #[serde(default = "default_page")]
  pub page: u32,
@@ -288,8 +288,8 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                 crate::components::export_button::export_dropdown(
                     &[
                         crate::components::export_button::ExportItem {
-                            label: "导出分类数据".into(),
-                            export_type: "categories".into(),
+                            label: "导出分类数据",
+                            export_type: "categories",
                         },
                     ],
                 )

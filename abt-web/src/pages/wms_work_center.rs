@@ -36,7 +36,6 @@ use crate::components::pagination::pagination;
 use abt_core::wms::picking::model::{PoReceiveRow, ReceivePurchaseReq, ShipRowReq, ShippingHubSummary};
 use abt_core::wms::inventory_transaction::{model::RecordTransactionReq, InventoryTransactionService};
 use abt_core::wms::inventory::InventoryService;
-use abt_core::mes::work_order::model::WoProductBrief;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::shared::identity::UserService;

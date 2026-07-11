@@ -985,7 +985,7 @@ impl PickingService for PickingServiceImpl {
             .await?;
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq {
-                entity_type: "StockPicking".into(),
+                entity_type: "StockPicking",
                 entity_id: picking.id,
                 action: AuditAction::Create,
                 changes: Some(serde_json::json!({ "order_id": req.order_id, "picking_type": "OutgoingSales" })),
@@ -1077,7 +1077,7 @@ impl PickingService for PickingServiceImpl {
         so_svc.recalc_header_status(ctx, db, order_id).await?;
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq {
-                entity_type: "StockPicking".into(),
+                entity_type: "StockPicking",
                 entity_id: picking.id,
                 action: AuditAction::Create,
                 changes: Some(serde_json::json!({ "order_id": order_id, "via": "request_from_order" })),
@@ -1176,7 +1176,7 @@ impl PickingService for PickingServiceImpl {
             .await?;
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq {
-                entity_type: "StockPicking".into(),
+                entity_type: "StockPicking",
                 entity_id: id,
                 action: AuditAction::Transition,
                 changes: Some(serde_json::json!({ "from": "Confirmed", "to": "Done" })),
@@ -1334,7 +1334,7 @@ impl PickingService for PickingServiceImpl {
         }
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq {
-                entity_type: "StockPicking".into(),
+                entity_type: "StockPicking",
                 entity_id: picking.id,
                 action: AuditAction::Create,
                 changes: Some(serde_json::json!({ "order_id": req.order_id, "customer_id": req.customer_id, "is_draft": true })),
@@ -1391,7 +1391,7 @@ impl PickingService for PickingServiceImpl {
         }
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq {
-                entity_type: "StockPicking".into(),
+                entity_type: "StockPicking",
                 entity_id: id,
                 action: AuditAction::Update,
                 changes: None,
@@ -1774,7 +1774,7 @@ impl PickingService for PickingServiceImpl {
                 Ok(true) => {
                     new_audit_log_service(self.pool.clone())
                         .record(ctx, db, RecordAuditLogReq {
-                            entity_type: "WorkOrder".into(), entity_id: work_order_id,
+                            entity_type: "WorkOrder", entity_id: work_order_id,
                             action: AuditAction::Transition, changes: None, context: None,
                         }).await?;
                 }

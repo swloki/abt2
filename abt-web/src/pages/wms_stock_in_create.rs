@@ -59,8 +59,6 @@ pub async fn get_stock_in_create(
  Ok(Html(page_html.into_string()))
 }
 
-/// HTMX: search products for the modal
-
 /// HTMX: return a single item row fragment for a given product_id
 #[require_permission("INVENTORY", "create")]
 pub async fn get_item_row(

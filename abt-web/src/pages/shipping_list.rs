@@ -92,11 +92,10 @@ async fn resolve_order_numbers<S: SalesOrderService>(
  let mut map = HashMap::new();
  let mut seen = HashSet::new();
  for item in items {
- if let Some(oid) = item.source_id {
- if seen.insert(oid)
+ if let Some(oid) = item.source_id
+ && seen.insert(oid)
  && let Ok(order) = svc.find_by_id(ctx, db, oid).await {
  map.insert(oid, order.doc_number);
- }
  }
  }
  map

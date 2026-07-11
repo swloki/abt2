@@ -158,8 +158,7 @@ impl PurchaseOrderRepo {
         } else {
             "AND purchase_orders.operator_id = $9"
         };
-        let where_clause = format!(
-            "WHERE purchase_orders.deleted_at IS NULL
+        let where_clause = "WHERE purchase_orders.deleted_at IS NULL
               AND ($1::bigint IS NULL OR purchase_orders.supplier_id = $1)
               AND ($2::int2[] IS NULL OR purchase_orders.status = ANY($2))
               AND ($3::date IS NULL OR purchase_orders.order_date >= $3)
@@ -170,8 +169,7 @@ impl PurchaseOrderRepo {
                     JOIN products p ON p.product_id = poi.product_id AND p.deleted_at IS NULL
                     WHERE poi.order_id = purchase_orders.id
                       AND (p.product_code ILIKE '%' || $6 || '%'
-                           OR p.pdt_name ILIKE '%' || $6 || '%')))"
-        );
+                           OR p.pdt_name ILIKE '%' || $6 || '%')))".to_string();
 
         // 排序：白名单列名 + 方向（防注入）。sort=supplier 需 LEFT JOIN suppliers；
         // date=交期（UI 显示 expected_delivery_date，可 NULL）；默认按 order_date（业务日期，NOT NULL）
@@ -550,6 +548,7 @@ impl PurchaseOrderItemRepo {
     }
 
     /// 确认后更新行字段（动态构建 SET）
+    #[allow(unused_assignments)] // 动态 SET 占位符计数器：末位递增保留给后续字段扩展
     pub async fn update_fields_after_confirm(
         executor: &mut sqlx::postgres::PgConnection,
         item_id: i64,

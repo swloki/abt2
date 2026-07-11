@@ -66,7 +66,7 @@ pub async fn search_workers(
                         .user
                         .display_name
                         .as_deref()
-                        .map_or(false, |d| d.contains(needle))
+                        .is_some_and(|d| d.contains(needle))
             }
         })
         .collect();

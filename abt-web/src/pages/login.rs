@@ -27,7 +27,7 @@ pub async fn get_login(session: Session) -> impl IntoResponse {
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub(crate) struct LoginForm {
+pub struct LoginForm {
  pub username: String,
  pub password: String,
 }
@@ -71,7 +71,7 @@ pub async fn post_logout(
 // ── Refresh Token (API endpoint, no session required) ──
 
 #[derive(Debug, serde::Deserialize)]
-pub(crate) struct RefreshTokenForm {
+pub struct RefreshTokenForm {
  pub token: String,
 }
 

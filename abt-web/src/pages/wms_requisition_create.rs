@@ -476,6 +476,7 @@ fn req_row_inner(
 /// - 已领完（issued >= bom）：绿字「✓ 已领完」
 /// - 缺料（可用 < 待领）：红字「可用 X（缺 Y）」
 /// - 正常：muted 灰字「需求 X · 已领 Y · 可用 Z」
+///
 /// 手动模式（bom_qty=None）返回空，产品格不显示上下文。
 fn req_ctx_line(
     bom_qty: Option<Decimal>,

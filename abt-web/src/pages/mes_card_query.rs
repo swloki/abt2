@@ -369,8 +369,7 @@ fn card_search_result(
                         .copied()
                         .unwrap_or(rust_decimal::Decimal::ZERO);
                     @let is_completed = progress
-                        .map_or(
-                            false,
+                        .is_some_and(
                             |p| {
                                 p.status == abt_core::mes::enums::RoutingStatus::Completed
                             },

@@ -49,7 +49,7 @@ fn default_exchange_rate() -> String {
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct SearchQuery {
+pub struct SearchQuery {
     pub q: Option<String>,
     pub counterparty_type: Option<i16>,
 }

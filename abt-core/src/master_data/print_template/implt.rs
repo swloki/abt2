@@ -11,6 +11,12 @@ pub struct PrintTemplateServiceImpl {
     repo: PrintTemplateRepo,
 }
 
+impl Default for PrintTemplateServiceImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PrintTemplateServiceImpl {
     pub fn new() -> Self {
         Self {
@@ -175,5 +181,20 @@ mod tests {
         let out = PrintTemplateServiceImpl::render_html(tpl, &vars).unwrap();
         assert!(out.contains("&lt;script&gt;"), "值应被转义: {out}");
         assert!(!out.contains("<script>alert"), "不应出现原始 script 标签: {out}");
+    }
+
+    #[test]
+    fn test_batch_pagination_splits_every_7() {
+        // batch(7) 把 14 项分 2 页，只在第一页后插分页符（最后一页不加）
+        let tpl = "{% for page in items|batch(7) %}P{% for n in page %}{{ n }},{% endfor %}{% if not loop.last %}B{% endif %}{% endfor %}";
+        let items: Vec<i32> = (1..=14).collect();
+        let vars = json!({ "items": items });
+        let out = PrintTemplateServiceImpl::render_html(tpl, &vars).unwrap();
+        assert_eq!(out.matches('P').count(), 2, "14 项应分 2 页: {out}");
+        assert_eq!(out.matches('B').count(), 1, "只第一页后应有分页符: {out}");
+        assert!(
+            out.contains("P1,2,3,4,5,6,7,BP8,9,10,11,12,13,14,"),
+            "应按 7+7 切分: {out}"
+        );
     }
 }

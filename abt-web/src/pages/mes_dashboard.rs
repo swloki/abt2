@@ -283,7 +283,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
 }
 }
 fn quick_entry_card(href: &str, title: &str, desc: &str, color: &str, count: i64, stat_suffix: &str) -> Markup {
- let (bg, fg) = match color {
+ let (_bg, fg) = match color {
  "blue" => ("linear-gradient(135deg,#e6f4ff,#d6e8ff)", "var(--accent)"),
  "green" => ("linear-gradient(135deg,#f0fff0,#e0ffe0)", "var(--success)"),
  "orange" => ("linear-gradient(135deg,#fff8eb,#fff0d6)", "#fa8c16"),

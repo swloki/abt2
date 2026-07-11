@@ -53,8 +53,6 @@ pub async fn get_transfer_create(
  Ok(Html(page_html.into_string()))
 }
 
-/// HTMX: search products
-
 /// HTMX: return a single item row
 #[require_permission("INVENTORY", "create")]
 pub async fn get_item_row(

@@ -177,7 +177,7 @@ pub async fn create_plan_from_demands(
  .items_json
  .as_deref()
  .filter(|s| !s.is_empty())
- .map(|j| serde_json::from_str(j))
+ .map(serde_json::from_str)
  .transpose()
  .map_err(|e| DomainError::validation(format!("无效排程参数JSON: {e}")))?;
 

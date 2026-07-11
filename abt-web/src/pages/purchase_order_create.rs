@@ -20,7 +20,6 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::purchase_order::*;
 use crate::utils::RequestContext;
-use abt_core::shared::types::DomainError;
 use abt_macros::require_permission;
 
 // ── Query Params ──
@@ -297,7 +296,7 @@ pub async fn do_create_po(
         m.insert("__all__", format!("数据库错误: {e}"));
         (m, saved_items.clone())
     })?;
-    match svc.create(&service_ctx, &mut tx, create_req, None).await {
+    match svc.create(service_ctx, &mut tx, create_req, None).await {
         Ok(id) => { tx.commit().await.map_err(|e| {
             let mut m = std::collections::HashMap::new();
             m.insert("__all__", format!("提交失败: {e}"));
@@ -334,14 +333,12 @@ pub async fn create_po(
         Err((errors, saved_items)) => {
             let mut preview_rows = Vec::new();
             for item in &saved_items {
-                if let Ok(pid) = item.product_id.parse::<i64>() {
-                    if pid > 0 {
-                        if let Ok(product) = state.product_service().get(&service_ctx, &mut conn, pid).await {
+                if let Ok(pid) = item.product_id.parse::<i64>()
+                    && pid > 0
+                        && let Ok(product) = state.product_service().get(&service_ctx, &mut conn, pid).await {
                             let price = item.unit_price.parse().unwrap_or(rust_decimal::Decimal::ZERO);
                             preview_rows.push((product, price));
                         }
-                    }
-                }
             }
             let html = po_create_page(
                 &[],
@@ -365,7 +362,7 @@ pub fn po_create_page(
     post_path: &str,
     after_request_hs: &str,
     show_header: bool,
-    submitted: Option<&POCreateForm>,
+    _submitted: Option<&POCreateForm>,
     errors: Option<&std::collections::HashMap<&str, String>>,
     preview_rows: &[(abt_core::master_data::product::model::Product, rust_decimal::Decimal)],
 ) -> Markup {

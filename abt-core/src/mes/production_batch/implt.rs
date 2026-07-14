@@ -622,7 +622,11 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         sqlx::query("DELETE FROM work_order_routings WHERE work_order_id = $1")
             .bind(work_order_id).execute(&mut *db).await?;
         let mut inserted = 0usize;
-        for op in &ops {
+        for (idx, op) in ops.iter().enumerate() {
+            // step_no 是工单工序序号（1-based 连续），矩阵 active_step / 报工防跳序
+            // (current_step != step_no-1) / next_step(step_no+1) 均依赖此语义。
+            // 不能直接用 BOM 源 op.step_order（可能不从 1 开始），按 ops 顺序重编号（issue #260）。
+            let step_no = (idx + 1) as i32;
             let unit_price = price_map.get(&op.step_order).copied();
             sqlx::query(
                 r#"INSERT INTO work_order_routings
@@ -630,7 +634,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                     unit_price, allowed_loss_rate, planned_qty, is_outsourced, is_inspection_point, product_id)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)"#,
             )
-            .bind(work_order_id).bind(op.step_order).bind(&op.process_name)
+            .bind(work_order_id).bind(step_no).bind(&op.process_name)
             .bind(op.work_center_id).bind(op.standard_time).bind(op.standard_cost)
             .bind(unit_price).bind(op.allowed_loss_rate)
             .bind(planned_qty).bind(op.is_outsourced).bind(op.is_inspection_point)

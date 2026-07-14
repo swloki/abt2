@@ -347,6 +347,9 @@ impl PickingRepo {
               AND p.picking_type = $2
               AND p.deleted_at IS NULL
               AND p.status <> $3
+              -- qty_done>0：只算实际已领料的工序。Draft（qty_done=0，仅建单未发料）
+              -- 不应算 has_req，否则矩阵 ready 误判，跳过「领料」直接显示「收料」（issue #260）
+              AND i.qty_done > 0
             "#,
         )
         .bind(batch_id)

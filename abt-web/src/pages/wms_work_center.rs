@@ -1632,19 +1632,26 @@ async fn dispatch_action(
             state.picking_service().cancel(ctx, db, form.id).await?;
         }
         "issue" => {
-            // 全量发料（仅 Confirmed 安全；issue 记库存事务用绝对量，重复发料会重复扣库存）
+            // 发料：drawer 选定出货仓库 + 行级库位/实发（items_json）；issue 按选仓 update_from_warehouse + 行 bin 扣
             let req_svc = state.picking_service();
-            let items_db = req_svc.list_items(ctx, db, form.id).await?;
-            let issue_items = items_db
-                .iter()
-                .map(|it| IssueItemReq {
-                    item_id: it.id,
-                    issued_qty: it.qty_requested,
-                    bin_id: None,
+            let rows: Vec<ShipRowJson> = parse_items_json(form)?;
+            if rows.is_empty() {
+                return Err(DomainError::validation("发料明细不能为空").into());
+            }
+            let warehouse_id = rows[0].warehouse_id.parse::<i64>().unwrap_or(0);
+            if warehouse_id <= 0 {
+                return Err(DomainError::validation("请选择出货仓库").into());
+            }
+            let issue_items = rows
+                .into_iter()
+                .map(|r| IssueItemReq {
+                    item_id: r.picking_item_id.parse().unwrap_or(0),
+                    issued_qty: r.qty.parse().unwrap_or(Decimal::ZERO),
+                    bin_id: r.bin_id.and_then(|s| s.parse().ok()),
                 })
                 .collect::<Vec<_>>();
             req_svc
-                .issue(ctx, db, IssueMaterialReq { id: form.id, items: issue_items })
+                .issue(ctx, db, IssueMaterialReq { id: form.id, warehouse_id, items: issue_items })
                 .await?;
         }
         "transfer_cancel" => {
@@ -3770,139 +3777,123 @@ async fn issue_drawer_body(
             .into_iter()
             .map(|p| (p.product_id, p))
             .collect();
-        // 可用量（按领料单源仓库；发料前确认库存够不够、缺料预警）
-        let avail_map = state
+        // 可用库存（全仓库 ATP），选仓库后 wcShipRefreshStock 刷新
+        let avail_map: HashMap<i64, Decimal> = state
             .inventory_transaction_service()
-            .query_available_batch(ctx, db, &product_ids, req.from_warehouse_id)
+            .query_available_batch(ctx, db, &product_ids, None)
             .await
             .unwrap_or_default();
-        let wh_name = state
+        let warehouses = state
             .warehouse_service()
-            .get(ctx, db, req.from_warehouse_id.unwrap_or(0))
+            .list(ctx, db, WarehouseFilter::default(), 1, 200)
             .await
-            .map(|w| w.name)
-            .unwrap_or_else(|_| "—".into());
-        let date_str = req
-            .scheduled_date
-            .map(|d| d.format("%Y-%m-%d").to_string())
-            .unwrap_or_else(|| "—".into());
-        // 缺料行（avail < requested），用于警示条
-        let short_items: Vec<(String, Decimal, Decimal, Decimal)> = items
-            .iter()
-            .filter_map(|it| {
-                // 无 stock_ledger 记录 → 可用量 0（该仓库无此产品库存）
-                let avail = avail_map.get(&it.product_id).copied().unwrap_or(Decimal::ZERO);
-                if avail < it.qty_requested {
-                    let pname = product_map
-                        .get(&it.product_id)
-                        .map(|p| p.pdt_name.clone())
-                        .unwrap_or_else(|| format!("产品 #{}", it.product_id));
-                    Some((pname, it.qty_requested, avail, it.qty_requested - avail))
-                } else {
-                    None
-                }
-            })
-            .collect();
-        let has_short = !short_items.is_empty();
+            .map(|r| r.items)
+            .unwrap_or_default();
+        let total_qty: Decimal = items.iter().map(|i| i.qty_requested).sum();
+        let mut shortage_count: i32 = 0;
 
-        // 物料表格行：产品（含单位/编码/规格）/ 申请量 / 可用量（缺料红字 + 缺口徽章）
         let mut rows = html! {};
         for it in &items {
-            let p_opt = product_map.get(&it.product_id);
-            // 无 stock_ledger 记录 → 可用量 0（该仓库无此产品库存）
+            let prod_name = product_map
+                .get(&it.product_id)
+                .map(|p| p.pdt_name.clone())
+                .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+            let prod_code = product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default();
             let avail = avail_map.get(&it.product_id).copied().unwrap_or(Decimal::ZERO);
-            let short = avail < it.qty_requested;
+            let is_shortage = avail < it.qty_requested;
+            if is_shortage {
+                shortage_count += 1;
+            }
             rows = html! {
                 (rows)
-                tr {
-                    td class="min-w-0 py-2" {
-                        @if let Some(p) = p_opt {
-                            div class="text-sm text-fg font-medium leading-tight truncate" {
-                                (p.pdt_name)
-                                @if !p.unit.is_empty() {
-                                    span class="text-xs text-muted ml-1" { "(" (p.unit) ")" }
-                                }
-                            }
-                            @if !p.product_code.is_empty() {
-                                div class="text-xs text-muted font-mono truncate" { (p.product_code) }
-                            }
-                            @if !p.meta.specification.is_empty() {
-                                div class="text-xs text-fg-2 truncate" { (p.meta.specification) }
-                            }
-                        } @else {
-                            span class="text-sm text-muted" { "产品 #" (it.product_id) }
+                tr class="hover:bg-surface transition-colors duration-100" data-row data-pid=(it.product_id) data-need=(it.qty_requested) {
+                    input type="hidden" data-k="picking_item_id" value=(it.id);
+                    input type="hidden" data-k="product_id" value=(it.product_id);
+                    // 产品
+                    td class="py-2 px-2.5 min-w-0" {
+                        div class="text-sm text-fg font-medium leading-tight truncate w-[160px]" title=(prod_name) { (prod_name) }
+                        @if !prod_code.is_empty() {
+                            div class="text-xs text-muted font-mono truncate w-[160px]" { (prod_code) }
                         }
                     }
-                    td class="text-right font-mono tabular-nums text-fg-2 whitespace-nowrap py-2" {
-                        (fmt_qty(it.qty_requested))
+                    // 申请量
+                    td class="py-2 px-2 text-right whitespace-nowrap" {
+                        span class="text-xs text-muted font-mono" { (fmt_qty(it.qty_requested)) }
                     }
-                    td class="text-right font-mono tabular-nums whitespace-nowrap py-2" {
-                        @if short {
-                            span class="text-danger font-semibold" { (fmt_qty(avail)) }
-                            span class="ml-1 inline-block text-xs px-1.5 py-0.5 rounded-full bg-danger-bg text-danger font-medium whitespace-nowrap" {
-                                "缺 " (fmt_qty(it.qty_requested - avail))
+                    // 可用（选仓后 wcShipRefreshStock 刷新）
+                    td class="py-2 px-2 text-right whitespace-nowrap" {
+                        span class="text-xs font-mono" data-avail {
+                            @if is_shortage {
+                                span class="text-danger" { (fmt_qty(avail)) " 缺" }
+                            } @else {
+                                span class="text-muted" { (fmt_qty(avail)) }
                             }
-                        } @else {
-                            span class="text-success font-medium" { (fmt_qty(avail)) }
                         }
+                    }
+                    // 仓库 + 库位（弹窗式 outbound：只列该物料有实物存量的库位）
+                    td class="py-1.5 px-1.5 w-[200px]" {
+                        @let bid = format!("bin-{}", it.id);
+                        (crate::components::bin_search::warehouse_bin_cell(&bid, it.product_id, &warehouses, "", "outbound"))
+                    }
+                    // 实发
+                    td class="py-1.5 px-1.5" {
+                        input type="number" data-k="qty" value=(fmt_qty(it.qty_requested)) min="0" step="any"
+                            class="w-[64px] px-2 py-1.5 border border-border rounded-sm text-xs font-mono text-right bg-white focus:border-accent focus:shadow-[var(--shadow-focus)] outline-none transition-all duration-150";
                     }
                 }
             };
         }
 
         let inner = html! {
+            // 隐藏 items_json（wcShipCollectRows 填充）
+            input type="hidden" name="items_json" value="[]" {};
             // 单号信息条
-            div class="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-border-soft" {
-                div class="flex items-center gap-2 min-w-0" {
-                    span class="text-[15px] font-mono font-bold text-fg" { (req.doc_number) }
-                    span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-accent bg-accent-bg" { "待发料" }
+            div class="flex items-center justify-between mb-4 pb-4 border-b border-border-soft" {
+                div class="flex items-center gap-2" {
+                    (icon::box_icon("w-4 h-4 text-muted"))
+                    span class="text-xs text-muted" { "领料单" }
+                    span class="text-sm font-mono font-semibold text-fg" { (req.doc_number) }
                 }
-                div class="text-right shrink-0" {
-                    @if let Some(wo_id) = req.work_order_id.filter(|&w| w > 0) {
-                        div class="text-xs text-muted whitespace-nowrap" {
-                            "关联工单 " span class="font-mono text-fg-2" { "WO-" (wo_id) }
+                div class="flex items-center gap-2" {
+                    @if shortage_count > 0 {
+                        span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-danger-bg text-danger" {
+                            (shortage_count) " 项缺料"
                         }
                     }
-                    div class="text-xs text-muted whitespace-nowrap" {
-                        "仓库 " span class="text-fg-2" { (wh_name) }
-                        " · 日期 " span class="font-mono text-fg-2" { (date_str) }
+                    span class="text-xs text-muted" { (items.len()) " 项 · " (fmt_qty(total_qty)) }
+                }
+            }
+            // 统一仓库（批量应用到所有行）
+            div class="mb-3 flex items-center gap-2" {
+                select id="issue-warehouse"
+                    _="on change call wcApplyWarehouseAll(me) then wcShipRefreshStock(me)"
+                    class="flex-1 px-2.5 py-2 border border-border rounded-sm text-sm bg-surface text-muted focus:border-accent outline-none transition-all duration-150" {
+                    option value="" selected { "统一仓库：应用到所有行…" }
+                    @for w in &warehouses {
+                        option value=(w.id) { (w.name) }
                     }
                 }
             }
             // 物料明细表格
-            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-2" {
-                (icon::box_icon("w-[18px] h-[18px]")) "发料明细"
-                span class="ml-auto text-xs font-normal text-muted" { "共 " (items.len()) " 项" }
-            }
-            div class="overflow-x-auto" {
-                table class="data-table" {
+            div class="mb-4 overflow-visible" {
+                table class="w-full text-sm border-collapse" {
                     thead {
-                        tr {
-                            th class="min-w-[200px]" { "产品" }
-                            th class="w-[100px] text-right" { "申请量" }
-                            th class="w-[130px] text-right" { "可用量" }
+                        tr class="border-b border-border-soft text-xs text-muted" {
+                            th class="py-2 px-2.5 text-left font-semibold" { "产品" }
+                            th class="py-2 px-2 text-right font-semibold whitespace-nowrap" { "申请" }
+                            th class="py-2 px-2 text-right font-semibold whitespace-nowrap" { "可用" }
+                            th class="py-2 px-1.5 text-left font-semibold whitespace-nowrap" { "仓库 / 库位" }
+                            th class="py-2 px-1.5 text-right font-semibold whitespace-nowrap" { "实发" }
                         }
                     }
-                    tbody { (rows) }
+                    tbody class="divide-y divide-border-soft" { (rows) }
                 }
             }
-            // 合计
-            div class="flex items-center justify-between gap-3 mt-3 px-3.5 py-2.5 bg-surface rounded-sm" {
-                span class="text-xs text-muted" { "合计发料" }
-                span class="text-sm font-mono font-semibold text-fg" { (items.len()) " 项" }
-            }
-            // 缺料警示（缺料时提示将导致负库存；不阻止发料，保持 ABT 柔性负库存现状）
-            @if has_short {
-                div class="flex items-start gap-2 mt-3 px-3 py-2.5 rounded-sm bg-danger-bg text-xs text-danger" {
-                    (icon::info_icon("w-4 h-4 shrink-0 mt-0.5"))
-                    div {
-                        @for s in &short_items {
-                            div class="whitespace-nowrap" {
-                                (s.0) "：申请 " (fmt_qty(s.1)) " · 可用 " (fmt_qty(s.2)) " · 缺 " (fmt_qty(s.3))
-                            }
-                        }
-                        div class="mt-1 font-medium" { "全量发料将导致上述物料负库存。" }
-                    }
+            // 操作提示
+            div class="mb-4 p-3 rounded-md bg-warn-bg border border-warn/20 flex items-start gap-2" {
+                (icon::clock_icon("w-3.5 h-3.5 text-warn mt-0.5 shrink-0"))
+                p class="text-xs text-warn leading-relaxed" {
+                    "确认发料将从所选仓库/库位扣减库存并计入工单成本"
                 }
             }
         };
@@ -3911,8 +3902,8 @@ async fn issue_drawer_body(
             "issue",
             id,
             WorkCenterDomain::Requisition,
-            "确认全量发料？将扣减库存并计入工单成本",
-            "",
+            "确认发料？将从所选仓库/库位扣减库存并计入工单成本",
+            "return wcShipCollectRows(this)",
             inner,
             "确认发料",
         ))

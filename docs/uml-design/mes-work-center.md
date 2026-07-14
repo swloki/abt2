@@ -61,3 +61,28 @@ pub struct MesWorkCenterSummary {
 - 工序由工单创建时从 BOM 关联工艺路线自动加载（`WorkOrderService::create` 内 `try_load_routings_from_bom`），只读不可编辑；BOM 未关联工艺路线时下达 drawer 引导用户去「工艺路线管理」关联。
 - 工单 tab 工单号点击 → `get_order_drawer` 弹工单详情 drawer（只读，区块参考 ERPNext Work Order / Odoo MO：头部摘要 + 来源销售订单 + 工艺路线 + 物料齐套 + 备注）。
 - 批次 tab 支持工单号搜索（`wo_no` → `BatchListFilter.work_order_no` → `wo.doc_number ILIKE`），按工单筛选其所有生产批次。
+
+## 7. 批次工序流转：领料 → 收料 → 报工
+
+批次 drawer 工序矩阵第 3 列动作位按「批次状态 + 领料/发料状态」推进，因果链。
+
+**每道工序的状态判定**：
+- `has_req`（领料单存在，picking `Confirmed(2)/Done(3)`）—— 防重复领料 + InProgress 报工前置；查 `PickingService::list_requisitioned_routing_ids`（`find_routing_ids_by_batch`，`status IN (2,3)`）。
+- `has_issued`（仓库已发料完成，picking `Done(3)`）—— **收料前置**；查 `PickingService::list_issued_routing_ids`（`find_issued_routing_ids_by_batch`，`status = 3`）。
+- `has_output`（工序有产出品 `product_id`）—— 无产出工序（检测/检验）视同已领料，跳过领料。
+
+**收料前置规则**（本次修复）：
+
+> 生产端点「领料」只创建领料单并 `confirm`（`Draft→Confirmed`），单据进入仓库「待领料」队列——**此时物料尚未到手**。必须等仓库执行 `issue()` 发料、所有行 `qty_done ≥ qty_requested`、picking 置 `Done` 后，生产端才能点「收料」开工（`Pending→InProgress`）。仓库未发齐前，动作位显示「⏳ 待仓库发料」，不显示收料按钮。
+
+工序矩阵动作位（批次 `Pending` + 当前工序，即第 1 道）四态：
+
+| 状态 | 条件 | 动作 |
+|---|---|---|
+| 收料 | `has_issued` 或 `!has_output` | 收料按钮（开工 `start_batch`） |
+| 待仓库发料 | `has_req && !has_issued` | ⏳ 灰态（已领料、仓库未发齐） |
+| 领料 | `!has_req && has_output && 齐套` | 领料按钮（建领料单→`confirm`） |
+| 欠料 | `!has_req && !齐套` | 领料置灰 |
+
+**service 层兜底**：`ProductionBatchService::start_batch` 在 `Pending→InProgress` 前校验——开工对象（第 1 道工序）若有领料单（Active picking），须 `Done` 才能开工，防绕过前端直接 POST `batch_receive`。Backflush（倒冲，无领料单）/无产出工序放行（无消耗物料或倒冲，不领料）。部分发料（`Confirmed` + 部分 `qty_done`，未 `Done`）不可收料。
+

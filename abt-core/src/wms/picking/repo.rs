@@ -358,6 +358,34 @@ impl PickingRepo {
         Ok(ids)
     }
 
+    /// 批次「已发料完成」（仓库 issue 发齐，picking=Done）的工序 routing_id 集合。
+    /// 收料（开工）前置：只有 Done 才算物料到手，Confirmed（待领料/仓库未发）不算。
+    /// 区别于 find_routing_ids_by_batch（IN 2,3 含 Confirmed，用于防重复领料 + 报工前置）。
+    pub async fn find_issued_routing_ids_by_batch(
+        executor: &mut sqlx::postgres::PgConnection,
+        batch_id: i64,
+    ) -> Result<Vec<i64>> {
+        let ids: Vec<i64> = sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT i.operation_id
+            FROM stock_picking_items i
+            JOIN stock_pickings p ON p.id = i.picking_id
+            WHERE i.batch_id = $1
+              AND i.operation_id IS NOT NULL
+              AND p.picking_type = $2
+              AND p.deleted_at IS NULL
+              -- 仅 Done(3)：仓库 issue() 全行 qty_done≥qty_requested 才 set_done；
+              -- Confirmed(2,待领料/部分发料) 不算发料完成
+              AND p.status = 3
+            "#,
+        )
+        .bind(batch_id)
+        .bind(crate::wms::enums::PickingType::InternalIssue)
+        .fetch_all(executor)
+        .await?;
+        Ok(ids)
+    }
+
     /// 批次工序的活跃领料单 picking_id（Draft/Confirmed/Done，非 Cancelled）。
     /// 用于 create_for_routing_step 幂等：同一 batch+routing 重复请求返回已存在的领料单，不重复建单。
     pub async fn find_active_picking_by_batch_operation(

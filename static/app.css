@@ -97,11 +97,11 @@
 --text-lg-fontSize: 1.125rem;
 --text-lg-lineHeight: 1.75rem;
 --radius-md: 0.375rem;
+--spacing-5: var(--space-5);
 --radius-none: 0;
 --spacing-8: var(--space-8);
 --radius-DEFAULT: var(--radius-md);
 --leading-tight: 1.25;
---spacing-5: var(--space-5);
 --tracking-tight: -0.025em;
 --fontWeight-normal: 400;
 --container-xs: 20rem;
@@ -1421,6 +1421,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .grid{display:grid;}
 .inline-grid{display:inline-grid;}
 .col-span-2{grid-column:span 2/span 2;}
+.col-span-4{grid-column:span 4/span 4;}
 .col-span-full{grid-column:1/-1;}
 .expanded\:grid-rows-\[1fr\].expanded{grid-template-rows:1fr;}
 .grid-cols-\[1fr_80px_80px_80px_100px_40px\]{grid-template-columns:1fr 80px 80px 80px 100px 40px;}
@@ -1521,6 +1522,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .h-2,
 .h2{height:var(--spacing-2);}
 .h-2\.5{height:calc(var(--spacing) * 2.5);}
+.h-24{height:calc(var(--spacing) * 24);}
 .h-3,
 .h3{height:var(--spacing-3);}
 .h-3\.5,
@@ -1583,7 +1585,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .min-w-\[140px\]{min-width:140px;}
 .min-w-\[150px\]{min-width:150px;}
 .min-w-\[160px\]{min-width:160px;}
-.min-w-\[200px\]{min-width:200px;}
 .min-w-\[208px\]{min-width:208px;}
 .min-w-\[20px\]{min-width:20px;}
 .min-w-\[220px\]{min-width:220px;}
@@ -1806,8 +1807,10 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .inset-0{inset:calc(var(--spacing) * 0);}
 .-right-\[3px\]{right:-3px;}
 .-right-0\.5{right:calc(var(--spacing) * -0.5);}
+.-right-1\.5{right:calc(var(--spacing) * -1.5);}
 .-top-\[3px\]{top:-3px;}
 .-top-0\.5{top:calc(var(--spacing) * -0.5);}
+.-top-1\.5{top:calc(var(--spacing) * -1.5);}
 .bottom-0{bottom:calc(var(--spacing) * 0);}
 .bottom-4{bottom:calc(var(--spacing) * 4);}
 .bottom-6{bottom:calc(var(--spacing) * 6);}
@@ -1880,6 +1883,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .to-accent-hover{--un-gradient-to:color-mix(in oklab, var(--colors-accent-hover) var(--un-to-opacity), transparent);--un-gradient-stops:var(--un-gradient-via-stops, var(--un-gradient-position), var(--un-gradient-from) var(--un-gradient-from-position), var(--un-gradient-to) var(--un-gradient-to-position));}
 .via-accent-900{--un-gradient-via:color-mix(in oklab, var(--colors-accent-900) var(--un-via-opacity), transparent);--un-gradient-via-stops:var(--un-gradient-position), var(--un-gradient-from) var(--un-gradient-from-position), var(--un-gradient-via) var(--un-gradient-via-position), var(--un-gradient-to) var(--un-gradient-to-position);--un-gradient-stops:var(--un-gradient-via-stops);}
 .bg-gradient-to-br{--un-gradient-position:to bottom right in oklab;background-image:linear-gradient(var(--un-gradient-stops));}
+.object-cover{object-fit:cover;}
 .backdrop-blur-md{--un-backdrop-blur:blur(12px);-webkit-backdrop-filter:var(--un-backdrop-blur,) var(--un-backdrop-brightness,) var(--un-backdrop-contrast,) var(--un-backdrop-grayscale,) var(--un-backdrop-hue-rotate,) var(--un-backdrop-invert,) var(--un-backdrop-opacity,) var(--un-backdrop-saturate,) var(--un-backdrop-sepia,);backdrop-filter:var(--un-backdrop-blur,) var(--un-backdrop-brightness,) var(--un-backdrop-contrast,) var(--un-backdrop-grayscale,) var(--un-backdrop-hue-rotate,) var(--un-backdrop-invert,) var(--un-backdrop-opacity,) var(--un-backdrop-saturate,) var(--un-backdrop-sepia,);}
 .backdrop-blur-sm{--un-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--un-backdrop-blur,) var(--un-backdrop-brightness,) var(--un-backdrop-contrast,) var(--un-backdrop-grayscale,) var(--un-backdrop-hue-rotate,) var(--un-backdrop-invert,) var(--un-backdrop-opacity,) var(--un-backdrop-saturate,) var(--un-backdrop-sepia,);backdrop-filter:var(--un-backdrop-blur,) var(--un-backdrop-brightness,) var(--un-backdrop-contrast,) var(--un-backdrop-grayscale,) var(--un-backdrop-hue-rotate,) var(--un-backdrop-invert,) var(--un-backdrop-opacity,) var(--un-backdrop-saturate,) var(--un-backdrop-sepia,);}
 .blur{--un-blur:blur(8px);filter:var(--un-blur,) var(--un-brightness,) var(--un-contrast,) var(--un-grayscale,) var(--un-hue-rotate,) var(--un-invert,) var(--un-saturate,) var(--un-sepia,) var(--un-drop-shadow,);}

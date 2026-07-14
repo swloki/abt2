@@ -351,6 +351,17 @@ impl PickingService for PickingServiceImpl {
         routing_id: i64,
         batch_id: Option<i64>,
     ) -> Result<i64> {
+        // 幂等：同一 batch+routing 已有活跃领料单（Draft/Confirmed/Done）则直接返回，不重复建单
+        if let Some(bid) = batch_id
+            && let Some(existing) =
+                PickingRepo::find_active_picking_by_batch_operation(db, bid, routing_id).await?
+        {
+            tracing::info!(
+                work_order_id, routing_id, bid, existing,
+                "routing-step picking already exists, idempotent return"
+            );
+            return Ok(existing);
+        }
         // 1. 取工序产出品（跨模块走 ProductionBatchService trait）
         let batch_svc = new_production_batch_service(self.pool.clone());
         let routing = batch_svc
@@ -399,7 +410,9 @@ impl PickingService for PickingServiceImpl {
         };
 
         // 5. 建 InternalIssue picking（items 挂 operation_id + batch_id）
-        let doc_number = Self::generate_doc_number(PickingType::InternalIssue);
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::InternalIssue)
+            .await?;
         let warehouse_id = resolve_warehouse_id(db).await?;
         let items: Vec<CreatePickingItemReq> = children
             .iter()
@@ -459,7 +472,9 @@ impl PickingService for PickingServiceImpl {
             return Err(DomainError::validation("请至少添加一条领料明细"));
         }
 
-        let doc_number = Self::generate_doc_number(PickingType::InternalIssue);
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::InternalIssue)
+            .await?;
         let items: Vec<CreatePickingItemReq> = req
             .items
             .iter()

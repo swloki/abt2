@@ -346,18 +346,43 @@ impl PickingRepo {
               AND i.operation_id IS NOT NULL
               AND p.picking_type = $2
               AND p.deleted_at IS NULL
-              AND p.status <> $3
-              -- qty_done>0：只算实际已领料的工序。Draft（qty_done=0，仅建单未发料）
-              -- 不应算 has_req，否则矩阵 ready 误判，跳过「领料」直接显示「收料」（issue #260）
-              AND i.qty_done > 0
+              -- Confirmed/Done 算已领料（has_req → 可收料开工，防重复点领料）；
+              -- Draft（仅建单）不算（仍在领料步）；Cancelled 不算
+              AND p.status IN (2, 3)
             "#,
         )
         .bind(batch_id)
         .bind(crate::wms::enums::PickingType::InternalIssue)
-        .bind(PickingStatus::Cancelled)
         .fetch_all(executor)
         .await?;
         Ok(ids)
+    }
+
+    /// 批次工序的活跃领料单 picking_id（Draft/Confirmed/Done，非 Cancelled）。
+    /// 用于 create_for_routing_step 幂等：同一 batch+routing 重复请求返回已存在的领料单，不重复建单。
+    pub async fn find_active_picking_by_batch_operation(
+        executor: &mut sqlx::postgres::PgConnection,
+        batch_id: i64,
+        operation_id: i64,
+    ) -> Result<Option<i64>> {
+        let id: Option<i64> = sqlx::query_scalar(
+            r#"
+            SELECT i.picking_id
+            FROM stock_picking_items i
+            JOIN stock_pickings p ON p.id = i.picking_id
+            WHERE i.batch_id = $1
+              AND i.operation_id = $2
+              AND p.picking_type = 5  -- InternalIssue
+              AND p.status <> 4       -- 非 Cancelled
+              AND p.deleted_at IS NULL
+            LIMIT 1
+            "#,
+        )
+        .bind(batch_id)
+        .bind(operation_id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(id)
     }
 
     /// 按工单聚合各产品已申请领料量（InternalIssue + 未取消），供前端「选工单→加载 BOM 行」算待领差额。

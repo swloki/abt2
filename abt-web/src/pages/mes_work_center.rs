@@ -141,9 +141,11 @@ fn work_center_content(summary: &MesWorkCenterSummary, order_id: Option<i64>) ->
         // 完工入库 drawer 容器（slot）：GET 返回 drawer_shell，innerHTML 进 slot；afterSettle 打开子 drawer
         div id="batch-receipt-modal-slot"
             _="on 'htmx:afterSettle'[#batch-receipt-drawer] add .open to #batch-receipt-drawer\non keydown[event.key is 'Escape' and #batch-receipt-drawer] from body remove .open from #batch-receipt-drawer" {}
-        // 创建计划完成事件桥接：planCreated → 切到订单排期 tab 重新加载需求池 card + 展开 card（看新建 Draft 工单）
-        div hx-get=(format!("{}?view=schedule", WcDemandPath::PATH))
+        // 创建计划完成事件桥接：planCreated → 跳「工单」tab + keyword 定位刚创建的工单
+        // wo_no 经 HX-Trigger JSON 传来，config-request 从 triggeringEvent.detail 取出注入 keyword
+        div hx-get=(WcDemandPath::PATH)
             hx-trigger="planCreated from:body"
+            hx-on:htmx:config-request="event.detail.parameters['view']='orders';var w=event.detail.triggeringEvent&&event.detail.triggeringEvent.detail&&event.detail.triggeringEvent.detail.wo_no;if(w)event.detail.parameters['keyword']=w"
             hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML" {}
         // 订单详情 drawer 容器（slot）：GET 返回完整 drawer_shell，innerHTML 进此 slot；afterSettle 打开子 drawer
         div id="wc-order-detail-slot"
@@ -1726,7 +1728,7 @@ pub async fn create_plan(
             form.default_scheduled_start.as_deref(),
             form.default_scheduled_end.as_deref(),
         );
-        return Ok(([("HX-Trigger", "")], Html(body.into_string())));
+        return Ok(([("HX-Trigger", String::new())], Html(body.into_string())));
     }
 
     let create_req = CreateWorkOrdersFromDemandsReq {
@@ -1743,15 +1745,30 @@ pub async fn create_plan(
         .begin()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    state
+    let result = state
         .mes_demand_service()
         .create_work_orders_from_demands(&service_ctx, &mut tx, create_req)
         .await?;
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    // 成功：空 body + HX-Trigger（form afterRequest 判定空 → 关 overlay；planCreated → 切工单 tab 刷新）
-    Ok(([("HX-Trigger", "planCreated")], Html(String::new())))
+    // 取首个新工单号（create drawer 单产品→1 工单）作 keyword，
+    // planCreated 桥接据此跳「工单」tab 并定位刚创建的工单
+    let wo_no = match result.wo_ids.first() {
+        Some(&id) => state
+            .work_order_service()
+            .find_by_id(&service_ctx, &mut conn, id)
+            .await
+            .ok()
+            .map(|w| w.doc_number),
+        None => None,
+    };
+    let trigger = match &wo_no {
+        Some(no) => serde_json::json!({ "planCreated": { "wo_no": no } }).to_string(),
+        None => "planCreated".to_string(),
+    };
+    // 成功：空 body + HX-Trigger（form afterRequest 判定空 → 关 overlay；planCreated → 跳工单 tab + 定位新工单）
+    Ok(([("HX-Trigger", trigger)], Html(String::new())))
 }
 
 /// 下达 drawer 校验错误（工序行级）：工序整体为空 / 某道工序缺产出品 / 缺计件单价。

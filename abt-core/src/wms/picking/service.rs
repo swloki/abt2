@@ -6,8 +6,8 @@ use crate::shared::types::{PgExecutor, Result};
 
 use super::model::{
     CreateFromOrderReq, CreateManualReq, CreatePickingReq, DoneItemReq, IssueMaterialReq,
-    PickingFilter, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary, StockPicking,
-    StockPickingItem, ShipRowReq, WoReqPreviewItem,
+    PickingFilter, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary,
+    StockPicking, StockPickingItem, ShipRowReq, WoReqPreviewItem,
 };
 
 /// 统一库存作业单据 Service（Issue #146）
@@ -82,7 +82,7 @@ pub trait PickingService: Send + Sync {
     ) -> Result<i64>;
 
     /// 工序级领料（产出品驱动）：按产出品在成品 BOM 中的子级展开建 picking，
-    /// items 挂 operation_id=routing_id + batch_id
+    /// items 挂 operation_id=routing_id + batch_id。
     async fn create_for_routing_step(
         &self,
         ctx: &ServiceContext,
@@ -145,8 +145,17 @@ pub trait PickingService: Send + Sync {
         picking_ids: &[i64],
     ) -> Result<Vec<StockPickingItem>>;
 
-    /// 查询批次已领料的工序 routing_id 集合（驱动批次矩阵动作位推进）
+    /// 查询批次已领料的工序 routing_id 集合（Confirmed/Done；驱动防重复领料 + 报工前置）
     async fn list_requisitioned_routing_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<Vec<i64>>;
+
+    /// 查询批次「已发料完成」（仓库 issue 发齐，picking=Done）的工序 routing_id 集合。
+    /// 收料（开工）前置：只有 Done 才算物料到手，Confirmed（待领料/仓库未发）不算。
+    async fn list_issued_routing_ids(
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,

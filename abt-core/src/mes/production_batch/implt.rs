@@ -807,6 +807,31 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             });
         }
 
+        // 收料前置（开工）：批次 Pending 时 current_step=0 → 第 1 道工序（step_no=1）是开工对象。
+        // 若该工序有领料单（Active picking），须仓库 issue 发齐（picking=Done）才能开工——
+        // 防绕过前端直接 POST 收料。Backflush（无领料单）/无产出工序放行（无消耗物料或倒冲）。
+        let routings = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, batch.work_order_id).await?;
+        if let Some(op) = routings.iter().find(|r| r.step_no == 1)
+            && op.product_id.is_some()
+        {
+            let has_active_req = crate::wms::picking::repo::PickingRepo::find_active_picking_by_batch_operation(
+                &mut *db, batch_id, op.id,
+            )
+            .await?
+            .is_some();
+            if has_active_req {
+                let issued = crate::wms::picking::repo::PickingRepo::find_issued_routing_ids_by_batch(
+                    &mut *db, batch_id,
+                )
+                .await?;
+                if !issued.contains(&op.id) {
+                    return Err(DomainError::business_rule(
+                        "仓库尚未发料完成，暂不能收料开工",
+                    ));
+                }
+            }
+        }
+
         ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::InProgress)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;

@@ -2647,7 +2647,7 @@ async fn load_batch_drawer_html(
         .into_iter()
         .map(|wc| (wc.id, wc.name))
         .collect();
-    // 批次已领料的工序集合（驱动矩阵动作位：领料→收料→报工 推进）
+    // 批次已领料的工序集合（Confirmed/Done；防重复领料 + InProgress 报工前置）
     let req_routing_ids: std::collections::HashSet<i64> = state
         .picking_service()
         .list_requisitioned_routing_ids(service_ctx, conn, batch.id)
@@ -2655,7 +2655,15 @@ async fn load_batch_drawer_html(
         .unwrap_or_default()
         .into_iter()
         .collect();
-    Ok(render_batch_drawer_body(&batch, &order, &product_name, &routings, &step_avails, &wc_map, &req_routing_ids).into_string())
+    // 批次已发料完成的工序集合（Done；收料前置——仓库 issue 发齐才能收料开工）
+    let issued_routing_ids: std::collections::HashSet<i64> = state
+        .picking_service()
+        .list_issued_routing_ids(service_ctx, conn, batch.id)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
+    Ok(render_batch_drawer_body(&batch, &order, &product_name, &routings, &step_avails, &wc_map, &req_routing_ids, &issued_routing_ids).into_string())
 }
 
 /// 批次处理 drawer body：批次信息 + 工序进度 + 报工表单 + 状态操作（按 BatchStatus 门控）。
@@ -2677,6 +2685,7 @@ fn render_batch_drawer_body(
     step_avails: &HashMap<i64, abt_core::mes::work_order::MaterialAvailability>,
     wc_map: &HashMap<i64, String>,
     req_routing_ids: &std::collections::HashSet<i64>,
+    issued_routing_ids: &std::collections::HashSet<i64>,
 ) -> Markup {
     let (slabel, stoken) = batch_status_meta(&batch.status);
     let can_suspend = matches!(batch.status, BatchStatus::InProgress);
@@ -2758,7 +2767,7 @@ fn render_batch_drawer_body(
                         tr { td colspan="3" class="text-center text-muted py-6" { "该工单尚无工序" } }
                     }
                     @for r in routings {
-                        (render_batch_matrix_row(batch, r, step_avails, wc_map, req_routing_ids))
+                        (render_batch_matrix_row(batch, r, step_avails, wc_map, req_routing_ids, issued_routing_ids))
                     }
                 }
             }
@@ -2784,6 +2793,7 @@ fn render_batch_matrix_row(
     step_avails: &HashMap<i64, abt_core::mes::work_order::MaterialAvailability>,
     wc_map: &HashMap<i64, String>,
     req_routing_ids: &std::collections::HashSet<i64>,
+    issued_routing_ids: &std::collections::HashSet<i64>,
 ) -> Markup {
     use abt_core::mes::work_order::MaterialAvailabilityLevel;
     let wc_name = r
@@ -2808,12 +2818,51 @@ fn render_batch_matrix_row(
     let is_current = r.step_no == active_step;
     let is_completed = r.step_no < batch.current_step;
     let has_req = req_routing_ids.contains(&r.id);
+    let has_issued = issued_routing_ids.contains(&r.id);
     // 无产出工序（检测/检验）→ 无消耗物料 → 视同已领料，不显示领料按钮（学 OFBiz 按有无消耗决定按钮）
     let has_output = r.product_id.is_some();
     let ready = has_req || !has_output;
+    // 收料前置：仓库发料完成（Done）或无产出工序（无消耗）才能收料开工
+    let can_receive = has_issued || !has_output;
     let is_pending = matches!(batch.status, BatchStatus::Pending);
     let is_inprogress = matches!(batch.status, BatchStatus::InProgress);
     let kitted = shortage_n == 0;
+    // 动作位统一判定：批次状态 × 当前工序 × 领料/发料状态 → Action 枚举，模板只做 @match 渲染
+    enum Action {
+        Done,        // ✅ 已完成
+        Receive,     // 收料（Pending→InProgress 开工）
+        WaitIssue,   // ⏳ 待仓库发料（已领料、仓库未发齐）
+        Requisition, // 领料（建领料单）
+        Shortage,    // 欠料置灰
+        Report,      // 报工
+        Suspended,   // ⚠ 已暂停
+        Dash,        // —
+    }
+    let action = if is_completed {
+        Action::Done
+    } else if is_current && is_pending {
+        if can_receive {
+            Action::Receive
+        } else if has_req {
+            Action::WaitIssue
+        } else if has_output && kitted {
+            Action::Requisition
+        } else {
+            Action::Shortage
+        }
+    } else if is_current && is_inprogress {
+        if ready {
+            Action::Report
+        } else if has_output && kitted {
+            Action::Requisition
+        } else {
+            Action::Dash
+        }
+    } else if matches!(batch.status, BatchStatus::Suspended) && is_current {
+        Action::Suspended
+    } else {
+        Action::Dash
+    };
     html! {
         tr class="border-b border-border-soft align-top" {
             td class="py-2.5 px-3" {
@@ -2834,32 +2883,38 @@ fn render_batch_matrix_row(
                     span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-{atoken}-bg text-{atoken}")) { (alabel) }
                 }
             }
-            // 第3列：动作位（领料→收料→报工，按批次状态 + 领料状态推进）
+            // 第3列：动作位（@match action 纯渲染，判定逻辑见上方 action 计算）
             td class="py-2.5 px-3 text-xs" {
-                @if is_completed {
-                    span class="text-success font-medium" { "✅ 已完成" }
-                } @else if is_current && is_pending {
-                    @if ready {
-                        // 已领料（或无产出工序）+ Pending → 收料（start_batch：Pending→InProgress）
+                @match action {
+                    Action::Done => {
+                        span class="text-success font-medium" { "✅ 已完成" }
+                    }
+                    Action::Receive => {
+                        // 已发料完成（或无产出工序）+ Pending → 收料开工
                         form hx-post=(WcBatchReceivePath { batch_id: batch.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
                             button type="submit"
                                 class="text-xs px-2 py-1 rounded-sm bg-accent text-accent-on border-none cursor-pointer hover:opacity-90 transition-all font-medium"
                                 hx-confirm="确认收料开工？" { "收料" }
                         }
-                    } @else if has_output && kitted {
-                        // 有产出 + 未领料 + 齐套 → 领料，成功后刷新 drawer body（动作位变收料）
+                    }
+                    Action::WaitIssue => {
+                        // 已领料但仓库未发齐 → 待仓库 issue 发料完成
+                        span class="text-xs text-warn" title="已领料，等待仓库发料完成" { "⏳ 待仓库发料" }
+                    }
+                    Action::Requisition => {
+                        // 有产出 + 未领料 + 齐套 → 领料
                         form hx-post=(WcBatchReqPath { batch_id: batch.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
                             input type="hidden" name="routing_id" value=(r.id);
                             button type="submit"
                                 class="text-xs px-2 py-1 rounded-sm border border-border text-fg-2 hover:bg-accent-bg hover:text-accent cursor-pointer transition-all font-medium"
                                 hx-confirm="确认领料本工序物料？" { "领料" }
                         }
-                    } @else {
+                    }
+                    Action::Shortage => {
                         // 未领料 + 欠料 → 置灰
                         span class="text-xs text-muted cursor-not-allowed" title="欠料，无法领料" { "领料" }
                     }
-                } @else if is_current && is_inprogress {
-                    @if ready {
+                    Action::Report => {
                         // 已领料（或无产出工序）+ InProgress → 报工
                         button class="text-xs px-2 py-1 rounded-sm bg-accent text-accent-on border-none cursor-pointer hover:opacity-90 transition-all font-medium"
                             hx-get=(WcBatchReportModalPath { batch_id: batch.id, step_no: r.step_no }.to_string())
@@ -2867,21 +2922,13 @@ fn render_batch_matrix_row(
                             _="on click halt the event" {
                             "报工"
                         }
-                    } @else if has_output && kitted {
-                        // 有产出 + 开工后补领料
-                        form hx-post=(WcBatchReqPath { batch_id: batch.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
-                            input type="hidden" name="routing_id" value=(r.id);
-                            button type="submit"
-                                class="text-xs px-2 py-1 rounded-sm border border-border text-fg-2 hover:bg-accent-bg hover:text-accent cursor-pointer transition-all font-medium"
-                                hx-confirm="确认领料本工序物料？" { "领料" }
-                        }
-                    } @else {
+                    }
+                    Action::Suspended => {
+                        span class="text-warn" { "⚠ 已暂停" }
+                    }
+                    Action::Dash => {
                         span class="text-muted" { "—" }
                     }
-                } @else if matches!(batch.status, BatchStatus::Suspended) && is_current {
-                    span class="text-warn" { "⚠ 已暂停" }
-                } @else {
-                    span class="text-muted" { "—" }
                 }
             }
         }

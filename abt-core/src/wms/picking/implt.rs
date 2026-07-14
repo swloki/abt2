@@ -572,9 +572,9 @@ impl PickingService for PickingServiceImpl {
         }
 
         let existing_items = PickingRepo::get_items(&mut *db, req.id).await?;
-        let warehouse_id = picking
-            .from_warehouse_id
-            .ok_or_else(|| DomainError::BusinessRule("领料单无源仓库".into()))?;
+        // 发料仓由发料 drawer 选定（对齐直接发货 direct_ship_rows）：改写 picking 源仓，按此仓扣库存
+        PickingRepo::update_from_warehouse(&mut *db, req.id, req.warehouse_id).await?;
+        let warehouse_id = req.warehouse_id;
 
         // 批量预加载涉及产品的最后已知单位成本（消除循环内 N+1）
         let cost_product_ids: Vec<i64> = req
@@ -831,6 +831,15 @@ impl PickingService for PickingServiceImpl {
         batch_id: i64,
     ) -> Result<Vec<i64>> {
         PickingRepo::find_routing_ids_by_batch(&mut *db, batch_id).await
+    }
+
+    async fn list_issued_routing_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<Vec<i64>> {
+        PickingRepo::find_issued_routing_ids_by_batch(&mut *db, batch_id).await
     }
 
     // ── 调拨专用（InternalTransfer，从 TransferService 迁入）──

@@ -437,9 +437,14 @@ impl PickingService for PickingServiceImpl {
         // 6. 单据关联
         self.link_to_work_order(ctx, db, picking.id, work_order_id).await?;
 
+        // 7. 确认（Draft→Confirmed）：生产侧点「领料」即确认要料，单据进入仓库「待领料」队列
+        // （WMS 待领料仅显示 Confirmed，见 work_center/repo.rs Requisition.statuses=&[2]）。
+        // confirm 纯状态转换，不扣库存/预留——实际发料由仓库 issue() 执行（qty_done 推进）
+        self.confirm(ctx, db, picking.id).await?;
+
         tracing::info!(
             work_order_id, routing_id, batch_id, fg_bom_id, output_product_id,
-            "routing-step picking created"
+            "routing-step picking created and confirmed"
         );
         Ok(picking.id)
     }

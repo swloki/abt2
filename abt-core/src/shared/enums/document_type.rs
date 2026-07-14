@@ -65,6 +65,8 @@ pub enum DocumentType {
     // 枚举值保留以兼容历史 document_links（source_type=46）解码，避免删后查询炸。
     #[allow(dead_code)]
     PickList = 46,
+    // WMS — 生产领料单（InternalIssue picking）
+    InternalIssue = 47,
 }
 
 impl DocumentType {
@@ -115,6 +117,7 @@ impl DocumentType {
             44 => Some(Self::StockShipment),
             45 => Some(Self::ArApAdjustment),
             46 => Some(Self::PickList),
+            47 => Some(Self::InternalIssue),
             _ => None,
         }
     }
@@ -183,6 +186,7 @@ impl DocumentType {
             Self::StockShipment => "CK",
             Self::ArApAdjustment => "ADJ",
             Self::PickList => "PK",
+            Self::InternalIssue => "LL",
         }
     }
 }

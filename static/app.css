@@ -1174,6 +1174,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .border-danger\/40{border-color:color-mix(in srgb, var(--danger) 40%, transparent) /* var(--danger) */;}
 .border-purple{border-color:color-mix(in srgb, var(--purple) var(--un-border-opacity), transparent) /* var(--purple) */;}
 .border-purple-100{border-color:color-mix(in srgb, var(--purple-100) var(--un-border-opacity), transparent) /* var(--purple-100) */;}
+.border-purple\/40{border-color:color-mix(in srgb, var(--purple) 40%, transparent) /* var(--purple) */;}
 .border-slate-200{border-color:color-mix(in srgb, var(--slate-200) var(--un-border-opacity), transparent) /* var(--slate-200) */;}
 .border-success{border-color:color-mix(in srgb, var(--success) var(--un-border-opacity), transparent) /* var(--success) */;}
 .border-success-100{border-color:color-mix(in srgb, var(--success-100) var(--un-border-opacity), transparent) /* var(--success-100) */;}

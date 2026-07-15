@@ -189,6 +189,7 @@ pub async fn create(
  work_order_id: form.work_order_id,
  routing_id: form.routing_id,
  process_name: None, // B2 从选定工序填入
+ batch_id: None, // 独立创建页无批次关联；工序委外从 batch drawer 创建时填
  supplier_id: form.supplier_id,
  product_id: form.product_id,
  outsourcing_type,

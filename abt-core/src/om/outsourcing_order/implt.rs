@@ -657,6 +657,11 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                         "warehouse_id": warehouse_id,
                         "supplier_id": order.supplier_id,
                         "unit_price": order.unit_price.to_string(),
+                        "work_order_id": order.work_order_id,
+                        "routing_id": order.routing_id,
+                        "outsourcing_type": order.outsourcing_type.as_i16(),
+                        "product_id": order.product_id,
+                        "batch_id": order.batch_id,
                     }),
                     idempotency_key: None,
                 },
@@ -1051,5 +1056,23 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             customer_name: wo.source_customer,
             routings,
         })
+    }
+
+    async fn find_active_for_routing(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+        batch_id: Option<i64>,
+    ) -> Result<Vec<OutsourcingOrder>> {
+        OutsourcingOrderRepo::find_active_by_work_order_and_routing(
+            &mut *db,
+            work_order_id,
+            routing_id,
+            batch_id,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))
     }
 }

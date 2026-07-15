@@ -2663,7 +2663,12 @@ async fn load_batch_drawer_html(
         .unwrap_or_default()
         .into_iter()
         .collect();
-    Ok(render_batch_drawer_body(&batch, &order, &product_name, &routings, &step_avails, &wc_map, &req_routing_ids, &issued_routing_ids).into_string())
+    // 需领料的工序集合（产出品含外购子级）；纯半成品/散料工序不需领料，动作位直接收料
+    let needs_requisition: std::collections::HashSet<i64> = batch_svc
+        .list_routings_needing_requisition(service_ctx, conn, batch.work_order_id)
+        .await
+        .unwrap_or_default();
+    Ok(render_batch_drawer_body(&batch, &order, &product_name, &routings, &step_avails, &wc_map, &req_routing_ids, &issued_routing_ids, &needs_requisition).into_string())
 }
 
 /// 批次处理 drawer body：批次信息 + 工序进度 + 报工表单 + 状态操作（按 BatchStatus 门控）。
@@ -2686,6 +2691,7 @@ fn render_batch_drawer_body(
     wc_map: &HashMap<i64, String>,
     req_routing_ids: &std::collections::HashSet<i64>,
     issued_routing_ids: &std::collections::HashSet<i64>,
+    needs_requisition: &std::collections::HashSet<i64>,
 ) -> Markup {
     let (slabel, stoken) = batch_status_meta(&batch.status);
     let can_suspend = matches!(batch.status, BatchStatus::InProgress);
@@ -2767,7 +2773,7 @@ fn render_batch_drawer_body(
                         tr { td colspan="3" class="text-center text-muted py-6" { "该工单尚无工序" } }
                     }
                     @for r in routings {
-                        (render_batch_matrix_row(batch, r, step_avails, wc_map, req_routing_ids, issued_routing_ids))
+                        (render_batch_matrix_row(batch, r, step_avails, wc_map, req_routing_ids, issued_routing_ids, needs_requisition))
                     }
                 }
             }
@@ -2794,6 +2800,7 @@ fn render_batch_matrix_row(
     wc_map: &HashMap<i64, String>,
     req_routing_ids: &std::collections::HashSet<i64>,
     issued_routing_ids: &std::collections::HashSet<i64>,
+    needs_requisition: &std::collections::HashSet<i64>,
 ) -> Markup {
     use abt_core::mes::work_order::MaterialAvailabilityLevel;
     let wc_name = r
@@ -2813,17 +2820,30 @@ fn render_batch_matrix_row(
         }
         None => ("散料", "muted", 0),
     };
-    // 当前工序：current_step=0（Pending 或刚开工未报工）时指向第 1 道工序
-    let active_step = if batch.current_step == 0 { 1 } else { batch.current_step };
+    // current_step = 最后一个已完成工序号（0=尚无完成，见 confirm_routing_step 推进语义）。
+    // 原代码把它当成「当前进行工序号」造成 off-by-one：第一道完成后仍显示报工而非已完成。
+    let batch_done = matches!(
+        batch.status,
+        BatchStatus::PendingReceipt | BatchStatus::Completed
+    );
+    let active_step = if batch_done {
+        i32::MAX // 全完成：靠 is_completed 兜底全部 Done，无越界
+    } else if matches!(batch.status, BatchStatus::Suspended) {
+        batch.current_step // 待检工序（刚报工、质检中）保留为当前
+    } else if batch.current_step == 0 {
+        1 // 首道待开工
+    } else {
+        batch.current_step + 1 // 下一道待加工（核心修正）
+    };
     let is_current = r.step_no == active_step;
-    let is_completed = r.step_no < batch.current_step;
+    let is_completed = r.step_no < active_step;
     let has_req = req_routing_ids.contains(&r.id);
     let has_issued = issued_routing_ids.contains(&r.id);
     // 无产出工序（检测/检验）→ 无消耗物料 → 视同已领料，不显示领料按钮（学 OFBiz 按有无消耗决定按钮）
     let has_output = r.product_id.is_some();
-    let ready = has_req || !has_output;
-    // 收料前置：仓库发料完成（Done）或无产出工序（无消耗）才能收料开工
-    let can_receive = has_issued || !has_output;
+    let ready = has_req || !has_output || !needs_requisition.contains(&r.id);
+    // 收料前置：仓库发料完成（Done）或无需领料（无产出 / 纯半成品车间直转且齐套）才能收料开工
+    let can_receive = has_issued || !has_output || (!needs_requisition.contains(&r.id) && shortage_n == 0);
     let is_pending = matches!(batch.status, BatchStatus::Pending);
     let is_inprogress = matches!(batch.status, BatchStatus::InProgress);
     let kitted = shortage_n == 0;

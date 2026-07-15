@@ -32,6 +32,7 @@ fn transaction_type_label(t: &abt_core::wms::enums::TransactionType) -> &'static
  Lock => "锁定",
  Unlock => "解锁",
  Scrap => "报废",
+ RoutingOutput => "工序产出",
  }
 }
 

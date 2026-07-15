@@ -119,6 +119,7 @@ define_wms_enum!(TransactionType {
     Lock = 10,
     Unlock = 11,
     Scrap = 12,
+    RoutingOutput = 13, // 工序产出（半成品入车间在制仓，区别于 ProductionReceipt 成品入库）
 });
 
 impl TransactionType {
@@ -137,6 +138,7 @@ impl TransactionType {
             "Lock" => Some(Self::Lock),
             "Unlock" => Some(Self::Unlock),
             "Scrap" => Some(Self::Scrap),
+            "RoutingOutput" => Some(Self::RoutingOutput),
             _ => None,
         }
     }
@@ -156,6 +158,7 @@ impl TransactionType {
             Self::Lock => "SD",
             Self::Unlock => "JS",
             Self::Scrap => "BF",
+            Self::RoutingOutput => "GC",
         }
     }
 }

@@ -66,6 +66,8 @@
 @property --un-divide-y-reverse{syntax:"*";inherits:false;initial-value:0;}
 /* layer: theme */
 :root, :host {
+--default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
+--default-transition-duration: 150ms;
 --spacing-1: var(--space-1);
 --fontWeight-bold: 700;
 --spacing: 0.25rem;
@@ -79,8 +81,6 @@
 --text-sm-fontSize: 0.875rem;
 --text-sm-lineHeight: 1.25rem;
 --colors-white: #fff;
---default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
---default-transition-duration: 150ms;
 --spacing-4: var(--space-4);
 --leading-relaxed: 1.625;
 --text-xs-fontSize: 0.75rem;
@@ -130,6 +130,7 @@
 --colors-red-500: oklch(63.7% 0.237 25.331);
 --colors-red-600: oklch(57.7% 0.245 27.325);
 --colors-purple-600: oklch(55.8% 0.288 302.321);
+--leading-snug: 1.375;
 --colors-indigo-500: oklch(58.5% 0.233 277.117);
 --colors-cyan-500: oklch(71.5% 0.143 215.221);
 --colors-gray-400: oklch(70.7% 0.022 261.325);
@@ -944,6 +945,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .leading-none{--un-leading:var(--leading-none);line-height:var(--leading-none);}
 .leading-normal{--un-leading:var(--leading-normal);line-height:var(--leading-normal);}
 .leading-relaxed{--un-leading:var(--leading-relaxed);line-height:var(--leading-relaxed);}
+.leading-snug{--un-leading:var(--leading-snug);line-height:var(--leading-snug);}
 .leading-tight{--un-leading:var(--leading-tight);line-height:var(--leading-tight);}
 .tracking-\[-0\.01em\]{--un-tracking:-0.01em;letter-spacing:-0.01em;}
 .tracking-\[0\.02em\]{--un-tracking:0.02em;letter-spacing:0.02em;}

@@ -25,8 +25,8 @@ use abt_core::sales::quotation::model::{
 use abt_core::sales::quotation::QuotationService;
 use abt_core::sales::reconciliation::model::{Reconciliation, ReconciliationItem, ReconciliationQuery, ReconciliationStatus};
 use abt_core::sales::reconciliation::ReconciliationService;
-use abt_core::sales::sales_order::model::{SalesOrder, SalesOrderItem, SalesOrderQuery, SalesOrderStatus};
-use abt_core::sales::sales_order::SalesOrderService;
+use abt_core::sales::sales_order::model::{DemandStatus, FulfillmentPlanLine, FulfillmentPlanQuery, SalesOrder, SalesOrderItem, SalesOrderQuery, SalesOrderStatus};
+use abt_core::sales::sales_order::{DemandService, SalesOrderService};
 use abt_core::sales::sales_return::model::{ReturnQuery, ReturnStatus, SalesReturn, SalesReturnItem};
 use abt_core::sales::sales_return::SalesReturnService;
 use abt_core::sales::work_center::{
@@ -34,13 +34,17 @@ use abt_core::sales::work_center::{
     SalesReturnHubSummary, SalesWorkCenterService, SalesWorkCenterSummary, SettlementHubSummary,
     SettlementReconType,
 };
+use abt_core::shared::enums::document_type::DocumentType;
 use abt_core::shared::types::{DomainError, PageParams};
+use abt_core::wms::stock_ledger::StockLedgerService;
 
 use abt_macros::require_permission;
 use rust_decimal::Decimal;
+use crate::components::fulfillment_workbench::{fulfillment_progress, fulfillment_workbench};
 use crate::components::icon;
 use crate::components::overlay::drawer_shell;
 use crate::components::pagination::pagination;
+use crate::components::reservation_detail;
 use crate::components::row_expand;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
@@ -151,6 +155,7 @@ pub async fn get_work_center(
         (render_sc_drawer_overlay("sc-return-create-overlay", "sc-return-create-drawer-body", "新建退货", "w-[1000px] max-w-[94vw]"))
         (render_sc_drawer_overlay("sc-recon-overlay", "sc-recon-drawer-body", "对账单详情", "w-[760px] max-w-[92vw]"))
         (render_sc_drawer_overlay("sc-recon-create-overlay", "sc-recon-create-drawer-body", "新建对账单", "w-[480px] max-w-[92vw]"))
+        (reservation_detail::reservation_detail_drawer())
     };
 
     Ok(Html(
@@ -494,10 +499,29 @@ pub async fn get_quotation_row_detail(
         .list_items(&service_ctx, &mut conn, id)
         .await
         .unwrap_or_default();
+    // 查产品名称/编码，供明细列展示
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let products = if product_ids.is_empty() {
+        vec![]
+    } else {
+        state
+            .product_service()
+            .get_by_ids(&service_ctx, &mut conn, product_ids)
+            .await
+            .unwrap_or_default()
+    };
+    let product_names: HashMap<i64, String> = products
+        .iter()
+        .map(|p| (p.product_id, p.pdt_name.clone()))
+        .collect();
+    let product_codes: HashMap<i64, String> = products
+        .into_iter()
+        .map(|p| (p.product_id, p.product_code))
+        .collect();
     let row_id = format!("sc-quo-{}", id);
     Ok(Html(
         html! {
-            (row_expand::row_expand_detail(&row_id, 5, quotation_detail_grid(&hub, &items)))
+            (row_expand::row_expand_detail(&row_id, 5, quotation_detail_grid(&hub, &items, &product_names, &product_codes)))
         }
         .into_string(),
     ))
@@ -523,10 +547,13 @@ pub async fn get_order_row_detail(
         .list_items(&service_ctx, &mut conn, id)
         .await
         .unwrap_or_default();
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let (product_codes, product_names) = product_codes_names(&state, &service_ctx, &mut conn, product_ids).await;
+    let (plan_lines, atp_map, reserved_map, demand_map) = order_fulfillment_data(&state, &service_ctx, &mut conn, id).await;
     let row_id = format!("sc-order-{}", id);
     Ok(Html(
         html! {
-            (row_expand::row_expand_detail(&row_id, 5, order_detail_grid(&hub, &items)))
+            (row_expand::row_expand_detail(&row_id, 5, order_detail_grid(&hub, &items, &product_names, &product_codes, &plan_lines, &atp_map, &demand_map, &reserved_map)))
         }
         .into_string(),
     ))
@@ -605,10 +632,29 @@ pub async fn get_quotation_detail_drawer(
         .list_items(&service_ctx, &mut conn, id)
         .await
         .unwrap_or_default();
+    // 查产品名称/编码，供明细列展示
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let products = if product_ids.is_empty() {
+        vec![]
+    } else {
+        state
+            .product_service()
+            .get_by_ids(&service_ctx, &mut conn, product_ids)
+            .await
+            .unwrap_or_default()
+    };
+    let product_names: HashMap<i64, String> = products
+        .iter()
+        .map(|p| (p.product_id, p.pdt_name.clone()))
+        .collect();
+    let product_codes: HashMap<i64, String> = products
+        .into_iter()
+        .map(|p| (p.product_id, p.product_code))
+        .collect();
     Ok(Html(
         html! {
             div class="space-y-4" {
-                (quotation_detail_grid(&hub, &items))
+                (quotation_detail_grid(&hub, &items, &product_names, &product_codes))
                 (quotation_drawer_actions(&hub.quotation))
                 (crate::components::image_upload::attachment_section("quotation", id))
             }
@@ -637,10 +683,13 @@ pub async fn get_order_detail_drawer(
         .list_items(&service_ctx, &mut conn, id)
         .await
         .unwrap_or_default();
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let (product_codes, product_names) = product_codes_names(&state, &service_ctx, &mut conn, product_ids).await;
+    let (plan_lines, atp_map, reserved_map, demand_map) = order_fulfillment_data(&state, &service_ctx, &mut conn, id).await;
     Ok(Html(
         html! {
             div class="space-y-4" {
-                (order_detail_grid(&hub, &items))
+                (order_detail_grid(&hub, &items, &product_names, &product_codes, &plan_lines, &atp_map, &demand_map, &reserved_map))
                 (order_drawer_actions(&hub.order))
                 (crate::components::image_upload::attachment_section("sales_order", id))
             }
@@ -1811,7 +1860,12 @@ fn quo_status_badge(s: QuotationStatus) -> Markup {
     }
 }
 
-fn quotation_detail_grid(hub: &QuotationHubSummary, items: &[QuotationItem]) -> Markup {
+fn quotation_detail_grid(
+    hub: &QuotationHubSummary,
+    items: &[QuotationItem],
+    product_names: &HashMap<i64, String>,
+    product_codes: &HashMap<i64, String>,
+) -> Markup {
     let q = &hub.quotation;
     html! {
         div class="space-y-4" {
@@ -1853,7 +1907,19 @@ fn quotation_detail_grid(hub: &QuotationHubSummary, items: &[QuotationItem]) -> 
                     tbody {
                         @for it in items {
                             tr {
-                                td { (it.description.as_str()) }
+                                td {
+                                    div class="flex flex-col gap-0.5" {
+                                        span class="font-medium text-fg" {
+                                            (product_names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+                                        }
+                                        @if let Some(code) = product_codes.get(&it.product_id) {
+                                            span class="font-mono text-xs text-muted" { (code.as_str()) }
+                                        }
+                                        @if !it.description.is_empty() {
+                                            div class="text-xs text-fg-2 leading-snug" { (it.description.as_str()) }
+                                        }
+                                    }
+                                }
                                 td class="text-right font-mono whitespace-nowrap" { (fmt_plain(it.quantity)) " " (it.unit.as_str()) }
                                 td class="text-right font-mono whitespace-nowrap" { (fmt_decimal(it.unit_price)) }
                                 td class="text-right font-mono whitespace-nowrap" { (fmt_decimal(it.amount)) }
@@ -1883,7 +1949,16 @@ fn so_status_badge(s: SalesOrderStatus) -> Markup {
     }
 }
 
-fn order_detail_grid(hub: &SalesOrderHubSummary, items: &[SalesOrderItem]) -> Markup {
+fn order_detail_grid(
+    hub: &SalesOrderHubSummary,
+    items: &[SalesOrderItem],
+    product_names: &HashMap<i64, String>,
+    product_codes: &HashMap<i64, String>,
+    plan_lines: &[FulfillmentPlanLine],
+    atp_map: &HashMap<i64, Decimal>,
+    demand_map: &HashMap<i64, DemandStatus>,
+    reserved_map: &HashMap<i64, Decimal>,
+) -> Markup {
     let o = &hub.order;
     html! {
         div class="space-y-4" {
@@ -1892,17 +1967,14 @@ fn order_detail_grid(hub: &SalesOrderHubSummary, items: &[SalesOrderItem]) -> Ma
                 span class="text-base font-bold text-fg font-mono" { (o.doc_number.as_str()) }
                 (so_status_badge(o.status))
             }
-            // 基础信息
-            div class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm" {
+            // 基础信息 + 应收台账
+            div class="grid grid-cols-4 gap-x-4 gap-y-3 text-sm" {
                 (kv("客户", html! { (hub.customer_name.as_str()) }, "text-fg"))
                 (kv("订单金额", html! { (fmt_decimal(o.total_amount)) }, "text-fg"))
                 (kv("订单日期", html! { (o.order_date) }, "text-fg"))
                 (kv("来源报价", source_chain_cell(&hub.source_chain), "text-fg"))
                 (kv("付款条款", html! { (o.payment_terms.as_str()) }, "text-fg-2"))
                 (kv("交货条款", html! { (o.delivery_terms.as_str()) }, "text-fg-2"))
-            }
-            // 应收台账
-            div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm" {
                 (kv("已立应收", html! { (fmt_decimal(hub.ar_summary.ar_amount)) }, "text-fg"))
                 (kv("未清应收", html! { (fmt_decimal(hub.ar_summary.outstanding)) }, "text-warn"))
             }
@@ -1936,7 +2008,19 @@ fn order_detail_grid(hub: &SalesOrderHubSummary, items: &[SalesOrderItem]) -> Ma
                     tbody {
                         @for it in items {
                             tr {
-                                td { (it.description.as_str()) }
+                                td {
+                                    div class="flex flex-col gap-0.5" {
+                                        span class="font-medium text-fg" {
+                                            (product_names.get(&it.product_id).map(|s| s.as_str()).unwrap_or("—"))
+                                        }
+                                        @if let Some(code) = product_codes.get(&it.product_id) {
+                                            span class="font-mono text-xs text-muted" { (code.as_str()) }
+                                        }
+                                        @if !it.description.is_empty() {
+                                            div class="text-xs text-fg-2 leading-snug" { (it.description.as_str()) }
+                                        }
+                                    }
+                                }
                                 td class="text-right font-mono whitespace-nowrap" { (fmt_plain(it.quantity)) " " (it.unit.as_str()) }
                                 td class="text-right font-mono whitespace-nowrap" { (fmt_plain(it.shipped_qty)) }
                                 td class="text-right font-mono whitespace-nowrap" { (fmt_plain(it.open_qty())) }
@@ -1947,6 +2031,8 @@ fn order_detail_grid(hub: &SalesOrderHubSummary, items: &[SalesOrderItem]) -> Ma
                     }
                 }
             }
+            (fulfillment_progress(items, plan_lines))
+            (fulfillment_workbench(plan_lines, product_names, product_codes, atp_map, demand_map, reserved_map, o.id))
         }
     }
 }
@@ -2245,6 +2331,66 @@ async fn product_codes_names(
             .map(|p| (p.product_id, p.pdt_name.clone()))
             .collect(),
     )
+}
+
+/// 取销售订单的履约工作台数据（plan_lines + ATP + 预留 + 需求状态），供 drawer / 行展开共用。
+/// 复刻自整页 sales_order_detail::get_order_detail 的履约取数段。
+async fn order_fulfillment_data(
+    state: &crate::state::AppState,
+    ctx: &abt_core::shared::types::context::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    order_id: i64,
+) -> (
+    Vec<FulfillmentPlanLine>,
+    HashMap<i64, Decimal>,
+    HashMap<i64, Decimal>,
+    HashMap<i64, DemandStatus>,
+) {
+    let plan_lines = state
+        .sales_order_service()
+        .list_fulfillment_plan(
+            ctx,
+            db,
+            FulfillmentPlanQuery { order_id: Some(order_id), status: None },
+        )
+        .await
+        .unwrap_or_default();
+
+    let stock_svc = state.stock_ledger_service();
+    let mut atp_map: HashMap<i64, Decimal> = HashMap::new();
+    for pl in &plan_lines {
+        if !atp_map.contains_key(&pl.product_id)
+            && let Ok(atp) = stock_svc.query_available(ctx, db, pl.product_id, None).await
+        {
+            atp_map.insert(pl.product_id, atp);
+        }
+    }
+
+    let reserved_map: HashMap<i64, Decimal> = {
+        let product_ids: Vec<i64> = plan_lines.iter().map(|p| p.product_id).collect();
+        if product_ids.is_empty() {
+            HashMap::new()
+        } else {
+            stock_svc
+                .query_projected_qty_batch(ctx, db, &product_ids, None)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(k, v)| (k, v.reserved))
+                .collect()
+        }
+    };
+
+    let demand_map: HashMap<i64, DemandStatus> = state
+        .sales_demand_service()
+        .find_by_source(ctx, db, DocumentType::SalesOrder as i16, order_id)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|d| (d.source_line_id, d.status))
+        .collect();
+
+    (plan_lines, atp_map, reserved_map, demand_map)
 }
 
 /// 销售订单明细单元格（编码/名称/数量/已发/未交/单价/小计）—— 主从表明细列，首行与后续行共用。

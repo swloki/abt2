@@ -38,6 +38,22 @@ impl ProductionBatchServiceImpl {
     }
 }
 
+/// 车间在制库（WIP-SHOP）warehouse_id —— 工序产出半成品在制流转虚拟仓（migration 105）。
+/// 半成品报工产出 +qty 入此仓、后道消耗 -qty 出此仓，纯账面流转无物理搬运。
+pub async fn resolve_wip_warehouse_id(db: PgExecutor<'_>) -> Result<i64> {
+    let id: Option<i64> = sqlx::query_scalar(
+        "SELECT id FROM warehouses WHERE code = 'WIP-SHOP' AND deleted_at IS NULL LIMIT 1",
+    )
+    .fetch_optional(&mut *db)
+    .await
+    .map_err(|e| DomainError::Internal(e.into()))?;
+    id.ok_or_else(|| {
+        DomainError::business_rule(
+            "车间在制库(WIP-SHOP)未配置，请确认 migration 105 已执行".to_string(),
+        )
+    })
+}
+
 #[async_trait]
 impl ProductionBatchService for ProductionBatchServiceImpl {
     /// 创建生产批次（流转卡）
@@ -329,6 +345,112 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 new_cost_entry_service(self.pool.clone())
                     .create_entries(ctx, db, report_entries)
                     .await?;
+            }
+
+            // --- e4. 半成品「车间在制」账面流转（解多工序流转死锁）---
+            // 前道报工产出的半成品原先不入库 → 后道齐套 ATP=0 欠料死锁。
+            // 现让报工为半成品在车间在制虚拟仓（无物理搬运）记两笔账：
+            //   (a) 产出：本道产出品（≠工单成品）+合格量 入 WIP（RoutingOutput）；
+            //   (b) 消耗：本道产出品 BOM 直接子级中属「上游工序产出品」的半成品
+            //           -(用量×本次产出) 出 WIP（MaterialIssue，带负库存预检护栏）。
+            // 与倒冲（只扣叶子原料）、领料（排除半成品）正交，不形成重复扣减。
+            use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
+            use crate::wms::enums::TransactionType;
+            use crate::wms::inventory_transaction::{
+                model::RecordTransactionReq, new_inventory_transaction_service,
+                service::InventoryTransactionService,
+            };
+
+            let wip_wh = resolve_wip_warehouse_id(db).await?;
+
+            // 本工单其他工序的产出品集合（识别「上游半成品」）
+            let all_routings = WorkOrderRoutingRepo::get_by_work_order_id(
+                &mut *db, batch.work_order_id,
+            )
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+            let upstream_outputs: std::collections::HashSet<i64> = all_routings
+                .iter()
+                .filter(|rr| rr.id != routing.id)
+                .filter_map(|rr| rr.product_id)
+                .collect();
+
+            // (a) 产出：半成品（产出品 ≠ 工单成品 FG）入车间在制仓。仅合格产出量，不良品不入 WIP。
+            if let Some(out_pid) = routing.product_id
+                && out_pid != batch.product_id
+                && req.completed_qty > Decimal::ZERO
+            {
+                new_inventory_transaction_service(self.pool.clone())
+                    .record(
+                        ctx, db,
+                        RecordTransactionReq {
+                            doc_number: None,
+                            delivery_no: None,
+                            source_doc_number: Some(doc_number.clone()),
+                            transaction_type: TransactionType::RoutingOutput,
+                            product_id: out_pid,
+                            warehouse_id: wip_wh,
+                            zone_id: None,
+                            bin_id: None,
+                            batch_no: Some(batch.batch_no.clone()),
+                            quantity: req.completed_qty,
+                            unit_cost: None,
+                            source_type: "work_report".to_string(),
+                            source_id: work_report_id,
+                            remark: Some(format!(
+                                "工序{}「{}」报工产出半成品",
+                                step_no, routing.process_name
+                            )),
+                        },
+                    )
+                    .await?;
+            }
+
+            // (b) 消耗：本道产出品 BOM 直接子级 ∩ 上游产出集合 → 倒冲扣 WIP
+            if let Some(out_pid) = routing.product_id {
+                let fg = new_product_service(self.pool.clone())
+                    .get(ctx, db, batch.product_id)
+                    .await?;
+                let bom_svc = new_bom_query_service(self.pool.clone());
+                if let Some(fg_bom_id) = bom_svc
+                    .find_published_bom_by_product_code(ctx, db, &fg.product_code)
+                    .await?
+                {
+                    for child in bom_svc
+                        .get_direct_children_by_product(ctx, db, fg_bom_id, out_pid)
+                        .await?
+                    {
+                        if upstream_outputs.contains(&child.product_id) {
+                            let consume = child.quantity * req.completed_qty;
+                            if consume > Decimal::ZERO {
+                                new_inventory_transaction_service(self.pool.clone())
+                                    .record(
+                                        ctx, db,
+                                        RecordTransactionReq {
+                                            doc_number: None,
+                                            delivery_no: None,
+                                            source_doc_number: Some(doc_number.clone()),
+                                            transaction_type: TransactionType::MaterialIssue,
+                                            product_id: child.product_id,
+                                            warehouse_id: wip_wh,
+                                            zone_id: None,
+                                            bin_id: None,
+                                            batch_no: Some(batch.batch_no.clone()),
+                                            quantity: -consume,
+                                            unit_cost: None,
+                                            source_type: "work_report".to_string(),
+                                            source_id: work_report_id,
+                                            remark: Some(format!(
+                                                "工序{}「{}」报工消耗上游半成品",
+                                                step_no, routing.process_name
+                                            )),
+                                        },
+                                    )
+                                    .await?;
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -1006,6 +1128,50 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, work_order_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn list_routings_needing_requisition(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<std::collections::HashSet<i64>> {
+        use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
+
+        let routings = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, work_order_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        // 本工单所有工序产出品（识别「半成品」，与外购料区分）
+        let all_outputs: std::collections::HashSet<i64> =
+            routings.iter().filter_map(|r| r.product_id).collect();
+
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, db, work_order_id)
+            .await?;
+        let fg = new_product_service(self.pool.clone())
+            .get(ctx, db, wo.product_id)
+            .await?;
+        let bom_svc = new_bom_query_service(self.pool.clone());
+        let fg_bom_id = match bom_svc
+            .find_published_bom_by_product_code(ctx, db, &fg.product_code)
+            .await?
+        {
+            Some(id) => id,
+            None => return Ok(std::collections::HashSet::new()),
+        };
+
+        // 需领料 = 产出品的 BOM 直接子级含外购物料（非本工单任何工序产出品）
+        let mut needs: std::collections::HashSet<i64> = std::collections::HashSet::new();
+        for r in &routings {
+            if let Some(out_pid) = r.product_id
+                && let Ok(children) =
+                    bom_svc.get_direct_children_by_product(ctx, db, fg_bom_id, out_pid).await
+                && children.iter().any(|c| !all_outputs.contains(&c.product_id))
+            {
+                needs.insert(r.id);
+            }
+        }
+        Ok(needs)
     }
 
     async fn get_product_name(

@@ -96,6 +96,7 @@ fn txn_type_label(t: &TransactionType) -> &'static str {
  TransactionType::Lock => "锁库",
  TransactionType::Unlock => "解锁",
  TransactionType::Scrap => "报废",
+ TransactionType::RoutingOutput => "工序产出",
  }
 }
 
@@ -104,7 +105,8 @@ fn txn_type_class(t: &TransactionType) -> &'static str {
  TransactionType::PurchaseReceipt
  | TransactionType::ProductionReceipt
  | TransactionType::MaterialReturn
- | TransactionType::Unlock => "txn-type-in",
+ | TransactionType::Unlock
+ | TransactionType::RoutingOutput => "txn-type-in",
  TransactionType::SalesShipment
  | TransactionType::MaterialIssue
  | TransactionType::Backflush

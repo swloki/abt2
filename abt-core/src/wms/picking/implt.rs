@@ -396,10 +396,26 @@ impl PickingService for PickingServiceImpl {
         let children = bom_svc
             .get_direct_children_by_product(ctx, db, fg_bom_id, output_product_id)
             .await?;
+        // 排除「本工单其他工序产出品」（半成品）——半成品走报工倒冲（车间在制直转），
+        // 不进领料单（picking 单一 from_warehouse 撑不了半成品仓+原料仓双仓）。
+        let other_outputs: std::collections::HashSet<i64> = batch_svc
+            .list_routings(ctx, db, work_order_id)
+            .await?
+            .into_iter()
+            .filter(|rr| rr.id != routing_id)
+            .filter_map(|rr| rr.product_id)
+            .collect();
+        let children: Vec<_> = children
+            .into_iter()
+            .filter(|n| !other_outputs.contains(&n.product_id))
+            .collect();
         if children.is_empty() {
-            return Err(DomainError::BusinessRule(
-                "产出品在成品 BOM 中无直接子级物料，无法工序级领料（散料请走完工倒冲）".into(),
-            ));
+            // 仅消耗半成品（车间直转）或无子级散料 → 无外购料领料单，不阻断（散料走完工倒冲）
+            tracing::info!(
+                work_order_id, routing_id,
+                "过滤半成品后无外购子级，跳过领料单（半成品走报工倒冲）"
+            );
+            return Ok(0);
         }
 
         // 4. 数量基数：batch_id 优先，否则工单 planned_qty

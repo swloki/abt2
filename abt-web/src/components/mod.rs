@@ -31,3 +31,4 @@ pub mod customer_search;
 pub mod bin_search;
 pub mod print_dropdown;
 pub mod image_upload;
+pub mod fulfillment_workbench;

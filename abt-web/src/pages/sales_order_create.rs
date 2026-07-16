@@ -376,7 +376,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { (icon::package_icon("w-[18px] h-[18px]")) "产品明细" }
                 div class="overflow-x-auto" {
-                    table class="data-table" {
+                    table class="data-table min-w-[1400px]" {
                         thead {
                             tr {
                                 th class="w-12" { "#" }
@@ -387,7 +387,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                                 th class="w-28" { "单价 (¥)" }
                                 th class="w-32" { "小计 (¥)" }
                                 th class="col-date" { "交货日期" }
-                                th class="w-[240px]" { "备注" }
+                                th class="w-[300px]" { "备注" }
                                 th class="w-16" {}
                             }
                         }

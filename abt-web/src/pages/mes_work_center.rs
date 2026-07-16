@@ -4185,6 +4185,11 @@ pub async fn osa_receive(
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
+    // 同步回写工序进度（绕过异步 EventProcessor，其 OutsourcingReceived 调度问题排查中）
+    abt_core::mes::outsourcing_received_handler::OutsourcingReceivedHandler::new(state.pool.clone())
+        .writeback(path.routing_id, batch.work_order_id, Some(batch.id), order.planned_qty)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
     crate::toast::add_toast(
         service_ctx.operator_id,
         "委外收货完成",

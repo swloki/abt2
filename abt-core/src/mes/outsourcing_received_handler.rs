@@ -31,39 +31,17 @@ impl OutsourcingReceivedHandler {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
-}
 
-#[async_trait]
-impl EventHandler for OutsourcingReceivedHandler {
-    async fn handle(&self, event: &DomainEvent) -> Result<()> {
-        // 只处理 Process 类型委外（Full/Material/Rework 不回写工序）
-        let otype = event
-            .payload
-            .get("outsourcing_type")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        if otype != 2 {
-            return Ok(());
-        }
-
-        let routing_id = event
-            .payload
-            .get("routing_id")
-            .and_then(|v| v.as_i64())
-            .ok_or_else(|| DomainError::business_rule("OutsourcingReceived 缺 routing_id".to_string()))?;
-        let wo_id = event
-            .payload
-            .get("work_order_id")
-            .and_then(|v| v.as_i64())
-            .ok_or_else(|| DomainError::business_rule("OutsourcingReceived 缺 work_order_id".to_string()))?;
-        let batch_id = event.payload.get("batch_id").and_then(|v| v.as_i64());
-        let iqc_qty: Decimal = event
-            .payload
-            .get("iqc_passed_qty")
-            .and_then(|v| v.as_str())
-            .and_then(|s| s.parse().ok())
-            .unwrap_or_default();
-
+    /// 委外收货回写工序进度（EventHandler 异步 + osa_receive 同步都调，统一逻辑）。
+    /// 镜像 confirm_routing_step 尾部：累加完成量 / Pending→InProgress / Completed+推进 current_step。
+    /// 抽出为 pub 便于 osa_receive 绕过异步事件机制同步调用（EventProcessor 调度问题排查中）。
+    pub async fn writeback(
+        &self,
+        routing_id: i64,
+        wo_id: i64,
+        batch_id: Option<i64>,
+        iqc_qty: Decimal,
+    ) -> Result<()> {
         let mut conn = self
             .pool
             .acquire()
@@ -140,6 +118,40 @@ impl EventHandler for OutsourcingReceivedHandler {
             }
         }
         Ok(())
+    }
+}
+
+#[async_trait]
+impl EventHandler for OutsourcingReceivedHandler {
+    async fn handle(&self, event: &DomainEvent) -> Result<()> {
+        // 只处理 Process 类型委外（Full/Material/Rework 不回写工序）
+        let otype = event
+            .payload
+            .get("outsourcing_type")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        if otype != 2 {
+            return Ok(());
+        }
+
+        let routing_id = event
+            .payload
+            .get("routing_id")
+            .and_then(|v| v.as_i64())
+            .ok_or_else(|| DomainError::business_rule("OutsourcingReceived 缺 routing_id".to_string()))?;
+        let wo_id = event
+            .payload
+            .get("work_order_id")
+            .and_then(|v| v.as_i64())
+            .ok_or_else(|| DomainError::business_rule("OutsourcingReceived 缺 work_order_id".to_string()))?;
+        let batch_id = event.payload.get("batch_id").and_then(|v| v.as_i64());
+        let iqc_qty: Decimal = event
+            .payload
+            .get("iqc_passed_qty")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_default();
+        self.writeback(routing_id, wo_id, batch_id, iqc_qty).await
     }
 
     fn name(&self) -> &str {

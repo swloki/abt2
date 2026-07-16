@@ -387,7 +387,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                                 th class="w-28" { "单价 (¥)" }
                                 th class="w-32" { "小计 (¥)" }
                                 th class="col-date" { "交货日期" }
-                                th class="w-[160px]" { "备注" }
+                                th class="w-[240px]" { "备注" }
                                 th class="w-16" {}
                             }
                         }

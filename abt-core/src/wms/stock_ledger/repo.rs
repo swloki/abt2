@@ -126,6 +126,23 @@ impl StockLedgerRepo {
 
     }
 
+    /// 查某产品有库存的仓库（取库存最大的仓）—— 委外发料按物料实际库存仓发料用。
+    /// 返回 None 表示该产品无任何库存（调用方兜底用委外单源仓库）。
+    pub async fn find_warehouse_with_stock(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+    ) -> Result<Option<i64>> {
+        let row: Option<(i64,)> = sqlx::query_as(
+            r#"SELECT warehouse_id FROM stock_ledger
+               WHERE product_id = $1 AND quantity > 0
+               ORDER BY quantity DESC, warehouse_id LIMIT 1"#,
+        )
+        .bind(product_id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(row.map(|(w,)| w))
+    }
+
     /// 计算可用量 ATP = SUM(stock_ledger.quantity - stock_ledger.reserved_qty)
     ///                   - SUM(inventory_reservations.reserved_qty WHERE status=Active)
     ///
@@ -544,7 +561,7 @@ impl StockLedgerRepo {
                 (SELECT zone_id, bin_id, 1 AS prio
                  FROM stock_ledger
                  WHERE product_id = $1 AND warehouse_id = $2 AND quantity > 0
-                 ORDER BY received_date ASC NULLS LAST, id ASC
+                 ORDER BY quantity DESC, received_date ASC NULLS LAST, id ASC
                  LIMIT 1)
                 UNION ALL
                 (SELECT b.zone_id AS zone_id, b.id AS bin_id, 2 AS prio

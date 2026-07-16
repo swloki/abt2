@@ -114,6 +114,7 @@ impl AppState {
             use abt_core::purchase::return_settlement_handler::PurchaseReturnSettledHandler;
             use abt_core::purchase::demand_handler::PurchaseDemandCreatedHandler;
             use abt_core::mes::demand_handler::MesDemandCreatedHandler;
+            use abt_core::mes::outsourcing_received_handler::OutsourcingReceivedHandler;
             use abt_core::sales::sales_order::{SalesDemandConfirmedHandler, SalesDemandRejectedHandler, SalesDemandReleasedHandler};
             use abt_core::sales::sales_return_received_handler::SalesReturnReceivedHandler;
             use abt_core::sales::shipment_shipped_handler::ShipmentShippedHandler;
@@ -161,6 +162,10 @@ impl AppState {
             registry.register(
                 DomainEventType::ShipmentShipped,
                 Arc::new(ShipmentShippedHandler::new(pool.clone())),
+            );
+            registry.register(
+                DomainEventType::OutsourcingReceived,
+                Arc::new(OutsourcingReceivedHandler::new(pool.clone())),
             );
 
             let dead_letter = Arc::new(DeadLetterServiceImpl::new());

@@ -221,24 +221,39 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // WMS: 发料到虚拟库位 — 创建调拨单并发货
+        // WMS: 发料到供应商虚拟仓 — 委外发料明细的物料可能分散在多仓（外购料在原料仓、
+        // 前道半成品在车间在制仓），picking 单一 from_warehouse 撑不了，故按物料实际库存仓
+        // 分组，每个源仓一个 InternalTransfer 调拨单（dispatch 扣源仓 + complete 入虚拟仓）。
         let transfer_date = chrono::Utc::now().date_naive();
-        let transfer_items: Vec<CreatePickingItemReq> = materials
-            .iter()
-            .map(|m| CreatePickingItemReq {
-                product_id: m.product_id,
-                qty_requested: m.planned_qty,
-                batch_no: None,
-                from_bin_id: None,
-                to_bin_id: None,
-                operation_id: None,
-                batch_id: None,
-                source_item_id: None,
-                remark: None,
-            })
-            .collect();
+        let source_wh = order.source_warehouse_id
+            .ok_or_else(|| DomainError::validation("委外单未设置发料源仓库，无法发料"))?;
+        let mut by_warehouse: std::collections::HashMap<i64, Vec<&OutsourcingMaterial>> =
+            std::collections::HashMap::new();
+        for m in &materials {
+            let wh = crate::wms::stock_ledger::repo::StockLedgerRepo::find_warehouse_with_stock(
+                &mut *db,
+                m.product_id,
+            )
+            .await?
+            .unwrap_or(source_wh);
+            by_warehouse.entry(wh).or_default().push(m);
+        }
         let mut transfer_ids = Vec::new();
-        if !transfer_items.is_empty() {
+        for (wh, mats) in by_warehouse {
+            let items: Vec<CreatePickingItemReq> = mats
+                .iter()
+                .map(|m| CreatePickingItemReq {
+                    product_id: m.product_id,
+                    qty_requested: m.planned_qty,
+                    batch_no: None,
+                    from_bin_id: None,
+                    to_bin_id: None,
+                    operation_id: None,
+                    batch_id: None,
+                    source_item_id: None,
+                    remark: None,
+                })
+                .collect();
             let tid = new_picking_service(self.pool.clone())
                 .create(
                     ctx,
@@ -248,8 +263,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                         source_type: Some("none".into()),
                         source_id: None,
                         partner_id: None,
-                        from_warehouse_id: Some(order.source_warehouse_id
-                            .ok_or_else(|| DomainError::validation("委外单未设置发料源仓库，无法发料"))?),
+                        from_warehouse_id: Some(wh),
                         from_zone_id: None,
                         from_bin_id: None,
                         to_warehouse_id: Some(order.virtual_warehouse_id),
@@ -259,18 +273,14 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                         work_order_id: None,
                         remark: None,
                         shipping_requirements: None,
-                        items: transfer_items,
+                        items,
                     },
                 )
                 .await?;
-            new_picking_service(self.pool.clone())
-                .dispatch(ctx, db, tid)
-                .await?;
             // complete 让虚拟仓实际收到库存（dispatch 仅扣源仓，complete 才入目标仓），
             // 否则后续 receive 从虚拟仓调回时会报"库存数量不能为负"
-            new_picking_service(self.pool.clone())
-                .complete(ctx, db, tid)
-                .await?;
+            new_picking_service(self.pool.clone()).dispatch(ctx, db, tid).await?;
+            new_picking_service(self.pool.clone()).complete(ctx, db, tid).await?;
             transfer_ids.push(tid);
         }
 
@@ -657,6 +667,11 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                         "warehouse_id": warehouse_id,
                         "supplier_id": order.supplier_id,
                         "unit_price": order.unit_price.to_string(),
+                        "work_order_id": order.work_order_id,
+                        "routing_id": order.routing_id,
+                        "outsourcing_type": order.outsourcing_type.as_i16(),
+                        "product_id": order.product_id,
+                        "batch_id": order.batch_id,
                     }),
                     idempotency_key: None,
                 },
@@ -1051,5 +1066,23 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             customer_name: wo.source_customer,
             routings,
         })
+    }
+
+    async fn find_active_for_routing(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+        batch_id: Option<i64>,
+    ) -> Result<Vec<OutsourcingOrder>> {
+        OutsourcingOrderRepo::find_active_by_work_order_and_routing(
+            &mut *db,
+            work_order_id,
+            routing_id,
+            batch_id,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))
     }
 }

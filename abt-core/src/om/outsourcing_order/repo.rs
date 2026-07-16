@@ -27,8 +27,9 @@ impl OutsourcingOrderRepo {
             INSERT INTO outsourcing_orders
                 (doc_number, work_order_id, routing_id, process_name, supplier_id, product_id,
                  outsourcing_type, planned_qty, completed_qty, unit_price,
-                 scheduled_date, status, virtual_warehouse_id, source_warehouse_id, remark, operator_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                 scheduled_date, status, virtual_warehouse_id, source_warehouse_id, remark, operator_id,
+                 batch_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
             RETURNING id
             "#,
         )
@@ -48,6 +49,7 @@ impl OutsourcingOrderRepo {
         .bind(req.source_warehouse_id)
         .bind(req.remark.as_deref().unwrap_or(""))
         .bind(operator_id)
+        .bind(req.batch_id)
         .fetch_one(executor)
         .await?;
 
@@ -63,7 +65,7 @@ impl OutsourcingOrderRepo {
             SELECT id, doc_number, work_order_id, routing_id, process_name, supplier_id, product_id,
                    outsourcing_type, planned_qty, completed_qty, unit_price,
                    scheduled_date, status, virtual_warehouse_id, source_warehouse_id, version,
-                   remark, operator_id, created_at, updated_at, deleted_at
+                   remark, operator_id, batch_id, created_at, updated_at, deleted_at
             FROM outsourcing_orders
             WHERE id = $1 AND deleted_at IS NULL
             "#,
@@ -198,7 +200,7 @@ impl OutsourcingOrderRepo {
             "SELECT id, doc_number, work_order_id, routing_id, process_name, supplier_id, product_id,
                     outsourcing_type, planned_qty, completed_qty, unit_price,
                     scheduled_date, status, virtual_warehouse_id, source_warehouse_id, version,
-                    remark, operator_id, created_at, updated_at, deleted_at
+                    remark, operator_id, batch_id, created_at, updated_at, deleted_at
              FROM outsourcing_orders {where_clause}
              ORDER BY created_at DESC
              LIMIT ${limit_idx} OFFSET ${offset_idx}"
@@ -218,6 +220,35 @@ impl OutsourcingOrderRepo {
         let rows = data_query.fetch_all(&mut *executor).await?;
 
         Ok((rows, total as u64))
+    }
+
+    /// 查某工单某工序的「活跃」委外单（非取消/非转自制）。drawer 据此判定动作位。
+    /// batch_id 为 Some 时精确到该批次；为 None 时匹配该 工单+工序 下所有活跃单。
+    pub async fn find_active_by_work_order_and_routing(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+        routing_id: i64,
+        batch_id: Option<i64>,
+    ) -> Result<Vec<OutsourcingOrder>> {
+        sqlx::query_as::<_, OutsourcingOrder>(
+            r#"
+            SELECT id, doc_number, work_order_id, routing_id, process_name, supplier_id, product_id,
+                   outsourcing_type, planned_qty, completed_qty, unit_price,
+                   scheduled_date, status, virtual_warehouse_id, source_warehouse_id, version,
+                   remark, operator_id, batch_id, created_at, updated_at, deleted_at
+            FROM outsourcing_orders
+            WHERE work_order_id = $1 AND routing_id = $2
+              AND ($3::bigint IS NULL OR batch_id = $3)
+              AND status NOT IN (8, 7) AND deleted_at IS NULL
+            ORDER BY created_at DESC
+            "#,
+        )
+        .bind(work_order_id)
+        .bind(routing_id)
+        .bind(batch_id)
+        .fetch_all(executor)
+        .await
+        .map_err(Into::into)
     }
 }
 

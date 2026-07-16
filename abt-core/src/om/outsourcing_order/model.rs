@@ -27,6 +27,7 @@ pub struct OutsourcingOrder {
     pub version: i32,
     pub remark: String,
     pub operator_id: i64,
+    pub batch_id: Option<i64>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
@@ -59,6 +60,8 @@ pub struct OutsourcingOrderQuery {
     pub supplier_id: Option<i64>,
     pub outsourcing_type: Option<OutsourcingType>,
     pub work_order_id: Option<i64>,
+    pub routing_id: Option<i64>,
+    pub batch_id: Option<i64>,
     pub date_range: Option<(NaiveDate, NaiveDate)>,
     pub keyword: Option<String>,
 }
@@ -86,6 +89,7 @@ pub struct CreateOutsourcingOrderReq {
     pub scheduled_date: Option<NaiveDate>,
     pub virtual_warehouse_id: i64,
     pub source_warehouse_id: i64,
+    pub batch_id: Option<i64>,
     pub remark: Option<String>,
     pub materials: Vec<OutsourcingMaterialItem>,
 }

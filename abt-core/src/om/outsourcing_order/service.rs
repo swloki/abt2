@@ -74,4 +74,14 @@ pub trait OutsourcingOrderService: Send + Sync {
         db: PgExecutor<'_>,
         work_order_id: i64,
     ) -> Result<WorkOrderOutsourcingSummary>;
+
+    /// 查某工单某工序的活跃委外单（非取消/非转自制）。drawer 委外工序动作位判定用。
+    async fn find_active_for_routing(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+        batch_id: Option<i64>,
+    ) -> Result<Vec<OutsourcingOrder>>;
 }

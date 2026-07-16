@@ -962,6 +962,88 @@ impl PickingService for PickingServiceImpl {
         Ok(())
     }
 
+    /// 委外发料执行（OutsourceIssue，Issue #270）：仓库确认发料时调用。
+    /// 一张发料单的多个原材料可能分散在多个源仓（外购料在原料仓、前道半成品在车间在制仓），
+    /// 按每行物料实际库存仓逐行扣源仓（多仓供给）+ 统一入委外虚拟仓 + 置 Done。
+    /// 替代 dispatch+complete（按单头仓，撑不了多源仓）。
+    async fn execute_outsource_issue(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let picking = self.get(ctx, db, id).await?;
+        if picking.picking_type != PickingType::OutsourceIssue {
+            return Err(DomainError::BusinessRule("仅委外发料单可走逐行多仓发料".into()));
+        }
+        if !matches!(picking.status, PickingStatus::Draft | PickingStatus::Confirmed) {
+            return Err(DomainError::InvalidStateTransition {
+                from: format!("{:?}", picking.status),
+                to: "Done".to_string(),
+            });
+        }
+        let items = PickingRepo::get_items(&mut *db, id).await?;
+        let to_wh = picking
+            .to_warehouse_id
+            .ok_or_else(|| DomainError::BusinessRule("委外发料单无目标（虚拟）仓".into()))?;
+        let tx_svc = new_inventory_transaction_service(self.pool.clone());
+        // 扣源仓：每行按物料最大库存台账行（wh/zone/bin/batch）精确扣，多仓供给；
+        // 必须带 batch，否则 batch_no=None 会命中同 bin 的小 NULL-batch 行报负库存。
+        for item in &items {
+            let (from_wh, from_zone, from_bin, from_batch) =
+                StockLedgerRepo::find_best_stock_location(&mut *db, item.product_id)
+                    .await?
+                    .ok_or_else(|| DomainError::BusinessRule(format!("物料 {} 无可用源仓库存", item.product_id)))?;
+            tx_svc
+                .record(
+                    ctx, db,
+                    RecordTransactionReq {
+                        doc_number: Some(picking.doc_number.clone()),
+                        delivery_no: None,
+                        source_doc_number: None,
+                        transaction_type: TransactionType::Transfer,
+                        product_id: item.product_id,
+                        warehouse_id: from_wh,
+                        zone_id: Some(from_zone),
+                        bin_id: Some(from_bin),
+                        batch_no: from_batch,
+                        quantity: -item.qty_requested,
+                        unit_cost: None,
+                        source_type: "stock_picking".to_string(),
+                        source_id: id,
+                        remark: Some("委外发料-扣源仓".to_string()),
+                    },
+                )
+                .await?;
+        }
+        // 入委外虚拟仓
+        for item in &items {
+            tx_svc
+                .record(
+                    ctx, db,
+                    RecordTransactionReq {
+                        doc_number: Some(picking.doc_number.clone()),
+                        delivery_no: None,
+                        source_doc_number: None,
+                        transaction_type: TransactionType::Transfer,
+                        product_id: item.product_id,
+                        warehouse_id: to_wh,
+                        zone_id: None,
+                        bin_id: None,
+                        batch_no: item.batch_no.clone(),
+                        quantity: item.qty_requested,
+                        unit_cost: None,
+                        source_type: "stock_picking".to_string(),
+                        source_id: id,
+                        remark: Some("委外发料-入虚拟仓".to_string()),
+                    },
+                )
+                .await?;
+        }
+        PickingRepo::set_done(&mut *db, id).await?;
+        Ok(())
+    }
+
     // ── 发货专用（OutgoingSales，从 ShippingRequestService 迁入，#146 阶段 4b）──
 
     async fn create_from_order(

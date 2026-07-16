@@ -5,9 +5,9 @@ use serde::Deserialize;
 
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::types::{PgExecutor, ServiceContext};
-use abt_core::wms::enums::{CycleCountStatus, PickingStatus, PickingType};
+use abt_core::wms::enums::{CycleCountStatus, PickingStatus};
 use abt_core::wms::picking::model::StockPickingItem;
-use abt_core::wms::picking::{IssueItemReq, IssueMaterialReq, PickingFilter, PickingService};
+use abt_core::wms::picking::{IssueItemReq, IssueMaterialReq, PickingService};
 use abt_core::wms::cycle_count::model::CycleCountItem;
 use abt_core::wms::cycle_count::CycleCountService;
 use abt_core::wms::low_stock_alert::service::LowStockAlertService;
@@ -1700,31 +1700,14 @@ async fn dispatch_action(
         }
         "osa_issue" => {
             // Issue #270 委外发料（仓库执行）：form.id = OutsourceIssue picking id。
-            // 对该 OSA 的全部 Draft sibling picking dispatch(扣源仓)+complete(入虚拟仓)，
-            // 再 om.confirm_sent 回写 OSA Draft→Sent。整个 post_work_center_action 事务内原子提交。
+            // 一张发料单可能含多个源仓的原材料 → execute_outsource_issue 逐行按实际仓扣源仓 +
+            // 统一入虚拟仓 + 置 Done；再 om.confirm_sent 回写 OSA Draft→Sent。事务内原子提交。
             let pk_svc = state.picking_service();
             let picking = pk_svc.get(ctx, db, form.id).await?;
             let osa_id = picking.source_id.ok_or_else(|| {
                 DomainError::validation("委外发料单未关联委外单（source_id 缺失）")
             })?;
-            let siblings = pk_svc
-                .list(
-                    ctx,
-                    db,
-                    PickingFilter {
-                        picking_types: Some(vec![PickingType::OutsourceIssue]),
-                        status: Some(PickingStatus::Draft),
-                        source_type: Some("outsourcing_order".to_string()),
-                        source_id: Some(osa_id),
-                        ..Default::default()
-                    },
-                    PageParams::new(1, 200),
-                )
-                .await?;
-            for p in &siblings.items {
-                pk_svc.dispatch(ctx, db, p.id).await?;
-                pk_svc.complete(ctx, db, p.id).await?;
-            }
+            pk_svc.execute_outsource_issue(ctx, db, form.id).await?;
             let osa = state
                 .outsourcing_order_service()
                 .find_by_id(ctx, db, osa_id)

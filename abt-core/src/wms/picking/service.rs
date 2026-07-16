@@ -170,6 +170,11 @@ pub trait PickingService: Send + Sync {
     /// 调拨完成（Confirmed → Done）：增加目标仓库库存（Transfer 流水正数）
     async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
+    /// 委外发料执行（OutsourceIssue，Issue #270）：仓库确认发料时调用。
+    /// 一张发料单的多个原材料可能分散在多个源仓，按每行物料实际库存仓逐行扣源仓
+    /// （多仓供给）+ 统一入委外虚拟仓 + 置 Done。替代 dispatch+complete（按单头仓，撑不了多源仓）。
+    async fn execute_outsource_issue(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+
     // ── 发货专用（OutgoingSales，从 ShippingRequestService 迁入，#146 阶段 4b）──
 
     /// 从订单正式创建发货 picking（Draft，需 confirm）

@@ -72,10 +72,9 @@ impl OutsourcingOrderServiceImpl {
 
     /// 委外发料待办 picking 生成（Issue #270）：om.create 末尾调用。
     ///
-    /// 发料改为仓库执行：om.create 时不 dispatch/complete，只按物料实际库存仓分组，
-    /// 每个源仓建一张 OutsourceIssue picking（Draft = 待发料），仓库作业中心执行发料时
-    /// 再 dispatch（扣源仓）+ complete（入虚拟仓）+ confirm_sent（OSA→Sent）。
-    /// materials 为空（如 Full 型无发料明细）则跳过。返回创建的 picking id 列表。
+    /// 一张委外单 = 一张发料单（所有原材料作明细行）。物料实际在哪个仓由仓库发料时
+    /// 逐行 find_warehouse_with_stock 解决（PickingService::execute_outsource_issue），
+    /// 不在建单时按源仓拆分。materials 为空（如 Full 型无发料明细）则跳过。
     async fn create_outsource_issue_pickings(
         &self,
         ctx: &ServiceContext,
@@ -90,77 +89,59 @@ impl OutsourcingOrderServiceImpl {
             return Ok(Vec::new());
         }
         let transfer_date = chrono::Utc::now().date_naive();
-        // 多仓供给：物料可能分散在多仓（外购料在原料仓、前道半成品在车间在制仓），
-        // picking 单一 from_warehouse 撑不了，按物料实际库存仓分组，每个源仓一张 picking。
-        let mut by_warehouse: std::collections::HashMap<i64, Vec<&OutsourcingMaterialItem>> =
-            std::collections::HashMap::new();
-        for m in materials {
-            let wh = crate::wms::stock_ledger::repo::StockLedgerRepo::find_warehouse_with_stock(
-                &mut *db,
-                m.product_id,
-            )
-            .await?
-            .unwrap_or(source_warehouse_id);
-            by_warehouse.entry(wh).or_default().push(m);
-        }
-        let mut picking_ids = Vec::new();
-        for (wh, mats) in by_warehouse {
-            let items: Vec<CreatePickingItemReq> = mats
-                .iter()
-                .map(|m| CreatePickingItemReq {
-                    product_id: m.product_id,
-                    qty_requested: m.planned_qty,
-                    batch_no: None,
-                    from_bin_id: None,
-                    to_bin_id: None,
-                    operation_id: None,
-                    batch_id: None,
-                    source_item_id: None,
-                    remark: None,
-                })
-                .collect();
-            let pid = new_picking_service(self.pool.clone())
-                .create(
-                    ctx,
-                    db,
-                    CreatePickingReq {
-                        picking_type: PickingType::OutsourceIssue,
-                        source_type: Some("outsourcing_order".into()),
-                        source_id: Some(osa_id),
-                        partner_id: Some(supplier_id),
-                        from_warehouse_id: Some(wh),
-                        from_zone_id: None,
-                        from_bin_id: None,
-                        to_warehouse_id: Some(virtual_warehouse_id),
-                        to_zone_id: None,
-                        to_bin_id: None,
-                        scheduled_date: Some(transfer_date),
-                        work_order_id: None,
-                        remark: None,
-                        shipping_requirements: None,
-                        items,
-                    },
-                )
-                .await?;
-            picking_ids.push(pid);
-        }
-        // 单据关联：OutsourcingOrder → InventoryTransfer（picking），供仓库作业中心聚合/级联反查
-        let links: Vec<LinkRequest> = picking_ids
+        let items: Vec<CreatePickingItemReq> = materials
             .iter()
-            .map(|&pid| LinkRequest {
-                source_type: DocumentType::OutsourcingOrder,
-                source_id: osa_id,
-                target_type: DocumentType::InventoryTransfer,
-                target_id: pid,
-                link_type: LinkType::References,
+            .map(|m| CreatePickingItemReq {
+                product_id: m.product_id,
+                qty_requested: m.planned_qty,
+                batch_no: None,
+                from_bin_id: None,
+                to_bin_id: None,
+                operation_id: None,
+                batch_id: None,
+                source_item_id: None,
+                remark: None,
             })
             .collect();
-        if !links.is_empty() {
-            new_document_link_service(self.pool.clone())
-                .create_links(ctx, db, links)
-                .await?;
-        }
-        Ok(picking_ids)
+        // 单头源仓用用户选的 source_warehouse_id（默认/兜底）；逐行实际仓在发料时解析。
+        let pid = new_picking_service(self.pool.clone())
+            .create(
+                ctx,
+                db,
+                CreatePickingReq {
+                    picking_type: PickingType::OutsourceIssue,
+                    source_type: Some("outsourcing_order".into()),
+                    source_id: Some(osa_id),
+                    partner_id: Some(supplier_id),
+                    from_warehouse_id: Some(source_warehouse_id),
+                    from_zone_id: None,
+                    from_bin_id: None,
+                    to_warehouse_id: Some(virtual_warehouse_id),
+                    to_zone_id: None,
+                    to_bin_id: None,
+                    scheduled_date: Some(transfer_date),
+                    work_order_id: None,
+                    remark: None,
+                    shipping_requirements: None,
+                    items,
+                },
+            )
+            .await?;
+        // 单据关联：OutsourcingOrder → InventoryTransfer（picking），供仓库作业中心聚合/级联反查
+        new_document_link_service(self.pool.clone())
+            .create_links(
+                ctx,
+                db,
+                vec![LinkRequest {
+                    source_type: DocumentType::OutsourcingOrder,
+                    source_id: osa_id,
+                    target_type: DocumentType::InventoryTransfer,
+                    target_id: pid,
+                    link_type: LinkType::References,
+                }],
+            )
+            .await?;
+        Ok(vec![pid])
     }
 }
 

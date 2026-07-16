@@ -20,7 +20,7 @@ use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::om::{
- OmOutsourcingDetailPath, OmOutsourcingListPath, OmOutsourcingSendPath,
+ OmOutsourcingDetailPath, OmOutsourcingListPath,
  OmOutsourcingReceivePath, OmOutsourcingConvertPath, OmOutsourcingCancelPath,
  OmRecordNodePath,
 };
@@ -191,30 +191,6 @@ pub async fn get_detail(
  "委外管理", Some(OmOutsourcingListPath::PATH),
  content, &nav_filter, );
  Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("OM", "update")]
-pub async fn send_order(
- path: OmOutsourcingSendPath,
- ctx: RequestContext,
- axum::Form(form): axum::Form<ActionForm>,
-) -> Result<impl IntoResponse> {
- let RequestContext { state, service_ctx, .. } = ctx;
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let svc = state.outsourcing_order_service();
- let order = svc.find_by_id(&service_ctx, &mut tx, path.id).await?;
- svc.send(&service_ctx, &mut tx, abt_core::om::outsourcing_order::SendOutsourcingReq {
- id: path.id,
- expected_version: order.version,
- remark: form.remark,
- }).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- Ok(axum::response::Response::builder()
- .header("HX-Redirect", &OmOutsourcingDetailPath { id: path.id }.to_string())
- .body(axum::body::Body::empty())
- .unwrap())
 }
 
 #[require_permission("OM", "update")]
@@ -598,18 +574,12 @@ fn detail_page(
                         }
                     }
                     div class="flex gap-[8px] shrink-0" {
-                        // 发料发送（Draft → Sent）— 主操作
+                        // Issue #270：发料改由仓库执行（om.create 已生成待发料 picking）。
+                        // Draft 态显示「待仓库发料」+ 跳仓库作业中心委外发料 tab。
                         @if order.status == OutsourcingStatus::Draft {
-                            button
-                                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                                _="on click add .is-open to #send-modal"
-                            {
-                                ({
-                                    maud::PreEscaped(
-                                        r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[15px] h-[15px]"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>"#,
-                                    )
-                                })
-                                "发料"
+                            a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-purple/10 text-purple text-sm font-medium no-underline"
+                                href=(format!("{}?domain=outsource-issue", crate::routes::wms_work_center::WmsWorkCenterPath::PATH)) target="_blank" {
+                                "待仓库发料 →"
                             }
                         }
                         // 记录节点：非终态可见
@@ -979,71 +949,6 @@ fn detail_page(
         (materials_section(materials, in_transit_amount, processing_fee))
         // ═══ 收发记录 ═══
         (transactions_section(inventory_records))
-        // ── Send Modal（发料 Draft → Sent）──
-        (modal_shell("send-modal", "z-[1000]", html! {
-            div class="bg-bg rounded-xl flex flex-col overflow-hidden shadow-xl"
-                style="width:520px"
-            {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
-                {
-                    h2 class="flex items-center gap-2" {
-                        ({
-                            maud::PreEscaped(
-                                r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>"#,
-                            )
-                        })
-                        "确认发料"
-                    }
-                    button
-                        class="btn btn-text inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4"
-                        type="button"
-                        _="on click remove .is-open from #send-modal"
-                    { "✕" }
-                }
-                form
-                    hx-post=({
-                        OmOutsourcingSendPath {
-                            id: order.id,
-                        }
-                            .to_string()
-                    })
-                    hx-swap="none"
-                    hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#send-modal').classList.remove('is-open');this.reset()}"
-                {
-                    div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                        div class="text-[13px] text-fg-2 rounded-md mb-6 px-5 py-4"
-                            style="background:linear-gradient(135deg,var(--accent-bg),rgba(37,99,235,0.06));border:1px solid rgba(37,99,235,0.08)"
-                        {
-                            "发料后系统将创建 WMS 库存调拨单，将发料明细从源仓调拨到委外虚拟仓（"
-                            strong class="text-fg" { (warehouse_name) }
-                            "），并记录 "
-                            strong class="text-accent" { "发料" }
-                            " 追踪节点，状态变为「已发出」。"
-                        }
-                        div class="form-field field-full" {
-                            label { "备注（可选）" }
-                            textarea
-                                name="remark"
-                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] resize-y"
-                                rows="2"
-                                placeholder="发料备注…" {}
-                        }
-                    }
-                    div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0"
-                    {
-                        button
-                            type="button"
-                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                            _="on click remove .is-open from #send-modal"
-                        { "取消" }
-                        button
-                            type="submit"
-                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        { "确认发料" }
-                    }
-                }
-            }
-        }))
 
         (modal_shell("record-node-modal", "z-[1000]", html! {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"

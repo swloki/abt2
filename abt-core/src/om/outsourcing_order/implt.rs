@@ -4,9 +4,10 @@ use serde_json::json;
 use sqlx::postgres::PgPool;
 
 use super::model::{
-    CancelOutsourcingReq, ConvertToInternalReq, CreateOutsourcingOrderReq, OutsourcingMaterial,
-    OutsourcingOrder, OutsourcingOrderQuery, ReceiveOutsourcingReq, SendOutsourcingReq,
-    UpdateOutsourcingOrderReq, UpdateOutsourcingParams, WorkOrderOutsourcingSummary,
+    CancelOutsourcingReq, ConfirmSentReq, ConvertToInternalReq, CreateOutsourcingOrderReq,
+    OutsourcingMaterial, OutsourcingMaterialItem, OutsourcingOrder, OutsourcingOrderQuery,
+    ReceiveOutsourcingReq, UpdateOutsourcingOrderReq, UpdateOutsourcingParams,
+    WorkOrderOutsourcingSummary,
 };
 use super::repo::{OutsourcingMaterialRepo, OutsourcingOrderRepo};
 use super::service::OutsourcingOrderService;
@@ -52,8 +53,8 @@ use crate::shared::types::Result;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
-use crate::wms::picking::{CreatePickingItemReq, CreatePickingReq, new_picking_service, service::PickingService};
-use crate::wms::enums::PickingType;
+use crate::wms::picking::{CreatePickingItemReq, CreatePickingReq, PickingFilter, new_picking_service, service::PickingService};
+use crate::wms::enums::{PickingStatus, PickingType};
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
 use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
 use crate::wms::enums::TransactionType;
@@ -67,6 +68,99 @@ pub struct OutsourcingOrderServiceImpl {
 impl OutsourcingOrderServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    /// 委外发料待办 picking 生成（Issue #270）：om.create 末尾调用。
+    ///
+    /// 发料改为仓库执行：om.create 时不 dispatch/complete，只按物料实际库存仓分组，
+    /// 每个源仓建一张 OutsourceIssue picking（Draft = 待发料），仓库作业中心执行发料时
+    /// 再 dispatch（扣源仓）+ complete（入虚拟仓）+ confirm_sent（OSA→Sent）。
+    /// materials 为空（如 Full 型无发料明细）则跳过。返回创建的 picking id 列表。
+    async fn create_outsource_issue_pickings(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        osa_id: i64,
+        supplier_id: i64,
+        virtual_warehouse_id: i64,
+        source_warehouse_id: i64,
+        materials: &[OutsourcingMaterialItem],
+    ) -> Result<Vec<i64>> {
+        if materials.is_empty() {
+            return Ok(Vec::new());
+        }
+        let transfer_date = chrono::Utc::now().date_naive();
+        // 多仓供给：物料可能分散在多仓（外购料在原料仓、前道半成品在车间在制仓），
+        // picking 单一 from_warehouse 撑不了，按物料实际库存仓分组，每个源仓一张 picking。
+        let mut by_warehouse: std::collections::HashMap<i64, Vec<&OutsourcingMaterialItem>> =
+            std::collections::HashMap::new();
+        for m in materials {
+            let wh = crate::wms::stock_ledger::repo::StockLedgerRepo::find_warehouse_with_stock(
+                &mut *db,
+                m.product_id,
+            )
+            .await?
+            .unwrap_or(source_warehouse_id);
+            by_warehouse.entry(wh).or_default().push(m);
+        }
+        let mut picking_ids = Vec::new();
+        for (wh, mats) in by_warehouse {
+            let items: Vec<CreatePickingItemReq> = mats
+                .iter()
+                .map(|m| CreatePickingItemReq {
+                    product_id: m.product_id,
+                    qty_requested: m.planned_qty,
+                    batch_no: None,
+                    from_bin_id: None,
+                    to_bin_id: None,
+                    operation_id: None,
+                    batch_id: None,
+                    source_item_id: None,
+                    remark: None,
+                })
+                .collect();
+            let pid = new_picking_service(self.pool.clone())
+                .create(
+                    ctx,
+                    db,
+                    CreatePickingReq {
+                        picking_type: PickingType::OutsourceIssue,
+                        source_type: Some("outsourcing_order".into()),
+                        source_id: Some(osa_id),
+                        partner_id: Some(supplier_id),
+                        from_warehouse_id: Some(wh),
+                        from_zone_id: None,
+                        from_bin_id: None,
+                        to_warehouse_id: Some(virtual_warehouse_id),
+                        to_zone_id: None,
+                        to_bin_id: None,
+                        scheduled_date: Some(transfer_date),
+                        work_order_id: None,
+                        remark: None,
+                        shipping_requirements: None,
+                        items,
+                    },
+                )
+                .await?;
+            picking_ids.push(pid);
+        }
+        // 单据关联：OutsourcingOrder → InventoryTransfer（picking），供仓库作业中心聚合/级联反查
+        let links: Vec<LinkRequest> = picking_ids
+            .iter()
+            .map(|&pid| LinkRequest {
+                source_type: DocumentType::OutsourcingOrder,
+                source_id: osa_id,
+                target_type: DocumentType::InventoryTransfer,
+                target_id: pid,
+                link_type: LinkType::References,
+            })
+            .collect();
+        if !links.is_empty() {
+            new_document_link_service(self.pool.clone())
+                .create_links(ctx, db, links)
+                .await?;
+        }
+        Ok(picking_ids)
     }
 }
 
@@ -135,6 +229,58 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
             .await?;
 
+        // Issue #270：发料改由仓库执行——建单即生成「待发料」OutsourceIssue picking（Draft），
+        // 仓库作业中心看到后执行发料（dispatch+complete）+ confirm_sent（OSA→Sent）。
+        self.create_outsource_issue_pickings(
+            ctx,
+            db,
+            id,
+            req.supplier_id,
+            req.virtual_warehouse_id,
+            req.source_warehouse_id,
+            &req.materials,
+        )
+        .await?;
+
+        // 单据关联：OutsourcingOrder → WorkOrder（委外单派生自工单）
+        if let Some(wo_id) = req.work_order_id {
+            new_document_link_service(self.pool.clone())
+                .create_links(
+                    ctx,
+                    db,
+                    vec![LinkRequest {
+                        source_type: DocumentType::OutsourcingOrder,
+                        source_id: id,
+                        target_type: DocumentType::WorkOrder,
+                        target_id: wo_id,
+                        link_type: LinkType::DerivedFrom,
+                    }],
+                )
+                .await?;
+        }
+
+        // 领域事件：OutsourcingCreated（跨模块联动挂载点：采购/仓库作业中心待办聚合）
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx,
+                db,
+                EventPublishRequest {
+                    event_type: DomainEventType::OutsourcingCreated,
+                    aggregate_type: ENTITY_TYPE.to_string(),
+                    aggregate_id: id,
+                    payload: json!({
+                        "outsourcing_id": id,
+                        "doc_number": doc_number,
+                        "supplier_id": req.supplier_id,
+                        "work_order_id": req.work_order_id,
+                        "batch_id": req.batch_id,
+                        "outsourcing_type": req.outsourcing_type as i16,
+                    }),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
         Ok(id)
     }
 
@@ -185,13 +331,19 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         Ok(())
     }
 
-    async fn send(
+    /// 委外发料确认（Issue #270）：仓库完成 OutsourceIssue picking 的 dispatch+complete 后，
+    /// 由仓库作业中心调用，回写 OSA Draft→Sent（状态机 + sent_qty +
+    /// SendMaterial 追踪 + 审计 + OutsourcingSent 事件）。不触碰 picking（已由调用方完成）。
+    async fn confirm_sent(
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
-        req: SendOutsourcingReq,
+        req: ConfirmSentReq,
     ) -> Result<()> {
         let order = get_order(db, req.id).await?;
+        if order.status != OutsourcingStatus::Draft {
+            return Err(DomainError::validation("委外单当前状态不可确认发料（需 Draft）"));
+        }
         check_version(&order, req.expected_version)?;
 
         let materials = OutsourcingMaterialRepo::list_by_outsourcing_id(&mut *db, req.id)
@@ -199,7 +351,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
         if materials.is_empty() {
             return Err(DomainError::validation(
-                "委外单必须包含至少一项发料明细才能发料",
+                "委外单必须包含至少一项发料明细才能确认发料",
             ));
         }
 
@@ -221,70 +373,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // WMS: 发料到供应商虚拟仓 — 委外发料明细的物料可能分散在多仓（外购料在原料仓、
-        // 前道半成品在车间在制仓），picking 单一 from_warehouse 撑不了，故按物料实际库存仓
-        // 分组，每个源仓一个 InternalTransfer 调拨单（dispatch 扣源仓 + complete 入虚拟仓）。
-        let transfer_date = chrono::Utc::now().date_naive();
-        let source_wh = order.source_warehouse_id
-            .ok_or_else(|| DomainError::validation("委外单未设置发料源仓库，无法发料"))?;
-        let mut by_warehouse: std::collections::HashMap<i64, Vec<&OutsourcingMaterial>> =
-            std::collections::HashMap::new();
-        for m in &materials {
-            let wh = crate::wms::stock_ledger::repo::StockLedgerRepo::find_warehouse_with_stock(
-                &mut *db,
-                m.product_id,
-            )
-            .await?
-            .unwrap_or(source_wh);
-            by_warehouse.entry(wh).or_default().push(m);
-        }
-        let mut transfer_ids = Vec::new();
-        for (wh, mats) in by_warehouse {
-            let items: Vec<CreatePickingItemReq> = mats
-                .iter()
-                .map(|m| CreatePickingItemReq {
-                    product_id: m.product_id,
-                    qty_requested: m.planned_qty,
-                    batch_no: None,
-                    from_bin_id: None,
-                    to_bin_id: None,
-                    operation_id: None,
-                    batch_id: None,
-                    source_item_id: None,
-                    remark: None,
-                })
-                .collect();
-            let tid = new_picking_service(self.pool.clone())
-                .create(
-                    ctx,
-                    db,
-                    CreatePickingReq {
-                        picking_type: PickingType::InternalTransfer,
-                        source_type: Some("none".into()),
-                        source_id: None,
-                        partner_id: None,
-                        from_warehouse_id: Some(wh),
-                        from_zone_id: None,
-                        from_bin_id: None,
-                        to_warehouse_id: Some(order.virtual_warehouse_id),
-                        to_zone_id: None,
-                        to_bin_id: None,
-                        scheduled_date: Some(transfer_date),
-                        work_order_id: None,
-                        remark: None,
-                        shipping_requirements: None,
-                        items,
-                    },
-                )
-                .await?;
-            // complete 让虚拟仓实际收到库存（dispatch 仅扣源仓，complete 才入目标仓），
-            // 否则后续 receive 从虚拟仓调回时会报"库存数量不能为负"
-            new_picking_service(self.pool.clone()).dispatch(ctx, db, tid).await?;
-            new_picking_service(self.pool.clone()).complete(ctx, db, tid).await?;
-            transfer_ids.push(tid);
-        }
-
-        // 更新材料已发数量
+        // 仓库已 dispatch+complete OutsourceIssue picking，按 planned_qty 全量发齐 → 更新已发数量
         for mat in &materials {
             OutsourcingMaterialRepo::update_sent_qty(
                 &mut *db,
@@ -362,34 +451,6 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                 },
             )
             .await?;
-
-        // 单据关联: OutsourcingOrder → InventoryTransfer
-        let mut links: Vec<LinkRequest> = transfer_ids
-            .into_iter()
-            .map(|tid| LinkRequest {
-                source_type: DocumentType::OutsourcingOrder,
-                source_id: req.id,
-                target_type: DocumentType::InventoryTransfer,
-                target_id: tid,
-                link_type: LinkType::References,
-            })
-            .collect();
-
-        // 单据关联: OutsourcingOrder → WorkOrder
-        if let Some(wo_id) = order.work_order_id {
-            links.push(LinkRequest {
-                source_type: DocumentType::OutsourcingOrder,
-                source_id: req.id,
-                target_type: DocumentType::WorkOrder,
-                target_id: wo_id,
-                link_type: LinkType::DerivedFrom,
-            });
-        }
-        if !links.is_empty() {
-            new_document_link_service(self.pool.clone())
-                .create_links(ctx, db, links)
-                .await?;
-        }
 
         Ok(())
     }
@@ -924,6 +985,31 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
         if rows == 0 {
             return Err(DomainError::ConcurrentConflict);
+        }
+
+        // Issue #270：同步取消关联的待发料 OutsourceIssue picking（Draft/Confirmed），保证任意入口
+        // 取消 OSA（工单级联 / 采购 tab / OM 详情页）都清理 picking，不依赖异步事件（best-effort）。
+        let linked_pickings = new_picking_service(self.pool.clone())
+            .list(
+                ctx,
+                db,
+                PickingFilter {
+                    picking_types: Some(vec![PickingType::OutsourceIssue]),
+                    source_type: Some("outsourcing_order".to_string()),
+                    source_id: Some(req.id),
+                    ..Default::default()
+                },
+                PageParams::new(1, 200),
+            )
+            .await?;
+        for p in &linked_pickings.items {
+            if matches!(p.status, PickingStatus::Draft | PickingStatus::Confirmed)
+                && let Err(e) = new_picking_service(self.pool.clone())
+                    .cancel(ctx, db, p.id)
+                    .await
+            {
+                tracing::warn!(picking_id = p.id, error = %e, "委外发料 picking 取消失败");
+            }
         }
 
         // 审计

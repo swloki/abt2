@@ -16,6 +16,10 @@ use crate::mes::production_inspection::model::CreateInspectionReq;
 use crate::mes::production_inspection::repo::ProductionInspectionRepo;
 use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
+use crate::om::enums::OutsourcingStatus;
+use crate::om::outsourcing_order::repo::OutsourcingOrderRepo;
+use crate::om::outsourcing_order::service::OutsourcingOrderService;
+use crate::om::outsourcing_order::{model::CancelOutsourcingReq, new_outsourcing_order_service};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
@@ -1043,9 +1047,48 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             });
         }
 
+        // Issue #270：委外级联——本批次关联的已发料/已收货委外单阻止报废（料在供应商手中 / 已立 AP 台账）。
+        let linked_osa = OutsourcingOrderRepo::query_by_batch(&mut *db, batch_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let active_osa_count = linked_osa
+            .iter()
+            .filter(|o| matches!(
+                o.status,
+                OutsourcingStatus::Sent
+                    | OutsourcingStatus::InProduction
+                    | OutsourcingStatus::Delivered
+                    | OutsourcingStatus::Received
+            ))
+            .count();
+        if active_osa_count > 0 {
+            return Err(DomainError::BusinessRule(format!(
+                "批次有 {active_osa_count} 张已发料/已收货的委外单，请先收货或取消委外单后再报废批次",
+            )));
+        }
+
         ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::Cancelled)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // Issue #270：取消本批次关联的 Draft 委外单（om.cancel 内部已清理其待发料 OutsourceIssue picking）
+        for o in &linked_osa {
+            if o.status == OutsourcingStatus::Draft
+                && let Err(e) = new_outsourcing_order_service(self.pool.clone())
+                    .cancel(
+                        ctx,
+                        db,
+                        CancelOutsourcingReq {
+                            id: o.id,
+                            expected_version: o.version,
+                            remark: Some("批次报废级联".into()),
+                        },
+                    )
+                    .await
+            {
+                tracing::warn!(osa_id = o.id, error = %e, "批次报废：Draft 委外单取消失败");
+            }
+        }
 
         // 释放 HARD 预留
         new_inventory_reservation_service(self.pool.clone())

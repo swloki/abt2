@@ -82,6 +82,17 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
         },
         WorkCenterDomain::Arrival => unreachable!("Arrival 走 UNION 单独处理"),
         WorkCenterDomain::LowStock => unreachable!("LowStock 走 wms_low_stock_alerts 单独处理"),
+        WorkCenterDomain::OutsourceIssue => SimpleDomainCfg {
+            table: "stock_pickings",
+            statuses: &[1, 2], // Draft(待发料), Confirmed(已扣源仓/在途)
+            expected_display: "t.scheduled_date",
+            expected_urgency: "t.scheduled_date",
+            has_deleted_at: true,
+            join: "LEFT JOIN suppliers s ON s.supplier_id = t.partner_id AND s.deleted_at IS NULL",
+            counterparty: "s.supplier_name",
+            summary: "'委外发料'",
+            extra_where: " AND t.picking_type = 6", // OutsourceIssue
+        },
     }
 }
 

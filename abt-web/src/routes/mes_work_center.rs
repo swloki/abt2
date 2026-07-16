@@ -212,14 +212,6 @@ pub struct WcBatchOsaCreatePath {
     pub routing_id: i64,
 }
 
-/// 批次工序委外：发料（POST，om send 发料到供应商虚拟仓）。
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/batches/{batch_id}/routings/{routing_id}/osa-send")]
-pub struct WcBatchOsaSendPath {
-    pub batch_id: i64,
-    pub routing_id: i64,
-}
-
 /// 批次工序委外：收货（POST，om receive 产出半成品入 WIP-SHOP + 立加工费 AP）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/batches/{batch_id}/routings/{routing_id}/osa-receive")]
@@ -299,7 +291,6 @@ pub fn router() -> Router<AppState> {
             WcBatchOsaCreatePath::PATH,
             post(mes_work_center::osa_create),
         )
-        .route(WcBatchOsaSendPath::PATH, post(mes_work_center::osa_send))
         .route(
             WcBatchOsaReceivePath::PATH,
             post(mes_work_center::osa_receive),

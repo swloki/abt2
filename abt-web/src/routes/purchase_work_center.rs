@@ -26,6 +26,16 @@ pub struct PcDemandPath;
 pub struct PcOrdersPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/outsourcing")]
+pub struct PcOutsourcingPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/outsourcing/{id}/cancel")]
+pub struct PcOutsourcingCancelPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/work-center/po-create-drawer")]
 pub struct PcPoCreateDrawerPath;
 
@@ -271,6 +281,14 @@ pub fn router() -> Router<AppState> {
         )
         .route(PcDemandPath::PATH, get(purchase_work_center::get_demand_card))
         .route(PcOrdersPath::PATH, get(purchase_work_center::get_orders_card))
+        .route(
+            PcOutsourcingPath::PATH,
+            get(purchase_work_center::get_outsourcing_card),
+        )
+        .route(
+            PcOutsourcingCancelPath::PATH,
+            post(purchase_work_center::cancel_outsourcing),
+        )
         .route(
             PcPoCreateDrawerPath::PATH,
             get(purchase_work_center::get_po_create_drawer),

@@ -54,7 +54,7 @@ use abt_core::master_data::supplier::{Supplier, SupplierQuery, SupplierService};
 use abt_core::om::enums::OutsourcingType;
 use abt_core::om::outsourcing_order::{
     CreateOutsourcingOrderReq, OutsourcingMaterialItem, OutsourcingOrderService,
-    ReceiveOutsourcingReq, SendOutsourcingReq,
+    ReceiveOutsourcingReq,
 };
 use abt_core::wms::warehouse::{Warehouse, WarehouseFilter, WarehouseService};
 use crate::routes::mes_work_center::*;
@@ -2996,11 +2996,9 @@ fn render_batch_matrix_row(
                         }
                     }
                     Action::OsaDraft => {
-                        // 委外单已建(Draft) → 发料给供应商（om send）
-                        form hx-post=(WcBatchOsaSendPath { batch_id: batch.id, routing_id: r.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
-                            button type="submit" class="text-xs px-2 py-1 rounded-sm bg-accent text-accent-on border-none cursor-pointer hover:opacity-90 transition-all font-medium"
-                                hx-confirm="确认发料给供应商？" { "委外发料" }
-                        }
+                        // Issue #270：发料改由仓库执行（om.create 已生成待发料 picking，仓库作业中心处理）。
+                        // 生产端不再触发发料，显示「待仓库发料」状态。
+                        span class="text-xs px-2 py-1 rounded-sm bg-purple/10 text-purple font-medium" { "待仓库发料" }
                     }
                     Action::OsaSent => {
                         // 委外已发料(Sent) → 收货（om receive 入 WIP-SHOP）
@@ -4065,62 +4063,6 @@ pub async fn osa_create(
     crate::toast::add_toast(
         service_ctx.operator_id,
         "委外单已创建",
-        crate::toast::ToastType::Success,
-    );
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-    let body = load_batch_drawer_html(&state, &service_ctx, &mut conn, path.batch_id).await?;
-    Ok(([("HX-Trigger", "woChanged, showToast")], Html(body)))
-}
-
-/// 批次工序委外：发料（POST，om send 发料到供应商虚拟仓）。
-///
-/// 取活跃委外单 → send → 刷新 drawer body（动作位 OsaDraft→OsaSent）+ woChanged。
-#[require_permission("WORK_ORDER", "update")]
-pub async fn osa_send(path: WcBatchOsaSendPath, ctx: RequestContext) -> Result<impl IntoResponse> {
-    let RequestContext { state, service_ctx, .. } = ctx;
-    let mut tx = state
-        .pool
-        .begin()
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-    let batch_svc = state.production_batch_service();
-    let om_svc = state.outsourcing_order_service();
-    let batch = batch_svc
-        .find_by_id(&service_ctx, &mut tx, path.batch_id)
-        .await?;
-    let order = om_svc
-        .find_active_for_routing(
-            &service_ctx,
-            &mut tx,
-            batch.work_order_id,
-            path.routing_id,
-            Some(batch.id),
-        )
-        .await?
-        .into_iter()
-        .next()
-        .ok_or_else(|| DomainError::not_found("活跃委外单"))?;
-    om_svc
-        .send(
-            &service_ctx,
-            &mut tx,
-            SendOutsourcingReq {
-                id: order.id,
-                expected_version: order.version,
-                remark: None,
-            },
-        )
-        .await?;
-    tx.commit()
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-    crate::toast::add_toast(
-        service_ctx.operator_id,
-        "已发料给供应商",
         crate::toast::ToastType::Success,
     );
     let mut conn = state

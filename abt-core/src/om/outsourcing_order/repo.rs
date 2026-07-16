@@ -250,6 +250,51 @@ impl OutsourcingOrderRepo {
         .await
         .map_err(Into::into)
     }
+
+    /// 查某工单关联的全部委外单（含所有状态，未删除）。Issue #270 工单取消级联用：
+    /// 取消前据此阻断 Sent/Received、取消 Draft。
+    pub async fn query_by_work_order(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+    ) -> Result<Vec<OutsourcingOrder>> {
+        sqlx::query_as::<_, OutsourcingOrder>(
+            r#"
+            SELECT id, doc_number, work_order_id, routing_id, process_name, supplier_id, product_id,
+                   outsourcing_type, planned_qty, completed_qty, unit_price,
+                   scheduled_date, status, virtual_warehouse_id, source_warehouse_id, version,
+                   remark, operator_id, batch_id, created_at, updated_at, deleted_at
+            FROM outsourcing_orders
+            WHERE work_order_id = $1 AND deleted_at IS NULL
+            ORDER BY created_at DESC
+            "#,
+        )
+        .bind(work_order_id)
+        .fetch_all(executor)
+        .await
+        .map_err(Into::into)
+    }
+
+    /// 查某生产批次关联的全部委外单（含所有状态，未删除）。Issue #270 批次报废级联用。
+    pub async fn query_by_batch(
+        executor: &mut sqlx::postgres::PgConnection,
+        batch_id: i64,
+    ) -> Result<Vec<OutsourcingOrder>> {
+        sqlx::query_as::<_, OutsourcingOrder>(
+            r#"
+            SELECT id, doc_number, work_order_id, routing_id, process_name, supplier_id, product_id,
+                   outsourcing_type, planned_qty, completed_qty, unit_price,
+                   scheduled_date, status, virtual_warehouse_id, source_warehouse_id, version,
+                   remark, operator_id, batch_id, created_at, updated_at, deleted_at
+            FROM outsourcing_orders
+            WHERE batch_id = $1 AND deleted_at IS NULL
+            ORDER BY created_at DESC
+            "#,
+        )
+        .bind(batch_id)
+        .fetch_all(executor)
+        .await
+        .map_err(Into::into)
+    }
 }
 
 // ---------------------------------------------------------------------------

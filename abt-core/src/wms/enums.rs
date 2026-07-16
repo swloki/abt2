@@ -229,6 +229,7 @@ define_wms_enum!(PickingType {
     OutgoingSales = 3,      // 销售发货（source = sales_order）
     InternalTransfer = 4,   // 库存调拨（仓 → 仓）
     InternalIssue = 5,      // 生产领料（仓 → 工单/工序）
+    OutsourceIssue = 6,     // 委外发料（仓 → 委外供应商虚拟仓，source = outsourcing_order）
 });
 
 // 统一状态机（4 态，决策点 1 默认：不加 Assigned 预留态）
@@ -249,6 +250,7 @@ impl PickingType {
             Self::OutgoingSales => "CK",
             Self::InternalTransfer => "DB",
             Self::InternalIssue => "LL",
+            Self::OutsourceIssue => "WW",
         }
     }
 }

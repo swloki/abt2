@@ -53,6 +53,10 @@ pub struct WorkCenterSummary {
 | 待调拨 | `transfer` | `TransferStatus::Draft / InTransit` |
 | 待盘点 | `cycle_count` | `CycleCountStatus::Draft / Counting / PendingReview` |
 
+> **文档债**：上表为早期设计（`arrival_notice` / `pick_list` 等旧实体名），未跟进 #93（picking 统一迁移到 `stock_pickings`）、#270（委外发料域 `OutsourceIssue`）、低库存预警域 `LowStock` 的演进。代码现状以 `WorkCenterDomain` 枚举（`abt-core/src/wms/work_center/model.rs`）为准。
+>
+> **Issue #277 增量**：新增第 8 域 `OutsourceReceipt`（委外产出品入库），查 `outsourcing_orders` status=Sent（已发料、待仓库收货入库）。仓库 `osa_receipt` action 调 `om.receive` 完成产出品入库（IQC 门禁 + 产品入目标仓 + 消耗虚拟仓 + 立应付 + 成本，OSA Sent→Received），广播 `outsourcingChanged`。**不预建 picking**（与 OM 详情页 `receive_order` 一致，直接调 `om.receive` 写库存流水）。MES 委外收货按钮据此门控（Sent 灰 / Received 绿）。
+
 ## 5. 实现策略
 
 `WorkCenterServiceImpl::summary` 调各域 service 的 `list`（对应 pending 状态过滤，`PageParams { page: 1, page_size: 1 }`）取 `total`：

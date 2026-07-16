@@ -114,7 +114,6 @@ impl AppState {
             use abt_core::purchase::return_settlement_handler::PurchaseReturnSettledHandler;
             use abt_core::purchase::demand_handler::PurchaseDemandCreatedHandler;
             use abt_core::mes::demand_handler::MesDemandCreatedHandler;
-            use abt_core::mes::outsourcing_received_handler::OutsourcingReceivedHandler;
             use abt_core::sales::sales_order::{SalesDemandConfirmedHandler, SalesDemandRejectedHandler, SalesDemandReleasedHandler};
             use abt_core::sales::sales_return_received_handler::SalesReturnReceivedHandler;
             use abt_core::sales::shipment_shipped_handler::ShipmentShippedHandler;
@@ -163,10 +162,8 @@ impl AppState {
                 DomainEventType::ShipmentShipped,
                 Arc::new(ShipmentShippedHandler::new(pool.clone())),
             );
-            registry.register(
-                DomainEventType::OutsourcingReceived,
-                Arc::new(OutsourcingReceivedHandler::new(pool.clone())),
-            );
+            // Issue #277：OutsourcingReceived 事件已删除（产出品入库与工序闭环解耦，writeback 改同步直调）。
+            // OutsourcingReceivedHandler 不再订阅事件；writeback 由 MES osa_receive / OM receive_order 直调。
 
             let dead_letter = Arc::new(DeadLetterServiceImpl::new());
             let processor = EventProcessor::new(

@@ -26,6 +26,7 @@ use abt_core::wms::enums::TransactionType;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::supplier::SupplierService;
+use abt_core::om::enums::OutsourcingType;
 use abt_core::om::outsourcing_order::{ConfirmSentReq, OutsourcingOrderService};
 use abt_core::master_data::work_center::WorkCenterService as MdWorkCenterService;
 use rust_decimal::Decimal;
@@ -86,9 +87,12 @@ pub struct WorkCenterActionForm {
     /// 批量操作目标 id 列表（逗号分隔，仅 batch_* action 用，如 batch_ship）
     #[serde(default)]
     pub ids: Option<String>,
-    /// 发货仓库（direct_ship / batch_ship 用，选仓 drawer / 批量栏传入）
+    /// 发货仓库（direct_ship / batch_ship / osa_receipt 产出品入库目标仓 用）
     #[serde(default)]
     pub warehouse_id: Option<String>,
+    /// 收货数量（osa_receipt 委外产出品入库用）
+    #[serde(default)]
+    pub received_qty: Option<String>,
     /// 送货单号（receive_po 采购到货确认用，透传到 ReceivePurchaseReq.delivery_note）
     #[serde(default, deserialize_with = "empty_as_none")]
     pub delivery_note: Option<String>,
@@ -110,6 +114,7 @@ fn domain_from_str(s: &str) -> Option<WorkCenterDomain> {
         "transfer" => Some(WorkCenterDomain::Transfer),
         "cycle-count" => Some(WorkCenterDomain::CycleCount),
         "outsource-issue" => Some(WorkCenterDomain::OutsourceIssue),
+        "outsource-receipt" => Some(WorkCenterDomain::OutsourceReceipt),
         "low-stock" => Some(WorkCenterDomain::LowStock),
         _ => None,
     }
@@ -123,6 +128,7 @@ fn domain_slug(d: WorkCenterDomain) -> &'static str {
         WorkCenterDomain::Transfer => "transfer",
         WorkCenterDomain::CycleCount => "cycle-count",
         WorkCenterDomain::OutsourceIssue => "outsource-issue",
+        WorkCenterDomain::OutsourceReceipt => "outsource-receipt",
         WorkCenterDomain::LowStock => "low-stock",
     }
 }
@@ -177,6 +183,8 @@ fn action_domain(action: &str) -> Result<WorkCenterDomain> {
         }
         // 委外发料（仓库执行 dispatch+complete + om.confirm_sent）
         "osa_issue" => WorkCenterDomain::OutsourceIssue,
+        // 委外产出品入库（仓库收货 om.receive：入目标仓 + 立应付 + OSA Sent→Received；Issue #277）
+        "osa_receipt" => WorkCenterDomain::OutsourceReceipt,
         "ack_low_stock" => WorkCenterDomain::LowStock,
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     })
@@ -210,6 +218,8 @@ fn domain_entries(active: WorkCenterDomain) -> Markup {
         WorkCenterDomain::LowStock => html! {},
         // 委外发料由生产端建委外单时自动生成 picking，仓库无「新建」入口
         WorkCenterDomain::OutsourceIssue => html! {},
+        // 委外产出品入库待办来自 Sent 态委外单（生产/采购端建），仓库无「新建」入口
+        WorkCenterDomain::OutsourceReceipt => html! {},
     }
 }
 
@@ -262,6 +272,7 @@ fn row_detail_drawer(domain: WorkCenterDomain, source_kind: TaskSourceKind) -> O
         WorkCenterDomain::Transfer => Some("transfer_detail"),
         WorkCenterDomain::CycleCount => Some("cc_detail"),
         WorkCenterDomain::OutsourceIssue => Some("osa_issue_detail"),
+        WorkCenterDomain::OutsourceReceipt => Some("osa_receipt_detail"),
         WorkCenterDomain::Outbound => Some("ship_detail"),
         WorkCenterDomain::Arrival => {
             if matches!(source_kind, TaskSourceKind::WorkOrder) {
@@ -1482,8 +1493,9 @@ pub async fn post_work_center_action(
             Html(body),
         ));
     }
-    // Issue #270：osa_issue 改变委外单状态，追加 outsourcingChanged 让采购作业中心「委外订单」tab 同步刷新。
-    let trigger = if form.action == "osa_issue" {
+    // Issue #270/#277：osa_issue/osa_receipt 改变委外单状态，追加 outsourcingChanged
+    // 让采购作业中心「委外订单」tab + MES 委外工序 drawer 同步刷新。
+    let trigger = if form.action == "osa_issue" || form.action == "osa_receipt" {
         "showToast, outsourcingChanged"
     } else {
         "showToast"
@@ -1725,6 +1737,46 @@ async fn dispatch_action(
                 )
                 .await?;
         }
+        "osa_receipt" => {
+            // Issue #277 委外产出品入库（仓库执行）：form.id = OSA id。
+            // om.receive 产出品入库：IQC 门禁 + 产品入目标仓(ProductionReceipt) + 消耗虚拟仓(MaterialIssue)
+            // + 立应付 + 成本分录 + OSA Sent→Received。工序进度回写由 MES 委外收货/OM 详情页另行触发。
+            let osa = state
+                .outsourcing_order_service()
+                .find_by_id(ctx, db, form.id)
+                .await?;
+            let received_qty = form
+                .received_qty
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| DomainError::validation("请填写收货数量"))?
+                .parse::<rust_decimal::Decimal>()
+                .map_err(|_| DomainError::validation("无效收货数量"))?;
+            let warehouse_id = form
+                .warehouse_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| DomainError::validation("请选择入库仓库"))?
+                .parse::<i64>()
+                .map_err(|_| DomainError::validation("无效仓库 ID"))?;
+            state
+                .outsourcing_order_service()
+                .receive(
+                    ctx,
+                    db,
+                    abt_core::om::outsourcing_order::ReceiveOutsourcingReq {
+                        id: form.id,
+                        expected_version: osa.version,
+                        received_qty,
+                        warehouse_id: Some(warehouse_id),
+                        iqc_passed_qty: None,
+                        remark: form.remark.clone(),
+                    },
+                )
+                .await?;
+        }
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     }
     Ok(())
@@ -1749,6 +1801,7 @@ fn action_success_msg(action: &str) -> &'static str {
         "cc_reject" => "盘点已驳回",
         "ack_low_stock" => "已确认",
         "osa_issue" => "委外发料完成",
+        "osa_receipt" => "委外产出品入库完成",
         _ => "操作完成",
     }
 }
@@ -2215,6 +2268,7 @@ fn domain_tab_icon(d: WorkCenterDomain) -> Markup {
         WorkCenterDomain::Transfer => icon::arrow_left_right_icon("w-4 h-4"),
         WorkCenterDomain::CycleCount => icon::clipboard_document_icon("w-4 h-4"),
         WorkCenterDomain::OutsourceIssue => icon::package_icon("w-4 h-4"),
+        WorkCenterDomain::OutsourceReceipt => icon::package_icon("w-4 h-4"),
         WorkCenterDomain::LowStock => icon::info_icon("w-4 h-4"),
     }
 }
@@ -2228,6 +2282,7 @@ fn domain_label(d: WorkCenterDomain) -> &'static str {
         WorkCenterDomain::Transfer => "待调拨",
         WorkCenterDomain::CycleCount => "待盘点",
         WorkCenterDomain::OutsourceIssue => "委外发料",
+        WorkCenterDomain::OutsourceReceipt => "委外产出品入库",
         WorkCenterDomain::LowStock => "低库存",
     }
 }
@@ -2258,13 +2313,14 @@ fn domain_tab_badge(n: u64) -> Markup {
 /// 切 tab 强制 page=1、携带 #wc-domain-filter；整体在 #wc-domain-card 内，
 /// outerHTML 替换时 tab 栏随之刷新，无需 #status-tabs oob。
 fn render_domain_tabs(active: WorkCenterDomain, summary: &WorkCenterSummary) -> Markup {
-    const DOMAINS: [WorkCenterDomain; 7] = [
+    const DOMAINS: [WorkCenterDomain; 8] = [
         WorkCenterDomain::Arrival,
         WorkCenterDomain::Outbound,
         WorkCenterDomain::Requisition,
         WorkCenterDomain::Transfer,
         WorkCenterDomain::CycleCount,
         WorkCenterDomain::OutsourceIssue,
+        WorkCenterDomain::OutsourceReceipt,
         WorkCenterDomain::LowStock,
     ];
     html! {
@@ -2294,6 +2350,7 @@ fn domain_card_head(active: WorkCenterDomain, summary: &WorkCenterSummary) -> Ma
         WorkCenterDomain::Transfer => ("待调拨", icon::arrow_left_right_icon("w-[15px] h-[15px]"), "仓间调拨 出入库"),
         WorkCenterDomain::CycleCount => ("待盘点", icon::clipboard_document_icon("w-[15px] h-[15px]"), "库存盘点 审批调整"),
         WorkCenterDomain::OutsourceIssue => ("委外发料", icon::package_icon("w-[15px] h-[15px]"), "委外单 发料给供应商"),
+        WorkCenterDomain::OutsourceReceipt => ("委外产出品入库", icon::package_icon("w-[15px] h-[15px]"), "委外收货入库 立应付"),
         WorkCenterDomain::LowStock => ("低库存", icon::info_icon("w-[15px] h-[15px]"), "安全库存预警 确认处理"),
     };
     let s = summary.of(active);
@@ -2870,6 +2927,11 @@ fn render_row_action(t: &PendingTask) -> Markup {
             doc_detail_trigger("osa_issue_detail", t.doc_id, "pending", html! { "发料" (icon::package_icon("w-3 h-3")) },
                 "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90")
         }
+        // 委外产出品入库：详情 drawer（OSA + 产出品 + 入库仓 + 收货量，POST osa_receipt；Issue #277）
+        WorkCenterDomain::OutsourceReceipt => {
+            doc_detail_trigger("osa_receipt_detail", t.doc_id, "pending", html! { "入库" (icon::package_icon("w-3 h-3")) },
+                "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90")
+        }
         // 低库存预警：行内 ack（POST action=ack_low_stock，刷新当前 card）
         WorkCenterDomain::LowStock => {
             html! {
@@ -3169,6 +3231,7 @@ async fn render_drawer_body(action: &str, id: i64, view: Option<&str>, ctx: Requ
         "transfer_detail" => transfer_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "cc_detail" => cc_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "osa_issue_detail" => osa_issue_drawer_body(&state, &service_ctx, &mut conn, id).await?,
+        "osa_receipt_detail" => osa_receipt_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "transfer" => transfer_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "ship_detail" => ship_detail_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "arrival_po_detail" => arrival_po_detail_drawer_body(&state, &service_ctx, &mut conn, id).await?,
@@ -4108,6 +4171,124 @@ async fn osa_issue_drawer_body(
         "",
         inner,
         "确认发料",
+    ))
+}
+
+/// 委外产出品入库 drawer body（Issue #277）：仓库收委外厂商送货后办理产出品入库。id = OSA id。
+/// 显示委外单 + 供应商 + 产出品 + 计划量 + 目标仓 select（Process 预填 WIP-SHOP 车间在制仓，
+/// Full/Material 必选成品/原料仓）+ 收货量 input。「确认入库」POST osa_receipt → dispatch_action
+/// 调 om.receive（IQC 门禁 + 产品入目标仓 + 消耗虚拟仓 + 立应付 + 成本 + OSA Sent→Received）。
+async fn osa_receipt_drawer_body(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    id: i64,
+) -> Result<Markup> {
+    let osa = state
+        .outsourcing_order_service()
+        .find_by_id(ctx, db, id)
+        .await?;
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, vec![osa.product_id])
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
+    let pname = product_map
+        .get(&osa.product_id)
+        .map(|p| p.pdt_name.clone())
+        .unwrap_or_else(|| format!("产品 #{}", osa.product_id));
+    let pcode = product_map
+        .get(&osa.product_id)
+        .map(|p| p.product_code.clone())
+        .unwrap_or_default();
+    let supplier_name = state
+        .supplier_service()
+        .get(ctx, db, osa.supplier_id)
+        .await
+        .map(|s| s.name)
+        .unwrap_or_else(|_| format!("供应商 #{}", osa.supplier_id));
+    let warehouses = state
+        .warehouse_service()
+        .list(ctx, db, WarehouseFilter::default(), 1, 500)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    // Process（工序委外）半成品入车间在制仓 WIP-SHOP；Full/Material 由仓库选目标仓
+    let wip_wh_id = if osa.outsourcing_type == OutsourcingType::Process {
+        abt_core::mes::production_batch::implt::resolve_wip_warehouse_id(db)
+            .await
+            .ok()
+    } else {
+        None
+    };
+
+    let inner = html! {
+        div class="mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="text-xs text-muted font-medium" { "委外单 " }
+                span class="text-base font-mono font-bold text-fg" { (osa.doc_number) }
+            }
+            div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
+                div {
+                    span class="text-muted" { "供应商 " }
+                    span class="text-fg-2" { (supplier_name) }
+                }
+                div {
+                    span class="text-muted" { "计划量 " }
+                    span class="text-fg-2 font-mono" { (fmt_qty(osa.planned_qty)) }
+                }
+            }
+        }
+        div class="mb-4" {
+            div class="text-xs font-semibold text-muted mb-2" { "产出品" }
+            div class="rounded-sm border border-border-soft px-3 py-2" {
+                div class="text-sm text-fg-2" { (pname) }
+                div class="text-xs text-muted" { (pcode) }
+            }
+        }
+        div class="mb-4" {
+            label class="block text-xs font-semibold text-muted mb-1.5" { "收货数量" }
+            input type="number" step="0.000001" min="0" name="received_qty" required
+                value=(osa.planned_qty.to_string())
+                class="w-full px-3 py-2 rounded-sm border border-border bg-white text-fg text-sm focus:border-accent focus:outline-none";
+        }
+        div class="mb-2" {
+            label class="block text-xs font-semibold text-muted mb-1.5" { "入库仓库" }
+            select name="warehouse_id" required
+                class="w-full px-3 py-2 rounded-sm border border-border bg-white text-fg text-sm focus:border-accent focus:outline-none" {
+                @if let Some(wid) = wip_wh_id {
+                    @for w in &warehouses {
+                        @if w.id == wid {
+                            option value=(w.id) selected { (w.name) }
+                        } @else {
+                            option value=(w.id) { (w.name) }
+                        }
+                    }
+                } @else {
+                    option value="" disabled selected { "选择入库仓库" }
+                    @for w in &warehouses {
+                        option value=(w.id) { (w.name) }
+                    }
+                }
+            }
+            @if wip_wh_id.is_none() {
+                p class="text-xs text-muted mt-1" { "委外产出品入库目标仓（成品/原料仓）" }
+            }
+        }
+    };
+
+    Ok(drawer_form(
+        "委外产出品入库",
+        "osa_receipt",
+        id,
+        WorkCenterDomain::OutsourceReceipt,
+        "确认办理产出品入库？将完成入库、立应付并推进委外单为「已收货」。",
+        "",
+        inner,
+        "确认入库",
     ))
 }
 

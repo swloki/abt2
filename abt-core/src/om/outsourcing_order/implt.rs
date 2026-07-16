@@ -454,6 +454,16 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         let order = get_order(db, req.id).await?;
         check_version(&order, req.expected_version)?;
 
+        // Issue #277：产出品入库前置校验——仅 Sent 态（已发料待收货）可入库。
+        // 重复入库 fail-fast（状态机 Sent→Received 无自环，Received 再入会被状态机拒，此处先给友好提示）。
+        // 产出品入库语义：仓库收委外厂商送货后办理入库，完成库存+IQC+应付+成本；
+        // 工序进度回写由 MES 委外收货（osa_receive）/ OM 详情页（Process 类型）另行同步触发。
+        if order.status != OutsourcingStatus::Sent {
+            return Err(DomainError::business_rule(
+                "委外单当前状态不可办理产出品入库（需已发料 Sent 态）",
+            ));
+        }
+
         new_state_machine_service(self.pool.clone())
             .transition(
                 ctx,
@@ -701,33 +711,11 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             )
             .await?;
 
-        // 领域事件: OutsourcingReceived
-        new_domain_event_bus(self.pool.clone())
-            .publish(
-                ctx,
-                db,
-                EventPublishRequest {
-                    event_type: DomainEventType::OutsourcingReceived,
-                    aggregate_type: ENTITY_TYPE.to_string(),
-                    aggregate_id: req.id,
-                    payload: json!({
-                        "outsourcing_id": req.id,
-                        "doc_number": order.doc_number,
-                        "received_qty": req.received_qty.to_string(),
-                        "iqc_passed_qty": iqc_qty.to_string(),
-                        "warehouse_id": warehouse_id,
-                        "supplier_id": order.supplier_id,
-                        "unit_price": order.unit_price.to_string(),
-                        "work_order_id": order.work_order_id,
-                        "routing_id": order.routing_id,
-                        "outsourcing_type": order.outsourcing_type.as_i16(),
-                        "product_id": order.product_id,
-                        "batch_id": order.batch_id,
-                    }),
-                    idempotency_key: None,
-                },
-            )
-            .await?;
+        // Issue #277：不再发布 OutsourcingReceived 领域事件。
+        // 该事件历史上唯一消费者是 mes OutsourcingReceivedHandler（writeback 工序进度），但 MES osa_receive
+        // 已同步直调 writeback，事件实为冗余（且 EventProcessor 幽灵 handler 未生效）。
+        // 方案B 将「产出品入库」与「工序闭环」解耦：产出品入库不推进工序；工序回写改由
+        // MES 委外收货（osa_receive）/ OM 详情页 receive_order（Process 类型）同步直调 writeback 完成。
 
         Ok(())
     }

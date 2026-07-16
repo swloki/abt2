@@ -5,9 +5,9 @@ use serde::Deserialize;
 
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::types::{PgExecutor, ServiceContext};
-use abt_core::wms::enums::{CycleCountStatus, PickingStatus};
+use abt_core::wms::enums::{CycleCountStatus, PickingStatus, PickingType};
 use abt_core::wms::picking::model::StockPickingItem;
-use abt_core::wms::picking::{IssueItemReq, IssueMaterialReq, PickingService};
+use abt_core::wms::picking::{IssueItemReq, IssueMaterialReq, PickingFilter, PickingService};
 use abt_core::wms::cycle_count::model::CycleCountItem;
 use abt_core::wms::cycle_count::CycleCountService;
 use abt_core::wms::low_stock_alert::service::LowStockAlertService;
@@ -26,6 +26,7 @@ use abt_core::wms::enums::TransactionType;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::supplier::SupplierService;
+use abt_core::om::outsourcing_order::{ConfirmSentReq, OutsourcingOrderService};
 use abt_core::master_data::work_center::WorkCenterService as MdWorkCenterService;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
@@ -108,6 +109,7 @@ fn domain_from_str(s: &str) -> Option<WorkCenterDomain> {
         "requisition" => Some(WorkCenterDomain::Requisition),
         "transfer" => Some(WorkCenterDomain::Transfer),
         "cycle-count" => Some(WorkCenterDomain::CycleCount),
+        "outsource-issue" => Some(WorkCenterDomain::OutsourceIssue),
         "low-stock" => Some(WorkCenterDomain::LowStock),
         _ => None,
     }
@@ -120,6 +122,7 @@ fn domain_slug(d: WorkCenterDomain) -> &'static str {
         WorkCenterDomain::Requisition => "requisition",
         WorkCenterDomain::Transfer => "transfer",
         WorkCenterDomain::CycleCount => "cycle-count",
+        WorkCenterDomain::OutsourceIssue => "outsource-issue",
         WorkCenterDomain::LowStock => "low-stock",
     }
 }
@@ -172,6 +175,8 @@ fn action_domain(action: &str) -> Result<WorkCenterDomain> {
         "cc_start" | "cc_complete" | "cc_cancel" | "cc_adjust" | "cc_approve" | "cc_reject" => {
             WorkCenterDomain::CycleCount
         }
+        // 委外发料（仓库执行 dispatch+complete + om.confirm_sent）
+        "osa_issue" => WorkCenterDomain::OutsourceIssue,
         "ack_low_stock" => WorkCenterDomain::LowStock,
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     })
@@ -203,6 +208,8 @@ fn domain_entries(active: WorkCenterDomain) -> Markup {
         ),
         // LowStock 是异常提醒，无「新建」入口
         WorkCenterDomain::LowStock => html! {},
+        // 委外发料由生产端建委外单时自动生成 picking，仓库无「新建」入口
+        WorkCenterDomain::OutsourceIssue => html! {},
     }
 }
 
@@ -254,6 +261,7 @@ fn row_detail_drawer(domain: WorkCenterDomain, source_kind: TaskSourceKind) -> O
         WorkCenterDomain::Requisition => Some("req_detail"),
         WorkCenterDomain::Transfer => Some("transfer_detail"),
         WorkCenterDomain::CycleCount => Some("cc_detail"),
+        WorkCenterDomain::OutsourceIssue => Some("osa_issue_detail"),
         WorkCenterDomain::Outbound => Some("ship_detail"),
         WorkCenterDomain::Arrival => {
             if matches!(source_kind, TaskSourceKind::WorkOrder) {
@@ -1474,7 +1482,13 @@ pub async fn post_work_center_action(
             Html(body),
         ));
     }
-    Ok(([("HX-Trigger", "showToast")], Html(fragment.into_string())))
+    // Issue #270：osa_issue 改变委外单状态，追加 outsourcingChanged 让采购作业中心「委外订单」tab 同步刷新。
+    let trigger = if form.action == "osa_issue" {
+        "showToast, outsourcingChanged"
+    } else {
+        "showToast"
+    };
+    Ok(([("HX-Trigger", trigger)], Html(fragment.into_string())))
 }
 
 /// 按 action 分发到各域 service（均在传入事务内执行）
@@ -1684,6 +1698,50 @@ async fn dispatch_action(
         "ack_low_stock" => {
             state.low_stock_alert_service().ack(ctx, db, form.id).await?;
         }
+        "osa_issue" => {
+            // Issue #270 委外发料（仓库执行）：form.id = OutsourceIssue picking id。
+            // 对该 OSA 的全部 Draft sibling picking dispatch(扣源仓)+complete(入虚拟仓)，
+            // 再 om.confirm_sent 回写 OSA Draft→Sent。整个 post_work_center_action 事务内原子提交。
+            let pk_svc = state.picking_service();
+            let picking = pk_svc.get(ctx, db, form.id).await?;
+            let osa_id = picking.source_id.ok_or_else(|| {
+                DomainError::validation("委外发料单未关联委外单（source_id 缺失）")
+            })?;
+            let siblings = pk_svc
+                .list(
+                    ctx,
+                    db,
+                    PickingFilter {
+                        picking_types: Some(vec![PickingType::OutsourceIssue]),
+                        status: Some(PickingStatus::Draft),
+                        source_type: Some("outsourcing_order".to_string()),
+                        source_id: Some(osa_id),
+                        ..Default::default()
+                    },
+                    PageParams::new(1, 200),
+                )
+                .await?;
+            for p in &siblings.items {
+                pk_svc.dispatch(ctx, db, p.id).await?;
+                pk_svc.complete(ctx, db, p.id).await?;
+            }
+            let osa = state
+                .outsourcing_order_service()
+                .find_by_id(ctx, db, osa_id)
+                .await?;
+            state
+                .outsourcing_order_service()
+                .confirm_sent(
+                    ctx,
+                    db,
+                    ConfirmSentReq {
+                        id: osa_id,
+                        expected_version: osa.version,
+                        remark: Some("仓库发料完成".into()),
+                    },
+                )
+                .await?;
+        }
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     }
     Ok(())
@@ -1707,6 +1765,7 @@ fn action_success_msg(action: &str) -> &'static str {
         "cc_approve" => "盘点已审批",
         "cc_reject" => "盘点已驳回",
         "ack_low_stock" => "已确认",
+        "osa_issue" => "委外发料完成",
         _ => "操作完成",
     }
 }
@@ -2172,6 +2231,7 @@ fn domain_tab_icon(d: WorkCenterDomain) -> Markup {
         WorkCenterDomain::Requisition => icon::clipboard_list_icon("w-4 h-4"),
         WorkCenterDomain::Transfer => icon::arrow_left_right_icon("w-4 h-4"),
         WorkCenterDomain::CycleCount => icon::clipboard_document_icon("w-4 h-4"),
+        WorkCenterDomain::OutsourceIssue => icon::package_icon("w-4 h-4"),
         WorkCenterDomain::LowStock => icon::info_icon("w-4 h-4"),
     }
 }
@@ -2184,6 +2244,7 @@ fn domain_label(d: WorkCenterDomain) -> &'static str {
         WorkCenterDomain::Requisition => "待领料",
         WorkCenterDomain::Transfer => "待调拨",
         WorkCenterDomain::CycleCount => "待盘点",
+        WorkCenterDomain::OutsourceIssue => "委外发料",
         WorkCenterDomain::LowStock => "低库存",
     }
 }
@@ -2210,16 +2271,17 @@ fn domain_tab_badge(n: u64) -> Markup {
     }
 }
 
-/// 6 个环节药丸 tab 栏（对齐 MES demand_filter_bar 第一行范式，mes_work_center.rs:416）。
+/// 7 个环节药丸 tab 栏（对齐 MES demand_filter_bar 第一行范式，mes_work_center.rs:416）。
 /// 切 tab 强制 page=1、携带 #wc-domain-filter；整体在 #wc-domain-card 内，
 /// outerHTML 替换时 tab 栏随之刷新，无需 #status-tabs oob。
 fn render_domain_tabs(active: WorkCenterDomain, summary: &WorkCenterSummary) -> Markup {
-    const DOMAINS: [WorkCenterDomain; 6] = [
+    const DOMAINS: [WorkCenterDomain; 7] = [
         WorkCenterDomain::Arrival,
         WorkCenterDomain::Outbound,
         WorkCenterDomain::Requisition,
         WorkCenterDomain::Transfer,
         WorkCenterDomain::CycleCount,
+        WorkCenterDomain::OutsourceIssue,
         WorkCenterDomain::LowStock,
     ];
     html! {
@@ -2248,6 +2310,7 @@ fn domain_card_head(active: WorkCenterDomain, summary: &WorkCenterSummary) -> Ma
         WorkCenterDomain::Requisition => ("待领料", icon::clipboard_list_icon("w-[15px] h-[15px]"), "生产工单 领料发料"),
         WorkCenterDomain::Transfer => ("待调拨", icon::arrow_left_right_icon("w-[15px] h-[15px]"), "仓间调拨 出入库"),
         WorkCenterDomain::CycleCount => ("待盘点", icon::clipboard_document_icon("w-[15px] h-[15px]"), "库存盘点 审批调整"),
+        WorkCenterDomain::OutsourceIssue => ("委外发料", icon::package_icon("w-[15px] h-[15px]"), "委外单 发料给供应商"),
         WorkCenterDomain::LowStock => ("低库存", icon::info_icon("w-[15px] h-[15px]"), "安全库存预警 确认处理"),
     };
     let s = summary.of(active);
@@ -2819,6 +2882,11 @@ fn render_row_action(t: &PendingTask) -> Markup {
             doc_detail_trigger("cc_detail", t.doc_id, "pending", html! { "详情" (icon::clipboard_list_icon("w-3 h-3")) },
                 "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90")
         }
+        // 委外发料：详情 drawer（picking + 物料清单 + 确认发料表单，POST osa_issue）
+        WorkCenterDomain::OutsourceIssue => {
+            doc_detail_trigger("osa_issue_detail", t.doc_id, "pending", html! { "发料" (icon::package_icon("w-3 h-3")) },
+                "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90")
+        }
         // 低库存预警：行内 ack（POST action=ack_low_stock，刷新当前 card）
         WorkCenterDomain::LowStock => {
             html! {
@@ -3117,6 +3185,7 @@ async fn render_drawer_body(action: &str, id: i64, view: Option<&str>, ctx: Requ
         "req_detail" => req_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "transfer_detail" => transfer_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "cc_detail" => cc_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
+        "osa_issue_detail" => osa_issue_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "transfer" => transfer_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "ship_detail" => ship_detail_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "arrival_po_detail" => arrival_po_detail_drawer_body(&state, &service_ctx, &mut conn, id).await?,
@@ -3952,6 +4021,110 @@ async fn transfer_drawer_body(
         "",
         inner,
         btn_label,
+    ))
+}
+
+/// 委外发料 drawer body（Issue #270）：仓库执行发料。id = OutsourceIssue picking id。
+/// 显示委外单 + 供应商 + 发料清单（物料/数量），「确认发料」POST osa_issue → dispatch_action
+/// 对该 OSA 全部 sibling picking dispatch+complete + om.confirm_sent（OSA Draft→Sent）。
+async fn osa_issue_drawer_body(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    id: i64,
+) -> Result<Markup> {
+    let pk_svc = state.picking_service();
+    let picking = pk_svc.get(ctx, db, id).await?;
+    let osa_id = picking.source_id.ok_or_else(|| {
+        DomainError::validation("委外发料单未关联委外单（source_id 缺失）")
+    })?;
+    let osa = state
+        .outsourcing_order_service()
+        .find_by_id(ctx, db, osa_id)
+        .await?;
+    let items = pk_svc.list_items(ctx, db, id).await.unwrap_or_default();
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
+    let supplier_name = state
+        .supplier_service()
+        .get(ctx, db, osa.supplier_id)
+        .await
+        .map(|s| s.name)
+        .unwrap_or_else(|_| format!("供应商 #{}", osa.supplier_id));
+    let from_wh = state
+        .warehouse_service()
+        .get(ctx, db, picking.from_warehouse_id.unwrap_or(0))
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+
+    let mut rows = html! {};
+    for it in &items {
+        let pname = product_map
+            .get(&it.product_id)
+            .map(|p| p.pdt_name.clone())
+            .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+        let pcode = product_map
+            .get(&it.product_id)
+            .map(|p| p.product_code.clone())
+            .unwrap_or_default();
+        rows = html! {
+            (rows)
+            div class="flex items-center justify-between px-3 py-2 gap-2" {
+                div class="min-w-0" {
+                    div class="text-sm text-fg-2 truncate" { (pname) }
+                    div class="text-xs text-muted truncate" { (pcode) }
+                }
+                div class="text-right shrink-0 text-sm font-mono text-fg" { "发料 " (fmt_qty(it.qty_requested)) }
+            }
+        };
+    }
+
+    let inner = html! {
+        div class="mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="text-xs text-muted font-medium" { "委外单 " }
+                span class="text-base font-mono font-bold text-fg" { (osa.doc_number) }
+            }
+            div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
+                div {
+                    span class="text-muted" { "供应商 " }
+                    span class="text-fg-2" { (supplier_name) }
+                }
+                div {
+                    span class="text-muted" { "发料仓库 " }
+                    span class="text-fg-2" { (from_wh) }
+                }
+            }
+        }
+        p class="text-sm text-muted mb-3" { "确认发料将从源仓扣减物料、计入委外虚拟仓，并回写委外单为「已发料」。" }
+        div class="mb-2" {
+            div class="text-xs font-semibold text-muted mb-2" { "发料清单（" (items.len()) " 项）" }
+            div class="rounded-sm border border-border-soft divide-y divide-border-soft" {
+                @if items.is_empty() {
+                    div class="px-3 py-4 text-center text-sm text-muted" { "暂无明细" }
+                } @else {
+                    (rows)
+                }
+            }
+        }
+    };
+
+    Ok(drawer_form(
+        "委外发料",
+        "osa_issue",
+        id,
+        WorkCenterDomain::OutsourceIssue,
+        "确认执行委外发料？",
+        "",
+        inner,
+        "确认发料",
     ))
 }
 

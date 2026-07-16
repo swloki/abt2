@@ -1294,6 +1294,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .bg-purple-500{background-color:color-mix(in srgb, var(--purple-500) var(--un-bg-opacity), transparent) /* var(--purple-500) */;}
 .bg-purple-700{background-color:color-mix(in srgb, var(--purple-700) var(--un-bg-opacity), transparent) /* var(--purple-700) */;}
 .bg-purple-bg{background-color:color-mix(in srgb, var(--purple-bg) var(--un-bg-opacity), transparent) /* var(--purple-bg) */;}
+.bg-purple\/10{background-color:color-mix(in srgb, var(--purple) 10%, transparent) /* var(--purple) */;}
 .bg-sidebar-bg{background-color:color-mix(in srgb, var(--sidebar-bg) var(--un-bg-opacity), transparent) /* var(--sidebar-bg) */;}
 .bg-sidebar-rail{background-color:color-mix(in srgb, var(--sidebar-rail) var(--un-bg-opacity), transparent) /* var(--sidebar-rail) */;}
 .bg-slate-100{background-color:color-mix(in srgb, var(--slate-100) var(--un-bg-opacity), transparent) /* var(--slate-100) */;}

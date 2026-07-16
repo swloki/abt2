@@ -27,12 +27,6 @@ pub struct OmOutsourcingDetailPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/om/outsourcing/{id}/send")]
-pub struct OmOutsourcingSendPath {
-    pub id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/om/outsourcing/{id}/receive")]
 pub struct OmOutsourcingReceivePath {
     pub id: i64,
@@ -81,7 +75,6 @@ pub fn router() -> Router<AppState> {
             get(om_outsourcing_create::get_create).post(om_outsourcing_create::create),
         )
         .route(OmOutsourcingDetailPath::PATH, get(om_outsourcing_detail::get_detail))
-        .route(OmOutsourcingSendPath::PATH, post(om_outsourcing_detail::send_order))
         .route(OmOutsourcingReceivePath::PATH, post(om_outsourcing_detail::receive_order))
         .route(OmOutsourcingConvertPath::PATH, post(om_outsourcing_detail::convert_to_internal))
         .route(OmOutsourcingCancelPath::PATH, post(om_outsourcing_detail::cancel_order))

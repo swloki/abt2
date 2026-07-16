@@ -124,7 +124,9 @@ pub struct UpdateOutsourcingOrderReq {
     pub materials: Option<Vec<OutsourcingMaterialItem>>,
 }
 
-pub struct SendOutsourcingReq {
+/// 委外发料确认（仓库完成 OutsourceIssue picking 后回写 OSA Draft→Sent）。
+/// Issue #270：发料改由仓库执行，om.create 时已建待发料 picking，仓库发料完成调本方法。
+pub struct ConfirmSentReq {
     pub id: i64,
     pub expected_version: i32,
     pub remark: Option<String>,

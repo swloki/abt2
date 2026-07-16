@@ -33,6 +33,9 @@ use rust_decimal::Decimal;
 use crate::fms::ar_ap::{new_ar_ap_service, ArApLedgerFilter, ArApService};
 use crate::fms::enums::CounterpartyType;
 use crate::master_data::supplier::{new_supplier_service, SupplierService};
+use crate::om::outsourcing_order::{
+    new_outsourcing_order_service, OutsourcingOrderQuery, OutsourcingOrderService,
+};
 use crate::shared::document_link::{new_document_link_service, DocumentLinkService};
 use crate::shared::enums::DocumentType;
 
@@ -308,12 +311,13 @@ impl PurchaseWorkCenterService for PurchaseWorkCenterServiceImpl {
         let pool = &self.pool;
         let one = PageParams::new(1, 1);
 
-        // 15 个计数查询并发：各自从连接池获取连接（互不阻塞），替代原串行 await。
-        // 总耗时从 ~15 次串行降到 ~max(单次)；acquire/查询失败由 cnt 容错记 0（best-effort）。
+        // 16 个计数查询并发：各自从连接池获取连接（互不阻塞），替代原串行 await。
+        // 总耗时从 ~16 次串行降到 ~max(单次)；acquire/查询失败由 cnt 容错记 0（best-effort）。
         let (
             pending_demand, pending_misc, po_pending_approval, po_pending_receive, po_partial,
             recon_draft, payment_pending_approval, return_pending_ship, return_shipped,
             demand_detail_total, total_orders, total_recon, total_returns, total_quotations, total_misc,
+            total_outsourcing,
         ) = tokio::join!(
             cnt("demand", async {
                 let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
@@ -375,6 +379,10 @@ impl PurchaseWorkCenterService for PurchaseWorkCenterServiceImpl {
                 let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
                 new_misc_request_service(pool.clone()).list(ctx, &mut c, MiscRequestQuery::default(), one.clone()).await
             }),
+            cnt("total_outsourcing", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_outsourcing_order_service(pool.clone()).list(ctx, &mut c, OutsourcingOrderQuery::default(), one.clone()).await
+            }),
         );
 
         // 逾期 / 临期：SQL COUNT FILTER（待收货 PO = Confirmed + PartiallyReceived），
@@ -406,6 +414,7 @@ impl PurchaseWorkCenterService for PurchaseWorkCenterServiceImpl {
             total_returns,
             total_quotations,
             total_misc,
+            total_outsourcing,
         })
     }
 

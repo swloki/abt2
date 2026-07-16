@@ -40,6 +40,8 @@ pub struct PurchaseWorkCenterSummary {
     pub total_returns: u64,
     pub total_quotations: u64,
     pub total_misc: u64,
+    /// 委外单全量计数（委外订单 tab badge 用；Issue #270）
+    pub total_outsourcing: u64,
 }
 
 impl PurchaseWorkCenterSummary {

@@ -150,7 +150,15 @@ impl PickingService for PickingServiceImpl {
             ));
         }
 
-        let doc_number = Self::generate_doc_number(req.picking_type);
+        // Issue #270：委外发料单走 DocumentSequence 标准序号（WW-YYYY-MM-NNNNNNN），
+        // 对齐领料/发货；其余类型沿用 prefix+时间戳兜底（待 TODO 全面接入 DocumentSequence）。
+        let doc_number = if req.picking_type == PickingType::OutsourceIssue {
+            new_document_sequence_service(self.pool.clone())
+                .next_number(ctx, db, DocumentType::OutsourceIssue)
+                .await?
+        } else {
+            Self::generate_doc_number(req.picking_type)
+        };
         let picking = PickingRepo::insert(&mut *db, &doc_number, &req, ctx.operator_id).await?;
         Ok(picking.id)
     }

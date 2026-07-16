@@ -67,6 +67,8 @@ pub enum DocumentType {
     PickList = 46,
     // WMS — 生产领料单（InternalIssue picking）
     InternalIssue = 47,
+    // WMS — 委外发料单（OutsourceIssue picking，Issue #270）
+    OutsourceIssue = 48,
 }
 
 impl DocumentType {
@@ -118,6 +120,7 @@ impl DocumentType {
             45 => Some(Self::ArApAdjustment),
             46 => Some(Self::PickList),
             47 => Some(Self::InternalIssue),
+            48 => Some(Self::OutsourceIssue),
             _ => None,
         }
     }
@@ -187,6 +190,7 @@ impl DocumentType {
             Self::ArApAdjustment => "ADJ",
             Self::PickList => "PK",
             Self::InternalIssue => "LL",
+            Self::OutsourceIssue => "WW",
         }
     }
 }

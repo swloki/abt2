@@ -197,6 +197,15 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             }
         }
 
+        // Issue #270：虚拟仓/源仓必须显式选择（>0），否则发料 picking 的 to/from 仓库为 0，
+        // 仓库发料 complete 会失败。杜绝「不指定」默认 0 的脏数据。
+        if req.virtual_warehouse_id <= 0 {
+            return Err(DomainError::validation("委外单必须选择供应商虚拟仓"));
+        }
+        if req.source_warehouse_id <= 0 {
+            return Err(DomainError::validation("委外单必须选择发料源仓库"));
+        }
+
         let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::OutsourcingOrder)
             .await?;

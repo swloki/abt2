@@ -14,6 +14,10 @@ use crate::master_data::work_center::{new_work_center_service, service::WorkCent
 use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::sales::sales_order::{new_demand_service, service::DemandService};
+use crate::om::enums::OutsourcingStatus;
+use crate::om::outsourcing_order::repo::OutsourcingOrderRepo;
+use crate::om::outsourcing_order::service::OutsourcingOrderService;
+use crate::om::outsourcing_order::{model::CancelOutsourcingReq, new_outsourcing_order_service};
 use crate::wms::picking::{new_picking_service, service::PickingService};
 use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
 use crate::mes::production_batch::model::WorkOrderRouting;
@@ -412,6 +416,27 @@ impl WorkOrderService for WorkOrderServiceImpl {
             )));
         }
 
+        // Issue #270：委外级联——已发料/已收货的委外单阻止取消工单（料在供应商手中 / 已立 AP 台账）。
+        // 先查关联委外单（含所有状态）：Sent/InProduction/Delivered/Received 阻断，Draft 留待下方取消。
+        let linked_osa = OutsourcingOrderRepo::query_by_work_order(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let active_osa_count = linked_osa
+            .iter()
+            .filter(|o| matches!(
+                o.status,
+                OutsourcingStatus::Sent
+                    | OutsourcingStatus::InProduction
+                    | OutsourcingStatus::Delivered
+                    | OutsourcingStatus::Received
+            ))
+            .count();
+        if active_osa_count > 0 {
+            return Err(DomainError::BusinessRule(format!(
+                "工单有 {active_osa_count} 张已发料/已收货的委外单，请先收货或取消委外单后再取消工单",
+            )));
+        }
+
         let updated =
             WorkOrderRepo::update_status_with_version(
                 &mut *db,
@@ -446,6 +471,25 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 .await
             {
                 tracing::warn!(req_id, error = %e, "领料单取消失败");
+            }
+        }
+
+        // Issue #270：取消 Draft 委外单（om.cancel 内部已同步取消其待发料 OutsourceIssue picking）。
+        for o in &linked_osa {
+            if o.status == OutsourcingStatus::Draft
+                && let Err(e) = new_outsourcing_order_service(self.pool.clone())
+                    .cancel(
+                        ctx,
+                        db,
+                        CancelOutsourcingReq {
+                            id: o.id,
+                            expected_version: o.version,
+                            remark: Some("工单取消级联".into()),
+                        },
+                    )
+                    .await
+            {
+                tracing::warn!(osa_id = o.id, error = %e, "工单取消：Draft 委外单取消失败");
             }
         }
 

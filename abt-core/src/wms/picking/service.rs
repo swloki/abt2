@@ -6,8 +6,8 @@ use crate::shared::types::{PgExecutor, Result};
 
 use super::model::{
     CreateFromOrderReq, CreateManualReq, CreatePickingReq, DoneItemReq, IssueMaterialReq,
-    PickingFilter, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary, StockPicking,
-    StockPickingItem, ShipRowReq, WoReqPreviewItem,
+    PickingFilter, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary,
+    StockPicking, StockPickingItem, ShipRowReq, WoReqPreviewItem,
 };
 
 /// 统一库存作业单据 Service（Issue #146）
@@ -82,7 +82,7 @@ pub trait PickingService: Send + Sync {
     ) -> Result<i64>;
 
     /// 工序级领料（产出品驱动）：按产出品在成品 BOM 中的子级展开建 picking，
-    /// items 挂 operation_id=routing_id + batch_id
+    /// items 挂 operation_id=routing_id + batch_id。
     async fn create_for_routing_step(
         &self,
         ctx: &ServiceContext,
@@ -145,8 +145,17 @@ pub trait PickingService: Send + Sync {
         picking_ids: &[i64],
     ) -> Result<Vec<StockPickingItem>>;
 
-    /// 查询批次已领料的工序 routing_id 集合（驱动批次矩阵动作位推进）
+    /// 查询批次已领料的工序 routing_id 集合（Confirmed/Done；驱动防重复领料 + 报工前置）
     async fn list_requisitioned_routing_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<Vec<i64>>;
+
+    /// 查询批次「已发料完成」（仓库 issue 发齐，picking=Done）的工序 routing_id 集合。
+    /// 收料（开工）前置：只有 Done 才算物料到手，Confirmed（待领料/仓库未发）不算。
+    async fn list_issued_routing_ids(
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
@@ -160,6 +169,11 @@ pub trait PickingService: Send + Sync {
 
     /// 调拨完成（Confirmed → Done）：增加目标仓库库存（Transfer 流水正数）
     async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+
+    /// 委外发料执行（OutsourceIssue，Issue #270）：仓库确认发料时调用。
+    /// 一张发料单的多个原材料可能分散在多个源仓，按每行物料实际库存仓逐行扣源仓
+    /// （多仓供给）+ 统一入委外虚拟仓 + 置 Done。替代 dispatch+complete（按单头仓，撑不了多源仓）。
+    async fn execute_outsource_issue(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
     // ── 发货专用（OutgoingSales，从 ShippingRequestService 迁入，#146 阶段 4b）──
 

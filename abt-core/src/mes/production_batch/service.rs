@@ -71,6 +71,17 @@ pub trait ProductionBatchService: Send + Sync {
         work_order_id: i64,
     ) -> Result<Vec<WorkOrderRouting>>;
 
+    /// 列出工单中「需要领料」的工序 routing_id 集合。
+    /// 需领料 = 工序产出品的 BOM 直接子级含外购物料（非本工单任何工序产出品）。
+    /// 纯消耗半成品 / 无产出 / 无子级的工序不需领料（半成品走报工倒冲、散料走完工倒冲）。
+    /// 供工作台动作位识别「无需领料直接收料」的工序，避免纯半成品工序卡在领料按钮。
+    async fn list_routings_needing_requisition(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<std::collections::HashSet<i64>>;
+
     /// 从 BOM 内联工序（bom_operations）加载到工单快照。返回插入行数。
     /// per-order lock（D8）：任一 step 报工即整单冻结，跳过 reload。
     /// 价从 bom_step_prices LEFT JOIN（未定价则 NULL，由 release drawer 填）。

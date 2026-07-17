@@ -150,7 +150,15 @@ impl PickingService for PickingServiceImpl {
             ));
         }
 
-        let doc_number = Self::generate_doc_number(req.picking_type);
+        // Issue #270：委外发料单走 DocumentSequence 标准序号（WW-YYYY-MM-NNNNNNN），
+        // 对齐领料/发货；其余类型沿用 prefix+时间戳兜底（待 TODO 全面接入 DocumentSequence）。
+        let doc_number = if req.picking_type == PickingType::OutsourceIssue {
+            new_document_sequence_service(self.pool.clone())
+                .next_number(ctx, db, DocumentType::OutsourceIssue)
+                .await?
+        } else {
+            Self::generate_doc_number(req.picking_type)
+        };
         let picking = PickingRepo::insert(&mut *db, &doc_number, &req, ctx.operator_id).await?;
         Ok(picking.id)
     }
@@ -351,6 +359,17 @@ impl PickingService for PickingServiceImpl {
         routing_id: i64,
         batch_id: Option<i64>,
     ) -> Result<i64> {
+        // 幂等：同一 batch+routing 已有活跃领料单（Draft/Confirmed/Done）则直接返回，不重复建单
+        if let Some(bid) = batch_id
+            && let Some(existing) =
+                PickingRepo::find_active_picking_by_batch_operation(db, bid, routing_id).await?
+        {
+            tracing::info!(
+                work_order_id, routing_id, bid, existing,
+                "routing-step picking already exists, idempotent return"
+            );
+            return Ok(existing);
+        }
         // 1. 取工序产出品（跨模块走 ProductionBatchService trait）
         let batch_svc = new_production_batch_service(self.pool.clone());
         let routing = batch_svc
@@ -385,10 +404,26 @@ impl PickingService for PickingServiceImpl {
         let children = bom_svc
             .get_direct_children_by_product(ctx, db, fg_bom_id, output_product_id)
             .await?;
+        // 排除「本工单其他工序产出品」（半成品）——半成品走报工倒冲（车间在制直转），
+        // 不进领料单（picking 单一 from_warehouse 撑不了半成品仓+原料仓双仓）。
+        let other_outputs: std::collections::HashSet<i64> = batch_svc
+            .list_routings(ctx, db, work_order_id)
+            .await?
+            .into_iter()
+            .filter(|rr| rr.id != routing_id)
+            .filter_map(|rr| rr.product_id)
+            .collect();
+        let children: Vec<_> = children
+            .into_iter()
+            .filter(|n| !other_outputs.contains(&n.product_id))
+            .collect();
         if children.is_empty() {
-            return Err(DomainError::BusinessRule(
-                "产出品在成品 BOM 中无直接子级物料，无法工序级领料（散料请走完工倒冲）".into(),
-            ));
+            // 仅消耗半成品（车间直转）或无子级散料 → 无外购料领料单，不阻断（散料走完工倒冲）
+            tracing::info!(
+                work_order_id, routing_id,
+                "过滤半成品后无外购子级，跳过领料单（半成品走报工倒冲）"
+            );
+            return Ok(0);
         }
 
         // 4. 数量基数：batch_id 优先，否则工单 planned_qty
@@ -399,7 +434,9 @@ impl PickingService for PickingServiceImpl {
         };
 
         // 5. 建 InternalIssue picking（items 挂 operation_id + batch_id）
-        let doc_number = Self::generate_doc_number(PickingType::InternalIssue);
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::InternalIssue)
+            .await?;
         let warehouse_id = resolve_warehouse_id(db).await?;
         let items: Vec<CreatePickingItemReq> = children
             .iter()
@@ -437,9 +474,14 @@ impl PickingService for PickingServiceImpl {
         // 6. 单据关联
         self.link_to_work_order(ctx, db, picking.id, work_order_id).await?;
 
+        // 7. 确认（Draft→Confirmed）：生产侧点「领料」即确认要料，单据进入仓库「待领料」队列
+        // （WMS 待领料仅显示 Confirmed，见 work_center/repo.rs Requisition.statuses=&[2]）。
+        // confirm 纯状态转换，不扣库存/预留——实际发料由仓库 issue() 执行（qty_done 推进）
+        self.confirm(ctx, db, picking.id).await?;
+
         tracing::info!(
             work_order_id, routing_id, batch_id, fg_bom_id, output_product_id,
-            "routing-step picking created"
+            "routing-step picking created and confirmed"
         );
         Ok(picking.id)
     }
@@ -454,7 +496,9 @@ impl PickingService for PickingServiceImpl {
             return Err(DomainError::validation("请至少添加一条领料明细"));
         }
 
-        let doc_number = Self::generate_doc_number(PickingType::InternalIssue);
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::InternalIssue)
+            .await?;
         let items: Vec<CreatePickingItemReq> = req
             .items
             .iter()
@@ -552,9 +596,9 @@ impl PickingService for PickingServiceImpl {
         }
 
         let existing_items = PickingRepo::get_items(&mut *db, req.id).await?;
-        let warehouse_id = picking
-            .from_warehouse_id
-            .ok_or_else(|| DomainError::BusinessRule("领料单无源仓库".into()))?;
+        // 发料仓由发料 drawer 选定（对齐直接发货 direct_ship_rows）：改写 picking 源仓，按此仓扣库存
+        PickingRepo::update_from_warehouse(&mut *db, req.id, req.warehouse_id).await?;
+        let warehouse_id = req.warehouse_id;
 
         // 批量预加载涉及产品的最后已知单位成本（消除循环内 N+1）
         let cost_product_ids: Vec<i64> = req
@@ -813,6 +857,15 @@ impl PickingService for PickingServiceImpl {
         PickingRepo::find_routing_ids_by_batch(&mut *db, batch_id).await
     }
 
+    async fn list_issued_routing_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<Vec<i64>> {
+        PickingRepo::find_issued_routing_ids_by_batch(&mut *db, batch_id).await
+    }
+
     // ── 调拨专用（InternalTransfer，从 TransferService 迁入）──
 
     /// 调拨发货：Draft → Confirmed，扣减源仓库库存（Transfer 流水负数）
@@ -901,6 +954,88 @@ impl PickingService for PickingServiceImpl {
                         source_type: "stock_picking".to_string(),
                         source_id: id,
                         remark: Some("调拨完成-增加目标仓库".to_string()),
+                    },
+                )
+                .await?;
+        }
+        PickingRepo::set_done(&mut *db, id).await?;
+        Ok(())
+    }
+
+    /// 委外发料执行（OutsourceIssue，Issue #270）：仓库确认发料时调用。
+    /// 一张发料单的多个原材料可能分散在多个源仓（外购料在原料仓、前道半成品在车间在制仓），
+    /// 按每行物料实际库存仓逐行扣源仓（多仓供给）+ 统一入委外虚拟仓 + 置 Done。
+    /// 替代 dispatch+complete（按单头仓，撑不了多源仓）。
+    async fn execute_outsource_issue(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let picking = self.get(ctx, db, id).await?;
+        if picking.picking_type != PickingType::OutsourceIssue {
+            return Err(DomainError::BusinessRule("仅委外发料单可走逐行多仓发料".into()));
+        }
+        if !matches!(picking.status, PickingStatus::Draft | PickingStatus::Confirmed) {
+            return Err(DomainError::InvalidStateTransition {
+                from: format!("{:?}", picking.status),
+                to: "Done".to_string(),
+            });
+        }
+        let items = PickingRepo::get_items(&mut *db, id).await?;
+        let to_wh = picking
+            .to_warehouse_id
+            .ok_or_else(|| DomainError::BusinessRule("委外发料单无目标（虚拟）仓".into()))?;
+        let tx_svc = new_inventory_transaction_service(self.pool.clone());
+        // 扣源仓：每行按物料最大库存台账行（wh/zone/bin/batch）精确扣，多仓供给；
+        // 必须带 batch，否则 batch_no=None 会命中同 bin 的小 NULL-batch 行报负库存。
+        for item in &items {
+            let (from_wh, from_zone, from_bin, from_batch) =
+                StockLedgerRepo::find_best_stock_location(&mut *db, item.product_id)
+                    .await?
+                    .ok_or_else(|| DomainError::BusinessRule(format!("物料 {} 无可用源仓库存", item.product_id)))?;
+            tx_svc
+                .record(
+                    ctx, db,
+                    RecordTransactionReq {
+                        doc_number: Some(picking.doc_number.clone()),
+                        delivery_no: None,
+                        source_doc_number: None,
+                        transaction_type: TransactionType::Transfer,
+                        product_id: item.product_id,
+                        warehouse_id: from_wh,
+                        zone_id: Some(from_zone),
+                        bin_id: Some(from_bin),
+                        batch_no: from_batch,
+                        quantity: -item.qty_requested,
+                        unit_cost: None,
+                        source_type: "stock_picking".to_string(),
+                        source_id: id,
+                        remark: Some("委外发料-扣源仓".to_string()),
+                    },
+                )
+                .await?;
+        }
+        // 入委外虚拟仓
+        for item in &items {
+            tx_svc
+                .record(
+                    ctx, db,
+                    RecordTransactionReq {
+                        doc_number: Some(picking.doc_number.clone()),
+                        delivery_no: None,
+                        source_doc_number: None,
+                        transaction_type: TransactionType::Transfer,
+                        product_id: item.product_id,
+                        warehouse_id: to_wh,
+                        zone_id: None,
+                        bin_id: None,
+                        batch_no: item.batch_no.clone(),
+                        quantity: item.qty_requested,
+                        unit_cost: None,
+                        source_type: "stock_picking".to_string(),
+                        source_id: id,
+                        remark: Some("委外发料-入虚拟仓".to_string()),
                     },
                 )
                 .await?;

@@ -41,6 +41,7 @@ use abt_core::shared::identity::UserService;
 use std::collections::HashMap;
 
 use crate::components::alert;
+use crate::components::auto_refresh;
 use crate::components::icon;
 use crate::components::material_badge::material_badge_mini;
 use crate::components::overlay::drawer_shell;
@@ -50,8 +51,13 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_demand_pool::{MesDemandPoolCreatePath, MesDemandRowsPath};
 use abt_core::master_data::bom::{new_bom_query_service, service::BomQueryService};
-use abt_core::master_data::routing::{new_routing_service, service::RoutingService};
-use crate::routes::routing::{RoutingDetailPath, RoutingListPath};
+use abt_core::master_data::supplier::{Supplier, SupplierQuery, SupplierService};
+use abt_core::om::enums::OutsourcingType;
+use abt_core::om::outsourcing_order::{
+    CreateOutsourcingOrderReq, OutsourcingMaterialItem, OutsourcingOrderService,
+    ReceiveOutsourcingReq,
+};
+use abt_core::wms::warehouse::{Warehouse, WarehouseFilter, WarehouseService};
 use crate::routes::mes_work_center::*;
 use crate::utils::{empty_as_none, fmt_qty, RequestContext};
 use abt_macros::require_permission;
@@ -135,7 +141,8 @@ fn work_center_content(summary: &MesWorkCenterSummary, order_id: Option<i64>) ->
             }
         }
         (render_card_shell("wc-demand-card", &demand_src, "生产需求池", icon::globe_icon("w-[15px] h-[15px]"), Some((summary.pending_release, "danger")),
-            Some(html! { (summary.pending_release) " 张待下达 · 销售订单驱动 · 就地「转化为工单」" })))
+            Some(html! { (summary.pending_release) " 张待下达 · 销售订单驱动 · 就地「转化为工单」" }),
+            Some(auto_refresh::auto_refresh_control("wcDemandAutoRefresh", "#wc-demand-body", 60))))
         (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达工单", "w-[640px]"))
         (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建工单", "w-[680px]"))
         (render_drawer_overlay("batch-overlay", "batch-drawer", "batch-drawer-body", "批次处理", "w-[640px]"))
@@ -143,9 +150,11 @@ fn work_center_content(summary: &MesWorkCenterSummary, order_id: Option<i64>) ->
         // 完工入库 drawer 容器（slot）：GET 返回 drawer_shell，innerHTML 进 slot；afterSettle 打开子 drawer
         div id="batch-receipt-modal-slot"
             _="on 'htmx:afterSettle'[#batch-receipt-drawer] add .open to #batch-receipt-drawer\non keydown[event.key is 'Escape' and #batch-receipt-drawer] from body remove .open from #batch-receipt-drawer" {}
-        // 创建计划完成事件桥接：planCreated → 切到订单排期 tab 重新加载需求池 card + 展开 card（看新建 Draft 工单）
-        div hx-get=(format!("{}?view=schedule", WcDemandPath::PATH))
+        // 创建计划完成事件桥接：planCreated → 跳「工单」tab + keyword 定位刚创建的工单
+        // wo_no 经 HX-Trigger JSON 传来，config-request 从 triggeringEvent.detail 取出注入 keyword
+        div hx-get=(WcDemandPath::PATH)
             hx-trigger="planCreated from:body"
+            hx-on:htmx:config-request="event.detail.parameters['view']='orders';var w=event.detail.triggeringEvent&&event.detail.triggeringEvent.detail&&event.detail.triggeringEvent.detail.wo_no;if(w)event.detail.parameters['keyword']=w"
             hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML" {}
         // 订单详情 drawer 容器（slot）：GET 返回完整 drawer_shell，innerHTML 进此 slot；afterSettle 打开子 drawer
         div id="wc-order-detail-slot"
@@ -242,6 +251,7 @@ pub async fn get_demand_card(
         ));
     }
     let view = p.view.as_deref().unwrap_or("detail");
+    let page = p.page.unwrap_or(1);
     // 各 tab 的待处理总数（固定口径，不随筛选变；COUNT 轻量，card 每次刷新都查以保证 badge 实时）
     let tab_counts = load_tab_counts(&state, &service_ctx, &mut conn).await;
 
@@ -252,7 +262,6 @@ pub async fn get_demand_card(
         let status = p.wo_status.as_deref().and_then(parse_wo_status);
         let today = chrono::Local::now().date_naive();
         let (date_from, date_to) = parse_wo_date_filter(p.date_filter.as_deref(), today);
-        let page = p.page.unwrap_or(1);
         let result = wo_svc
             .list(
                 &service_ctx,
@@ -278,7 +287,6 @@ pub async fn get_demand_card(
         // 批次 tab：跨工单列出所有生产批次（工单下达 + 拆批后产生）
         let batch_svc = state.production_batch_service();
         let status = p.batch_status.as_deref().and_then(parse_batch_status);
-        let page = p.page.unwrap_or(1);
         let result = batch_svc
             .list_batches(
                 &service_ctx,
@@ -298,7 +306,6 @@ pub async fn get_demand_card(
         )) }
     } else {
         let svc = state.mes_demand_service();
-        let page = p.page.unwrap_or(1);
         let (date_start, date_end) = parse_date_filter(p.date_filter.as_deref());
 
         if view == "detail" {
@@ -346,7 +353,15 @@ pub async fn get_demand_card(
                 hx-include="#wc-demand-filter-form"
                 hx-select="#wc-demand-card" hx-swap="outerHTML" {
                 (demand_filter_bar(view, &p, &tab_counts))
-                (body)
+                div id="wc-demand-body"
+                    hx-get=(WcDemandPath::PATH)
+                    hx-trigger="wcDemandAutoRefresh from:body"
+                    hx-vals=(serde_json::json!({ "view": view, "page": page }).to_string())
+                    hx-include="#wc-demand-filter-form"
+                    hx-select="#wc-demand-body" hx-swap="outerHTML"
+                    hx-sync="this:replace" {
+                    (body)
+                }
             }
         }
         .into_string(),
@@ -1728,7 +1743,7 @@ pub async fn create_plan(
             form.default_scheduled_start.as_deref(),
             form.default_scheduled_end.as_deref(),
         );
-        return Ok(([("HX-Trigger", "")], Html(body.into_string())));
+        return Ok(([("HX-Trigger", String::new())], Html(body.into_string())));
     }
 
     let create_req = CreateWorkOrdersFromDemandsReq {
@@ -1745,15 +1760,30 @@ pub async fn create_plan(
         .begin()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    state
+    let result = state
         .mes_demand_service()
         .create_work_orders_from_demands(&service_ctx, &mut tx, create_req)
         .await?;
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    // 成功：空 body + HX-Trigger（form afterRequest 判定空 → 关 overlay；planCreated → 切工单 tab 刷新）
-    Ok(([("HX-Trigger", "planCreated")], Html(String::new())))
+    // 取首个新工单号（create drawer 单产品→1 工单）作 keyword，
+    // planCreated 桥接据此跳「工单」tab 并定位刚创建的工单
+    let wo_no = match result.wo_ids.first() {
+        Some(&id) => state
+            .work_order_service()
+            .find_by_id(&service_ctx, &mut conn, id)
+            .await
+            .ok()
+            .map(|w| w.doc_number),
+        None => None,
+    };
+    let trigger = match &wo_no {
+        Some(no) => serde_json::json!({ "planCreated": { "wo_no": no } }).to_string(),
+        None => "planCreated".to_string(),
+    };
+    // 成功：空 body + HX-Trigger（form afterRequest 判定空 → 关 overlay；planCreated → 跳工单 tab + 定位新工单）
+    Ok(([("HX-Trigger", trigger)], Html(String::new())))
 }
 
 /// 下达 drawer 校验错误（工序行级）：工序整体为空 / 某道工序缺产出品 / 缺计件单价。
@@ -1806,9 +1836,6 @@ struct ReleaseDrawerData {
     bom_id: Option<i64>,
     bom_name: Option<String>,
     bom_code: Option<String>,
-    /// BOM 关联的工艺路线（id + 名称），用于展示 + 跳转
-    routing_id: Option<i64>,
-    routing_name: Option<String>,
 }
 
 /// 加载下达 drawer 全量数据（order / routings / 工作中心 / 产出品 / 物料齐套 / 倒冲模式）。
@@ -1865,7 +1892,7 @@ async fn load_release_drawer_data(
             abt_core::master_data::product::model::MaterialConsumptionMode::Picking => "领料",
         })
         .unwrap_or("倒冲");
-    // BOM + 工艺路线：drawer 展示 BOM 名称/编辑入口 + routing 跳转（工序来源）
+    // BOM：drawer 展示 BOM 名称/编码
     let product_code = products
         .iter()
         .find(|p| p.product_id == order.product_id)
@@ -1881,14 +1908,6 @@ async fn load_release_drawer_data(
     };
     let bom_name = bom.as_ref().map(|b| format!("{} v{}", b.bom_name, b.version));
     let bom_code = bom.as_ref().and_then(|b| b.product_code.clone());
-    let routing_detail = match &product_code {
-        Some(pc) => new_routing_service(state.pool.clone()).get_bom_routing(ctx, db, pc.clone()).await.unwrap_or(None),
-        None => None,
-    };
-    let (routing_id, routing_name) = match routing_detail {
-        Some(d) => (Some(d.routing.id), Some(d.routing.name)),
-        None => (None, None),
-    };
     Ok(ReleaseDrawerData {
         order,
         product_name,
@@ -1901,8 +1920,6 @@ async fn load_release_drawer_data(
         bom_id,
         bom_name,
         bom_code,
-        routing_id,
-        routing_name,
     })
 }
 
@@ -2079,8 +2096,6 @@ fn render_release_drawer_body(data: &ReleaseDrawerData, errors: Option<&ReleaseE
     let bom_id = data.bom_id;
     let bom_name = data.bom_name.as_deref();
     let bom_code = data.bom_code.as_deref();
-    let routing_id = data.routing_id;
-    let routing_name = data.routing_name.as_deref();
     html! {
         // 工单信息
         div class="mb-5 pb-4 border-b border-border-soft" {
@@ -2106,19 +2121,6 @@ fn render_release_drawer_body(data: &ReleaseDrawerData, errors: Option<&ReleaseE
                 div class="text-sm mt-1 flex items-center gap-1.5" {
                     span class="text-muted" { "BOM 编码：" }
                     span class="text-fg-2 font-mono" { (bom_code.unwrap_or("—")) }
-                }
-            }
-            // 工艺路线（关联状态 + 跳转；工序来源，未关联则引导去关联）
-            div class="text-sm mt-1 flex items-center gap-1.5 flex-wrap" {
-                span class="text-muted" { "工艺路线：" }
-                @match routing_id {
-                    Some(rid) => {
-                        a class="text-accent hover:underline" href=(RoutingDetailPath { id: rid }.to_string()) target="_blank" { (routing_name.unwrap_or("查看")) }
-                    }
-                    None => {
-                        span class="text-danger" { "未关联（工序无法生成）" }
-                        a class="text-accent hover:underline" href=(RoutingListPath::PATH) target="_blank" { "去关联" }
-                    }
                 }
             }
         }
@@ -2230,15 +2232,11 @@ fn render_release_routings(
     errors: Option<&ReleaseErrors>,
 ) -> Markup {
     if routings.is_empty() {
-        // BOM 未关联工艺路线：引导去工艺路线管理关联后重新创建工单
+        // BOM 尚未配置内联工序：提示去 BOM 配置后重新创建工单
         return html! {
             div class="text-xs text-fg-2 p-3 bg-warn-bg rounded-sm flex items-start gap-2" {
                 (icon::info_icon("w-4 h-4 shrink-0 mt-0.5 text-warn"))
-                span {
-                    "该产品的 BOM 未关联工艺路线，无法生成工序。请到 "
-                    a class="text-accent underline" href=(RoutingListPath::PATH) target="_blank" { "工艺路线管理" }
-                    " 关联工艺路线后重新创建工单。"
-                }
+                span { "该产品 BOM 尚未配置工序，请先在 BOM 中配置工序后再创建工单。" }
             }
         };
     }
@@ -2664,7 +2662,7 @@ async fn load_batch_drawer_html(
         .into_iter()
         .map(|wc| (wc.id, wc.name))
         .collect();
-    // 批次已领料的工序集合（驱动矩阵动作位：领料→收料→报工 推进）
+    // 批次已领料的工序集合（Confirmed/Done；防重复领料 + InProgress 报工前置）
     let req_routing_ids: std::collections::HashSet<i64> = state
         .picking_service()
         .list_requisitioned_routing_ids(service_ctx, conn, batch.id)
@@ -2672,7 +2670,33 @@ async fn load_batch_drawer_html(
         .unwrap_or_default()
         .into_iter()
         .collect();
-    Ok(render_batch_drawer_body(&batch, &order, &product_name, &routings, &step_avails, &wc_map, &req_routing_ids).into_string())
+    // 批次已发料完成的工序集合（Done；收料前置——仓库 issue 发齐才能收料开工）
+    let issued_routing_ids: std::collections::HashSet<i64> = state
+        .picking_service()
+        .list_issued_routing_ids(service_ctx, conn, batch.id)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
+    // 需领料的工序集合（产出品含外购子级）；纯半成品/散料工序不需领料，动作位直接收料
+    let needs_requisition: std::collections::HashSet<i64> = batch_svc
+        .list_routings_needing_requisition(service_ctx, conn, batch.work_order_id)
+        .await
+        .unwrap_or_default();
+    // 委外工序的活跃委外单（动作位判定：创建/发料/收货/已完成）
+    let om_svc = state.outsourcing_order_service();
+    let mut osa_map: HashMap<i64, abt_core::om::outsourcing_order::OutsourcingOrder> = HashMap::new();
+    for r in &routings {
+        if r.is_outsourced
+            && let Ok(list) = om_svc
+                .find_active_for_routing(service_ctx, conn, batch.work_order_id, r.id, Some(batch.id))
+                .await
+            && let Some(o) = list.into_iter().next()
+        {
+            osa_map.insert(r.id, o);
+        }
+    }
+    Ok(render_batch_drawer_body(&batch, &order, &product_name, &routings, &step_avails, &wc_map, &req_routing_ids, &issued_routing_ids, &needs_requisition, &osa_map).into_string())
 }
 
 /// 批次处理 drawer body：批次信息 + 工序进度 + 报工表单 + 状态操作（按 BatchStatus 门控）。
@@ -2694,6 +2718,9 @@ fn render_batch_drawer_body(
     step_avails: &HashMap<i64, abt_core::mes::work_order::MaterialAvailability>,
     wc_map: &HashMap<i64, String>,
     req_routing_ids: &std::collections::HashSet<i64>,
+    issued_routing_ids: &std::collections::HashSet<i64>,
+    needs_requisition: &std::collections::HashSet<i64>,
+    osa_map: &HashMap<i64, abt_core::om::outsourcing_order::OutsourcingOrder>,
 ) -> Markup {
     let (slabel, stoken) = batch_status_meta(&batch.status);
     let can_suspend = matches!(batch.status, BatchStatus::InProgress);
@@ -2747,9 +2774,14 @@ fn render_batch_drawer_body(
                         button class="px-3 py-1.5 rounded-sm bg-success text-white border-none text-xs font-medium cursor-pointer hover:opacity-90"
                             hx-get=(WcBatchReceiptModalPath { batch_id: batch.id }.to_string())
                             hx-target="#batch-receipt-modal-slot" hx-swap="innerHTML"
-                            _="on click halt the event" { "入库" }
-                    } @else if !can_suspend && !can_resume && !can_scrap && !can_receipt {
-                        // Pending / Completed / Cancelled — 无可用操作时不显示
+                            _="on click halt the event" { "完工入库" }
+                    } @else if matches!(batch.status, BatchStatus::Pending) {
+                        // 待开工：工具栏不空白，引导到下方工序区第①道「收料」（issue #260）
+                        span class="text-xs text-muted" { "👇 请到下方工序区第①道「收料」" }
+                    } @else if matches!(batch.status, BatchStatus::Completed) {
+                        span class="text-xs text-success font-medium" { "✓ 已完工" }
+                    } @else if matches!(batch.status, BatchStatus::Cancelled) {
+                        span class="text-xs text-muted" { "已取消" }
                     }
                 }
             }
@@ -2770,11 +2802,14 @@ fn render_batch_drawer_body(
                         tr { td colspan="3" class="text-center text-muted py-6" { "该工单尚无工序" } }
                     }
                     @for r in routings {
-                        (render_batch_matrix_row(batch, r, step_avails, wc_map, req_routing_ids))
+                        (render_batch_matrix_row(batch, r, step_avails, wc_map, req_routing_ids, issued_routing_ids, needs_requisition, osa_map))
                     }
                 }
             }
         }
+        // 委外工序就地 drawer 容器：GET 加载创建表单 innerHTML 进此 slot
+        // （OsaCreate 动作位 hx-target="#osa-drawer-slot"；提交后 hx-target="#batch-drawer-body" 刷新整 body）
+        div id="osa-drawer-slot" {}
     }
 }
 
@@ -2796,8 +2831,12 @@ fn render_batch_matrix_row(
     step_avails: &HashMap<i64, abt_core::mes::work_order::MaterialAvailability>,
     wc_map: &HashMap<i64, String>,
     req_routing_ids: &std::collections::HashSet<i64>,
+    issued_routing_ids: &std::collections::HashSet<i64>,
+    needs_requisition: &std::collections::HashSet<i64>,
+    osa_map: &HashMap<i64, abt_core::om::outsourcing_order::OutsourcingOrder>,
 ) -> Markup {
     use abt_core::mes::work_order::MaterialAvailabilityLevel;
+    use abt_core::om::enums::OutsourcingStatus;
     let wc_name = r
         .work_center_id
         .and_then(|id| wc_map.get(&id))
@@ -2815,17 +2854,83 @@ fn render_batch_matrix_row(
         }
         None => ("散料", "muted", 0),
     };
-    // 当前工序：current_step=0（Pending 或刚开工未报工）时指向第 1 道工序
-    let active_step = if batch.current_step == 0 { 1 } else { batch.current_step };
+    // current_step = 最后一个已完成工序号（0=尚无完成，见 confirm_routing_step 推进语义）。
+    // 原代码把它当成「当前进行工序号」造成 off-by-one：第一道完成后仍显示报工而非已完成。
+    let batch_done = matches!(
+        batch.status,
+        BatchStatus::PendingReceipt | BatchStatus::Completed
+    );
+    let active_step = if batch_done {
+        i32::MAX // 全完成：靠 is_completed 兜底全部 Done，无越界
+    } else if matches!(batch.status, BatchStatus::Suspended) {
+        batch.current_step // 待检工序（刚报工、质检中）保留为当前
+    } else if batch.current_step == 0 {
+        1 // 首道待开工
+    } else {
+        batch.current_step + 1 // 下一道待加工（核心修正）
+    };
     let is_current = r.step_no == active_step;
-    let is_completed = r.step_no < batch.current_step;
+    let is_completed = r.step_no < active_step;
     let has_req = req_routing_ids.contains(&r.id);
+    let has_issued = issued_routing_ids.contains(&r.id);
     // 无产出工序（检测/检验）→ 无消耗物料 → 视同已领料，不显示领料按钮（学 OFBiz 按有无消耗决定按钮）
     let has_output = r.product_id.is_some();
-    let ready = has_req || !has_output;
+    let ready = has_req || !has_output || !needs_requisition.contains(&r.id);
+    // 收料前置：仓库发料完成（Done）或无需领料（无产出 / 纯半成品车间直转且齐套）才能收料开工
+    let can_receive = has_issued || !has_output || (!needs_requisition.contains(&r.id) && shortage_n == 0);
     let is_pending = matches!(batch.status, BatchStatus::Pending);
     let is_inprogress = matches!(batch.status, BatchStatus::InProgress);
     let kitted = shortage_n == 0;
+    // 动作位统一判定：批次状态 × 当前工序 × 领料/发料状态 → Action 枚举，模板只做 @match 渲染
+    enum Action {
+        Done,        // ✅ 已完成
+        Receive,     // 收料（Pending→InProgress 开工）
+        WaitIssue,   // ⏳ 待仓库发料（已领料、仓库未发齐）
+        Requisition, // 领料（建领料单）
+        Shortage,    // 欠料置灰
+        Report,      // 报工
+        Suspended,   // ⚠ 已暂停
+        Dash,        // —
+        OsaCreate,   // 🔧 委外：创建委外单
+        OsaDraft,    // 委外单已建(Draft) → 发料
+        OsaSent,     // 委外已发料(Sent) → 收货
+        OsaDone,     // 委外已收货(Received)
+    }
+    // 委外工序走独立动作流（不参与车间领料/收料/报工）
+    let action = if r.is_outsourced {
+        match osa_map.get(&r.id) {
+            None if is_current => Action::OsaCreate,
+            Some(o) if o.status == OutsourcingStatus::Draft => Action::OsaDraft,
+            Some(o) if o.status == OutsourcingStatus::Sent => Action::OsaSent,
+            Some(o) if o.status == OutsourcingStatus::Received => Action::OsaDone,
+            _ if is_completed => Action::Done,
+            _ => Action::Dash,
+        }
+    } else if is_completed {
+        Action::Done
+    } else if is_current && is_pending {
+        if can_receive {
+            Action::Receive
+        } else if has_req {
+            Action::WaitIssue
+        } else if has_output && kitted {
+            Action::Requisition
+        } else {
+            Action::Shortage
+        }
+    } else if is_current && is_inprogress {
+        if ready {
+            Action::Report
+        } else if has_output && kitted {
+            Action::Requisition
+        } else {
+            Action::Dash
+        }
+    } else if matches!(batch.status, BatchStatus::Suspended) && is_current {
+        Action::Suspended
+    } else {
+        Action::Dash
+    };
     html! {
         tr class="border-b border-border-soft align-top" {
             td class="py-2.5 px-3" {
@@ -2846,32 +2951,38 @@ fn render_batch_matrix_row(
                     span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-{atoken}-bg text-{atoken}")) { (alabel) }
                 }
             }
-            // 第3列：动作位（领料→收料→报工，按批次状态 + 领料状态推进）
+            // 第3列：动作位（@match action 纯渲染，判定逻辑见上方 action 计算）
             td class="py-2.5 px-3 text-xs" {
-                @if is_completed {
-                    span class="text-success font-medium" { "✅ 已完成" }
-                } @else if is_current && is_pending {
-                    @if ready {
-                        // 已领料（或无产出工序）+ Pending → 收料（=开工），成功后刷新 drawer body
+                @match action {
+                    Action::Done => {
+                        span class="text-success font-medium" { "✅ 已完成" }
+                    }
+                    Action::Receive => {
+                        // 已发料完成（或无产出工序）+ Pending → 收料开工
                         form hx-post=(WcBatchReceivePath { batch_id: batch.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
                             button type="submit"
                                 class="text-xs px-2 py-1 rounded-sm bg-accent text-accent-on border-none cursor-pointer hover:opacity-90 transition-all font-medium"
                                 hx-confirm="确认收料开工？" { "收料" }
                         }
-                    } @else if has_output && kitted {
-                        // 有产出 + 未领料 + 齐套 → 领料，成功后刷新 drawer body（动作位变收料）
+                    }
+                    Action::WaitIssue => {
+                        // 已领料但仓库未发齐 → 待仓库 issue 发料完成
+                        span class="text-xs text-warn" title="已领料，等待仓库发料完成" { "⏳ 待仓库发料" }
+                    }
+                    Action::Requisition => {
+                        // 有产出 + 未领料 + 齐套 → 领料
                         form hx-post=(WcBatchReqPath { batch_id: batch.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
                             input type="hidden" name="routing_id" value=(r.id);
                             button type="submit"
                                 class="text-xs px-2 py-1 rounded-sm border border-border text-fg-2 hover:bg-accent-bg hover:text-accent cursor-pointer transition-all font-medium"
                                 hx-confirm="确认领料本工序物料？" { "领料" }
                         }
-                    } @else {
+                    }
+                    Action::Shortage => {
                         // 未领料 + 欠料 → 置灰
                         span class="text-xs text-muted cursor-not-allowed" title="欠料，无法领料" { "领料" }
                     }
-                } @else if is_current && is_inprogress {
-                    @if ready {
+                    Action::Report => {
                         // 已领料（或无产出工序）+ InProgress → 报工
                         button class="text-xs px-2 py-1 rounded-sm bg-accent text-accent-on border-none cursor-pointer hover:opacity-90 transition-all font-medium"
                             hx-get=(WcBatchReportModalPath { batch_id: batch.id, step_no: r.step_no }.to_string())
@@ -2879,21 +2990,37 @@ fn render_batch_matrix_row(
                             _="on click halt the event" {
                             "报工"
                         }
-                    } @else if has_output && kitted {
-                        // 有产出 + 开工后补领料
-                        form hx-post=(WcBatchReqPath { batch_id: batch.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
-                            input type="hidden" name="routing_id" value=(r.id);
-                            button type="submit"
-                                class="text-xs px-2 py-1 rounded-sm border border-border text-fg-2 hover:bg-accent-bg hover:text-accent cursor-pointer transition-all font-medium"
-                                hx-confirm="确认领料本工序物料？" { "领料" }
+                    }
+                    Action::Suspended => {
+                        span class="text-warn" { "⚠ 已暂停" }
+                    }
+                    Action::OsaCreate => {
+                        // 委外工序当前道 + 无委外单 → 创建委外单（就地 drawer）
+                        button class="text-xs px-2 py-1 rounded-sm bg-purple text-white border-none cursor-pointer hover:opacity-90 transition-all font-medium"
+                            hx-get=(WcBatchOsaCreateDrawerPath { batch_id: batch.id, routing_id: r.id }.to_string())
+                            hx-target="#osa-drawer-slot" hx-swap="innerHTML"
+                            _="on click halt the event" {
+                            "创建委外单"
                         }
-                    } @else {
+                    }
+                    Action::OsaDraft => {
+                        // Issue #270：发料改由仓库执行（om.create 已生成待发料 picking，仓库作业中心处理）。
+                        // 生产端不再触发发料，显示「待仓库发料」状态。
+                        span class="text-xs px-2 py-1 rounded-sm bg-purple/10 text-purple font-medium" { "待仓库发料" }
+                    }
+                    Action::OsaSent => {
+                        // 委外已发料(Sent) → 收货（om receive 入 WIP-SHOP）
+                        form hx-post=(WcBatchOsaReceivePath { batch_id: batch.id, routing_id: r.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
+                            button type="submit" class="text-xs px-2 py-1 rounded-sm bg-success text-white border-none cursor-pointer hover:opacity-90 transition-all font-medium"
+                                hx-confirm="确认委外收货？" { "委外收货" }
+                        }
+                    }
+                    Action::OsaDone => {
+                        span class="text-success font-medium" { "✅ 委外已完成" }
+                    }
+                    Action::Dash => {
                         span class="text-muted" { "—" }
                     }
-                } @else if matches!(batch.status, BatchStatus::Suspended) && is_current {
-                    span class="text-warn" { "⚠ 已暂停" }
-                } @else {
-                    span class="text-muted" { "—" }
                 }
             }
         }
@@ -3663,6 +3790,371 @@ pub async fn batch_receipt(
 }
 
 // =============================================================================
+// 批次工序委外（OSA）：就地创建 / 发料 / 收货
+// =============================================================================
+// 设计：委外工序在 batch drawer 矩阵中走独立动作流（OsaCreate→OsaDraft→OsaSent→OsaDone）。
+// - get_osa_create_drawer：渲染创建表单 innerHTML 进 #osa-drawer-slot（矩阵下方）；
+// - osa_create/osa_send/osa_receive：POST 后均刷新整个 #batch-drawer-body（动作位推进）+ 广播 woChanged。
+//   返回 fresh body（非空 body + 事件）——与 batch_requisition/batch_receive 同范式：矩阵表单
+//   hx-target="#batch-drawer-body"，空 body 会清空 drawer，故必须回传重渲染的 body。
+
+#[derive(Debug, Deserialize)]
+pub struct OsaCreateForm {
+    pub supplier_id: i64,
+    pub unit_price: String,
+    #[serde(default)]
+    pub virtual_warehouse_id: i64,
+    #[serde(default)]
+    pub source_warehouse_id: i64,
+}
+
+/// 批次工序委外：就地创建委外单 drawer 表单（GET，预填本道半成品 + 计划量）。
+///
+/// 渲染创建表单片段，innerHTML 进 `#osa-drawer-slot`（batch drawer body 矩阵下方）。
+/// 提交走 `osa_create`（form hx-target="#batch-drawer-body"），成功后刷新整个 drawer body。
+#[require_permission("WORK_ORDER", "read")]
+pub async fn get_osa_create_drawer(
+    path: WcBatchOsaCreateDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let batch_svc = state.production_batch_service();
+    let wo_svc = state.work_order_service();
+    let batch = batch_svc
+        .find_by_id(&service_ctx, &mut conn, path.batch_id)
+        .await?;
+    let routings = batch_svc
+        .list_routings(&service_ctx, &mut conn, batch.work_order_id)
+        .await
+        .unwrap_or_default();
+    let routing = routings
+        .iter()
+        .find(|r| r.id == path.routing_id)
+        .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+    if !routing.is_outsourced {
+        return Err(DomainError::business_rule("该工序非委外工序").into());
+    }
+    let semi_pid = routing
+        .product_id
+        .ok_or_else(|| DomainError::business_rule("委外工序未设置产出品"))?;
+    let semi_name = wo_svc
+        .get_product_name(&mut conn, semi_pid)
+        .await?
+        .unwrap_or_else(|| format!("#{}", semi_pid));
+    // 供应商下拉
+    let suppliers = state
+        .supplier_service()
+        .list(
+            &service_ctx,
+            &mut conn,
+            SupplierQuery {
+                name: None,
+                status: None,
+                category: None,
+            },
+            PageParams::new(1, 200),
+        )
+        .await?;
+    // 仓库下拉（virtual=供应商虚拟仓 / source=原料仓）
+    let warehouses = state
+        .warehouse_service()
+        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
+        .await?;
+    Ok(Html(
+        render_osa_create_form(
+            &batch,
+            path.routing_id,
+            routing.process_name.as_str(),
+            &semi_name,
+            &suppliers.items,
+            &warehouses.items,
+        )
+        .into_string(),
+    ))
+}
+
+/// 渲染创建委外单表单片段（进 #osa-drawer-slot）。
+fn render_osa_create_form(
+    batch: &ProductionBatch,
+    routing_id: i64,
+    process_name: &str,
+    semi_name: &str,
+    suppliers: &[Supplier],
+    warehouses: &[Warehouse],
+) -> Markup {
+    html! {
+        div class="mt-4 border border-purple/40 rounded-md p-4 bg-purple-bg" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="inline-block w-1.5 h-1.5 rounded-full bg-purple" {}
+                span class="text-sm font-semibold text-fg" { "创建工序委外单" }
+            }
+            // 只读信息：工序 / 本道半成品 / 计划量
+            div class="grid grid-cols-3 gap-3 mb-4 text-xs" {
+                div {
+                    div class="text-muted mb-0.5" { "工序" }
+                    div class="text-fg font-medium" { (process_name) }
+                }
+                div {
+                    div class="text-muted mb-0.5" { "本道半成品" }
+                    div class="text-fg font-medium" { (semi_name) }
+                }
+                div {
+                    div class="text-muted mb-0.5" { "计划量" }
+                    div class="text-fg font-medium font-mono" { (fmt_qty(batch.batch_qty)) " 件" }
+                }
+            }
+            form hx-post=(WcBatchOsaCreatePath { batch_id: batch.id, routing_id }.to_string())
+                hx-target="#batch-drawer-body" hx-swap="innerHTML" {
+                div class="grid grid-cols-2 gap-3 mb-3" {
+                    div {
+                        label class="block text-xs text-fg-2 mb-1 whitespace-nowrap" { "供应商 " span class="text-danger" { "*" } }
+                        select name="supplier_id" required
+                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {
+                            option value="" { "请选择供应商" }
+                            @for s in suppliers {
+                                option value=(s.id) { (s.name) }
+                            }
+                        }
+                    }
+                    div {
+                        label class="block text-xs text-fg-2 mb-1 whitespace-nowrap" { "加工单价 " span class="text-danger" { "*" } }
+                        input type="number" step="any" min="0" name="unit_price" required placeholder="0.00"
+                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono";
+                    }
+                    div {
+                        label class="block text-xs text-fg-2 mb-1 whitespace-nowrap" { "供应商虚拟仓" }
+                        select name="virtual_warehouse_id"
+                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {
+                            option value="0" { "（不指定）" }
+                            @for w in warehouses {
+                                @if w.is_virtual {
+                                    option value=(w.id) { (w.name) "（虚拟）" }
+                                }
+                            }
+                        }
+                    }
+                    div {
+                        label class="block text-xs text-fg-2 mb-1 whitespace-nowrap" { "原料仓" }
+                        select name="source_warehouse_id"
+                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {
+                            option value="0" { "（不指定）" }
+                            @for w in warehouses {
+                                @if !w.is_virtual {
+                                    option value=(w.id) { (w.name) }
+                                }
+                            }
+                        }
+                    }
+                }
+                div class="text-xs text-muted bg-surface rounded-sm px-3 py-2 mb-3" {
+                    "提交后创建委外单（草稿），发料明细按本道半成品 BOM 自动展开。"
+                }
+                div class="flex justify-end gap-2" {
+                    button type="button"
+                        class="px-3 py-1.5 rounded-sm bg-white text-fg-2 border border-border text-xs cursor-pointer hover:bg-surface"
+                        _="on click empty #osa-drawer-slot" { "取消" }
+                    button type="submit"
+                        class="px-3 py-1.5 rounded-sm bg-purple text-white border-none text-xs font-medium cursor-pointer hover:opacity-90" {
+                        "创建委外单"
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 批次工序委外：创建委外单（POST）。
+///
+/// 防重复（同批次同工序已有活跃委外单）；物料明细从本道半成品 BOM 直接子级自动展开
+/// （child.quantity × batch.batch_qty）。成功后刷新 batch drawer body（动作位 OsaCreate→OsaDraft）
+/// + 广播 woChanged（刷新 demand card）。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn osa_create(
+    path: WcBatchOsaCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<OsaCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    let batch_svc = state.production_batch_service();
+    let wo_svc = state.work_order_service();
+    let om_svc = state.outsourcing_order_service();
+    let batch = batch_svc
+        .find_by_id(&service_ctx, &mut tx, path.batch_id)
+        .await?;
+    let routings = batch_svc
+        .list_routings(&service_ctx, &mut tx, batch.work_order_id)
+        .await
+        .unwrap_or_default();
+    let routing = routings
+        .iter()
+        .find(|r| r.id == path.routing_id)
+        .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+    // 防重复：同批次同工序已有活跃委外单
+    let existing = om_svc
+        .find_active_for_routing(
+            &service_ctx,
+            &mut tx,
+            batch.work_order_id,
+            path.routing_id,
+            Some(batch.id),
+        )
+        .await?;
+    if !existing.is_empty() {
+        return Err(DomainError::business_rule("该工序已有活跃委外单").into());
+    }
+    let semi_pid = routing
+        .product_id
+        .ok_or_else(|| DomainError::business_rule("委外工序未设置产出品"))?;
+    let unit_price = form
+        .unit_price
+        .parse::<Decimal>()
+        .map_err(|_| DomainError::validation("加工单价格式错误"))?;
+    if unit_price <= Decimal::ZERO {
+        return Err(DomainError::validation("加工单价必须大于 0").into());
+    }
+    // 物料明细：本道半成品的 BOM 直接子级展开（用量 × 批次量）
+    let order = wo_svc
+        .find_by_id(&service_ctx, &mut tx, batch.work_order_id)
+        .await?;
+    let finished = state
+        .product_service()
+        .get(&service_ctx, &mut tx, order.product_id)
+        .await?;
+    let bom_query = new_bom_query_service(state.pool.clone());
+    let materials: Vec<OutsourcingMaterialItem> = match bom_query
+        .find_published_bom_by_product_code(&service_ctx, &mut tx, &finished.product_code)
+        .await?
+    {
+        Some(bom_id) => bom_query
+            .get_direct_children_by_product(&service_ctx, &mut tx, bom_id, semi_pid)
+            .await?
+            .into_iter()
+            .map(|child| OutsourcingMaterialItem {
+                product_id: child.product_id,
+                planned_qty: child.quantity * batch.batch_qty,
+                unit_cost: None,
+            })
+            .collect(),
+        None => Vec::new(),
+    };
+    let process_name = routing.process_name.clone();
+    let req = CreateOutsourcingOrderReq {
+        work_order_id: Some(batch.work_order_id),
+        routing_id: Some(path.routing_id),
+        process_name: Some(process_name),
+        supplier_id: form.supplier_id,
+        product_id: semi_pid,
+        outsourcing_type: OutsourcingType::Process,
+        planned_qty: batch.batch_qty,
+        unit_price,
+        scheduled_date: None,
+        virtual_warehouse_id: form.virtual_warehouse_id,
+        source_warehouse_id: form.source_warehouse_id,
+        batch_id: Some(batch.id),
+        remark: Some("工序委外".to_string()),
+        materials,
+    };
+    om_svc.create(&service_ctx, &mut tx, req, None).await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    crate::toast::add_toast(
+        service_ctx.operator_id,
+        "委外单已创建",
+        crate::toast::ToastType::Success,
+    );
+    let mut conn = state
+        .pool
+        .acquire()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    let body = load_batch_drawer_html(&state, &service_ctx, &mut conn, path.batch_id).await?;
+    Ok(([("HX-Trigger", "woChanged, showToast")], Html(body)))
+}
+
+/// 批次工序委外：收货（POST，om receive 产出半成品入 WIP-SHOP + 立加工费 AP）。
+///
+/// 收货入车间在制仓(WIP-SHOP)，衔接下一道倒冲；om receive 发 OutsourcingReceived 事件 →
+/// EventHandler 回写工序进度 → 动作位 OsaSent→OsaDone。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn osa_receive(
+    path: WcBatchOsaReceivePath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    let batch_svc = state.production_batch_service();
+    let om_svc = state.outsourcing_order_service();
+    let batch = batch_svc
+        .find_by_id(&service_ctx, &mut tx, path.batch_id)
+        .await?;
+    let order = om_svc
+        .find_active_for_routing(
+            &service_ctx,
+            &mut tx,
+            batch.work_order_id,
+            path.routing_id,
+            Some(batch.id),
+        )
+        .await?
+        .into_iter()
+        .next()
+        .ok_or_else(|| DomainError::not_found("活跃委外单"))?;
+    // 委外收货入车间在制仓(WIP-SHOP)，衔接下一道倒冲
+    let wip_wh =
+        abt_core::mes::production_batch::implt::resolve_wip_warehouse_id(&mut tx).await?;
+    let card_sn = batch.card_sn.clone();
+    om_svc
+        .receive(
+            &service_ctx,
+            &mut tx,
+            ReceiveOutsourcingReq {
+                id: order.id,
+                expected_version: order.version,
+                received_qty: order.planned_qty,
+                warehouse_id: Some(wip_wh),
+                iqc_passed_qty: Some(order.planned_qty),
+                remark: Some(format!("批次{}委外收货", card_sn)),
+            },
+        )
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    // 同步回写工序进度（绕过异步 EventProcessor，其 OutsourcingReceived 调度问题排查中）
+    abt_core::mes::outsourcing_received_handler::OutsourcingReceivedHandler::new(state.pool.clone())
+        .writeback(path.routing_id, batch.work_order_id, Some(batch.id), order.planned_qty)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    crate::toast::add_toast(
+        service_ctx.operator_id,
+        "委外收货完成",
+        crate::toast::ToastType::Success,
+    );
+    let mut conn = state
+        .pool
+        .acquire()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    let body = load_batch_drawer_html(&state, &service_ctx, &mut conn, path.batch_id).await?;
+    Ok(([("HX-Trigger", "woChanged, showToast")], Html(body)))
+}
+
+// =============================================================================
 // 渲染辅助
 // =============================================================================
 
@@ -3678,6 +4170,7 @@ fn render_card_shell(
     icon: Markup,
     dot: Option<(u64, &'static str)>,
     meta: Option<Markup>,
+    auto_refresh: Option<Markup>,
 ) -> Markup {
     html! {
         section class="bg-bg border border-border-soft rounded-lg mb-4 shadow-[var(--shadow-card)] overflow-hidden" {
@@ -3696,6 +4189,7 @@ fn render_card_shell(
                 } @else {
                     span class="flex-1" {}
                 }
+                @if let Some(ar) = auto_refresh { (ar) }
             }
             div id=(card_id)
                 class="p-5 text-sm text-muted"

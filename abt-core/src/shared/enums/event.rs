@@ -101,6 +101,8 @@ pub enum DomainEventType {
     ArApAdjustmentPosted = 71,
     // Sales — Demand 释放回池（下游工单/采购单取消，需求重新可用）
     DemandReleased = 72,
+    // OM — 委外单创建（跨模块联动挂载点：采购/仓库作业中心待办聚合）
+    OutsourcingCreated = 73,
 }
 
 impl DomainEventType {
@@ -153,6 +155,7 @@ impl DomainEventType {
             70 => Some(Self::LowStockAlert),
             71 => Some(Self::ArApAdjustmentPosted),
             72 => Some(Self::DemandReleased),
+            73 => Some(Self::OutsourcingCreated),
             _ => None,
         }
     }

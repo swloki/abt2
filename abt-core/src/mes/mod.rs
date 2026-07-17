@@ -5,6 +5,7 @@
 
 pub mod enums;
 pub mod demand_handler;
+pub mod outsourcing_received_handler;
 
 pub mod work_order;
 pub mod production_batch;

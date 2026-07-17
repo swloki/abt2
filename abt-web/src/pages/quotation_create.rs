@@ -8,6 +8,7 @@ use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::quotation::QuotationService;
+use abt_core::shared::attachment::AttachmentService;
 use abt_core::sales::quotation::model::*;
 use abt_core::shared::types::PageParams;
 
@@ -37,6 +38,7 @@ pub struct QuotationCreateForm {
  pub delivery_terms: Option<String>,
  pub remark: Option<String>,
  pub items_json: String,
+ pub attachments_json: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -235,6 +237,17 @@ pub async fn create_quotation(
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
+ // 关联即时上传的图片（通用附件服务，owner_type=quotation）
+ let metas: Vec<abt_core::shared::attachment::AttachmentMeta> =
+     serde_json::from_str(&form.attachments_json).unwrap_or_default();
+ if !metas.is_empty() {
+     let mut tx2 = state.pool.begin().await
+         .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+     state.attachment_service().link(&service_ctx, &mut tx2, "quotation", id, metas).await?;
+     tx2.commit().await
+         .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ }
+
  let redirect = QuotationDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -242,7 +255,6 @@ pub async fn create_quotation(
 // ── Components ──
 
 fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Customer]) -> Markup {
- let today = chrono::Local::now().format("%Y-%m-%d").to_string();
  let default_valid = chrono::Local::now()
  .checked_add_days(chrono::Days::new(30))
  .map(|d| d.format("%Y-%m-%d").to_string())
@@ -273,19 +285,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
             {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { (icon::clipboard_document_icon("w-[18px] h-[18px]")) "报价信息" }
-                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
-                    div class="form-field" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                            "报价日期"
-                            span class="required" { "*" }
-                        }
-                        input
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
-                            type="date"
-                            name="quotation_date"
-                            value=(today)
-                            readonly {}
-                    }
+                div class="grid grid-cols-3 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                             "有效期至"
@@ -300,19 +300,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                     }
                     div class="form-field" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                            "业务员"
-                        }
-                        select
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
-                            name="sales_rep"
-                        {
-                            option value="" { "当前用户" }
-                        }
-                    }
-                    div class="form-field" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                             "付款条款"
-                            span class="required" { "*" }
                         }
                         select
                             class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
@@ -338,16 +326,6 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                             option value="CIF 目的港" { "CIF 目的港" }
                             option value="EXW 工厂交货" { "EXW 工厂交货" }
                         }
-                    }
-                    div class="form-field col-span-2" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                            "交货地址"
-                        }
-                        input
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
-                            type="text"
-                            name="delivery_address"
-                            placeholder="默认取客户地址，可修改" {}
                     }
                 }
             }
@@ -407,16 +385,12 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                     name="remark"
                     placeholder="输入报价相关备注信息，如特殊条款、包装要求、交期说明等…" {}
             }
-            // ── Attachment ──
+            // ── 图片附件（通用上传控件，即时上传拿路径，随表单提交关联）──
             div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
             {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                { (icon::upload_icon("w-[18px] h-[18px]")) "附件" }
-                div class="rounded p-8 text-center cursor-pointer" {
-                    (icon::upload_icon("w-8 h-8"))
-                    p class="upload-title" { "点击或拖拽文件到此处上传" }
-                    p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
-                }
+                { "图片附件" }
+                (crate::components::image_upload::image_upload("attachments_json", "quotation"))
             }
             // ── Action Bar ──
             div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
@@ -424,17 +398,11 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                 a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                     href=(format!("{}?restore=true", QuotationListPath::PATH))
                 { "取消" }
-                div class="flex gap-3" {
-                    button
-                        type="button"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    { (icon::save_icon("w-4 h-4")) "保存草稿" }
-                    button
-                        type="button"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        _="on click call quotationSubmit() then trigger submit on #quotation-form"
-                    { (icon::send_icon("w-4 h-4")) "提交报价" }
-                }
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    _="on click call quotationSubmit() then trigger submit on #quotation-form"
+                { (icon::save_icon("w-4 h-4")) "保存报价" }
             }
         }
 

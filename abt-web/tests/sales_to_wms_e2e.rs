@@ -558,6 +558,7 @@ async fn k2_picking_chain_and_return() {
     req_svc
         .issue(&ctx, &mut app.state.pool.acquire().await.unwrap(), IssueMaterialReq {
             id: req_id,
+            warehouse_id: WH,
             items: vec![IssueItemReq { item_id, issued_qty: Decimal::from(1), bin_id: Some(BIN) }],
         })
         .await

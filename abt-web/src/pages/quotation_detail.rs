@@ -355,8 +355,7 @@ fn quotation_detail_page(
                 thead {
                     tr {
                         th { "行号" }
-                        th { "产品编码" }
-                        th { "产品名称" }
+                        th { "产品信息" }
                         th { "规格描述" }
                         th { "单位" }
                         th class="text-right text-[13px]" { "数量" }
@@ -370,7 +369,7 @@ fn quotation_detail_page(
                     @for item in items { (item_row(item, product_names, product_codes)) }
                     @if items.is_empty() {
                         tr {
-                            td colspan="10" class="text-center p-8 text-muted" { "暂无明细" }
+                            td colspan="9" class="text-center p-8 text-muted" { "暂无明细" }
                         }
                     }
                 }
@@ -429,8 +428,12 @@ fn item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &HashMap<
  html! {
     tr {
         td class="font-mono tabular-nums" { (item.line_no) }
-        td class="font-mono tabular-nums" { (product_code) }
-        td { (product_name) }
+        td {
+            div class="flex flex-col gap-0.5" {
+                span class="text-sm text-fg font-medium" { (product_name) }
+                span class="text-xs text-muted font-mono" { (product_code) }
+            }
+        }
         td { (item.description.as_str()) }
         td { (item.unit.as_str()) }
         td class="text-right text-[13px]" { (fmt_qty(item.quantity)) }

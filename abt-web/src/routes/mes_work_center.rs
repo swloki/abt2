@@ -196,6 +196,30 @@ pub struct WcBatchReportModalPath {
     pub step_no: i32,
 }
 
+/// 批次工序委外：就地创建委外单 drawer 表单（GET，预填本道半成品+发料明细）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/routings/{routing_id}/osa-create-drawer")]
+pub struct WcBatchOsaCreateDrawerPath {
+    pub batch_id: i64,
+    pub routing_id: i64,
+}
+
+/// 批次工序委外：创建委外单提交（POST，product_id=routing 半成品、type=Process）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/routings/{routing_id}/osa-create")]
+pub struct WcBatchOsaCreatePath {
+    pub batch_id: i64,
+    pub routing_id: i64,
+}
+
+/// 批次工序委外：收货（POST，om receive 产出半成品入 WIP-SHOP + 立加工费 AP）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/routings/{routing_id}/osa-receive")]
+pub struct WcBatchOsaReceivePath {
+    pub batch_id: i64,
+    pub routing_id: i64,
+}
+
 /// 报工工人行（GET ?worker_id=X → 渲染一行进报工表格 tbody，worker_picker add-row 模式）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/worker-row")]
@@ -258,6 +282,18 @@ pub fn router() -> Router<AppState> {
         .route(
             WcBatchReportModalPath::PATH,
             get(mes_work_center::get_batch_report_modal),
+        )
+        .route(
+            WcBatchOsaCreateDrawerPath::PATH,
+            get(mes_work_center::get_osa_create_drawer),
+        )
+        .route(
+            WcBatchOsaCreatePath::PATH,
+            post(mes_work_center::osa_create),
+        )
+        .route(
+            WcBatchOsaReceivePath::PATH,
+            post(mes_work_center::osa_receive),
         )
         .route(WcWorkerRowPath::PATH, get(mes_work_center::get_worker_row))
 }

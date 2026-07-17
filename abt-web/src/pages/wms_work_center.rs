@@ -26,6 +26,7 @@ use abt_core::wms::enums::TransactionType;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::supplier::SupplierService;
+use abt_core::om::outsourcing_order::{ConfirmSentReq, OutsourcingOrderService};
 use abt_core::master_data::work_center::WorkCenterService as MdWorkCenterService;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
@@ -108,6 +109,7 @@ fn domain_from_str(s: &str) -> Option<WorkCenterDomain> {
         "requisition" => Some(WorkCenterDomain::Requisition),
         "transfer" => Some(WorkCenterDomain::Transfer),
         "cycle-count" => Some(WorkCenterDomain::CycleCount),
+        "outsource-issue" => Some(WorkCenterDomain::OutsourceIssue),
         "low-stock" => Some(WorkCenterDomain::LowStock),
         _ => None,
     }
@@ -120,6 +122,7 @@ fn domain_slug(d: WorkCenterDomain) -> &'static str {
         WorkCenterDomain::Requisition => "requisition",
         WorkCenterDomain::Transfer => "transfer",
         WorkCenterDomain::CycleCount => "cycle-count",
+        WorkCenterDomain::OutsourceIssue => "outsource-issue",
         WorkCenterDomain::LowStock => "low-stock",
     }
 }
@@ -172,6 +175,8 @@ fn action_domain(action: &str) -> Result<WorkCenterDomain> {
         "cc_start" | "cc_complete" | "cc_cancel" | "cc_adjust" | "cc_approve" | "cc_reject" => {
             WorkCenterDomain::CycleCount
         }
+        // 委外发料（仓库执行 dispatch+complete + om.confirm_sent）
+        "osa_issue" => WorkCenterDomain::OutsourceIssue,
         "ack_low_stock" => WorkCenterDomain::LowStock,
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     })
@@ -203,6 +208,8 @@ fn domain_entries(active: WorkCenterDomain) -> Markup {
         ),
         // LowStock 是异常提醒，无「新建」入口
         WorkCenterDomain::LowStock => html! {},
+        // 委外发料由生产端建委外单时自动生成 picking，仓库无「新建」入口
+        WorkCenterDomain::OutsourceIssue => html! {},
     }
 }
 
@@ -254,6 +261,7 @@ fn row_detail_drawer(domain: WorkCenterDomain, source_kind: TaskSourceKind) -> O
         WorkCenterDomain::Requisition => Some("req_detail"),
         WorkCenterDomain::Transfer => Some("transfer_detail"),
         WorkCenterDomain::CycleCount => Some("cc_detail"),
+        WorkCenterDomain::OutsourceIssue => Some("osa_issue_detail"),
         WorkCenterDomain::Outbound => Some("ship_detail"),
         WorkCenterDomain::Arrival => {
             if matches!(source_kind, TaskSourceKind::WorkOrder) {
@@ -1474,7 +1482,13 @@ pub async fn post_work_center_action(
             Html(body),
         ));
     }
-    Ok(([("HX-Trigger", "showToast")], Html(fragment.into_string())))
+    // Issue #270：osa_issue 改变委外单状态，追加 outsourcingChanged 让采购作业中心「委外订单」tab 同步刷新。
+    let trigger = if form.action == "osa_issue" {
+        "showToast, outsourcingChanged"
+    } else {
+        "showToast"
+    };
+    Ok(([("HX-Trigger", trigger)], Html(fragment.into_string())))
 }
 
 /// 按 action 分发到各域 service（均在传入事务内执行）
@@ -1632,19 +1646,26 @@ async fn dispatch_action(
             state.picking_service().cancel(ctx, db, form.id).await?;
         }
         "issue" => {
-            // 全量发料（仅 Confirmed 安全；issue 记库存事务用绝对量，重复发料会重复扣库存）
+            // 发料：drawer 选定出货仓库 + 行级库位/实发（items_json）；issue 按选仓 update_from_warehouse + 行 bin 扣
             let req_svc = state.picking_service();
-            let items_db = req_svc.list_items(ctx, db, form.id).await?;
-            let issue_items = items_db
-                .iter()
-                .map(|it| IssueItemReq {
-                    item_id: it.id,
-                    issued_qty: it.qty_requested,
-                    bin_id: None,
+            let rows: Vec<ShipRowJson> = parse_items_json(form)?;
+            if rows.is_empty() {
+                return Err(DomainError::validation("发料明细不能为空").into());
+            }
+            let warehouse_id = rows[0].warehouse_id.parse::<i64>().unwrap_or(0);
+            if warehouse_id <= 0 {
+                return Err(DomainError::validation("请选择出货仓库").into());
+            }
+            let issue_items = rows
+                .into_iter()
+                .map(|r| IssueItemReq {
+                    item_id: r.picking_item_id.parse().unwrap_or(0),
+                    issued_qty: r.qty.parse().unwrap_or(Decimal::ZERO),
+                    bin_id: r.bin_id.and_then(|s| s.parse().ok()),
                 })
                 .collect::<Vec<_>>();
             req_svc
-                .issue(ctx, db, IssueMaterialReq { id: form.id, items: issue_items })
+                .issue(ctx, db, IssueMaterialReq { id: form.id, warehouse_id, items: issue_items })
                 .await?;
         }
         "transfer_cancel" => {
@@ -1677,6 +1698,33 @@ async fn dispatch_action(
         "ack_low_stock" => {
             state.low_stock_alert_service().ack(ctx, db, form.id).await?;
         }
+        "osa_issue" => {
+            // Issue #270 委外发料（仓库执行）：form.id = OutsourceIssue picking id。
+            // 一张发料单可能含多个源仓的原材料 → execute_outsource_issue 逐行按实际仓扣源仓 +
+            // 统一入虚拟仓 + 置 Done；再 om.confirm_sent 回写 OSA Draft→Sent。事务内原子提交。
+            let pk_svc = state.picking_service();
+            let picking = pk_svc.get(ctx, db, form.id).await?;
+            let osa_id = picking.source_id.ok_or_else(|| {
+                DomainError::validation("委外发料单未关联委外单（source_id 缺失）")
+            })?;
+            pk_svc.execute_outsource_issue(ctx, db, form.id).await?;
+            let osa = state
+                .outsourcing_order_service()
+                .find_by_id(ctx, db, osa_id)
+                .await?;
+            state
+                .outsourcing_order_service()
+                .confirm_sent(
+                    ctx,
+                    db,
+                    ConfirmSentReq {
+                        id: osa_id,
+                        expected_version: osa.version,
+                        remark: Some("仓库发料完成".into()),
+                    },
+                )
+                .await?;
+        }
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     }
     Ok(())
@@ -1700,6 +1748,7 @@ fn action_success_msg(action: &str) -> &'static str {
         "cc_approve" => "盘点已审批",
         "cc_reject" => "盘点已驳回",
         "ack_low_stock" => "已确认",
+        "osa_issue" => "委外发料完成",
         _ => "操作完成",
     }
 }
@@ -2165,6 +2214,7 @@ fn domain_tab_icon(d: WorkCenterDomain) -> Markup {
         WorkCenterDomain::Requisition => icon::clipboard_list_icon("w-4 h-4"),
         WorkCenterDomain::Transfer => icon::arrow_left_right_icon("w-4 h-4"),
         WorkCenterDomain::CycleCount => icon::clipboard_document_icon("w-4 h-4"),
+        WorkCenterDomain::OutsourceIssue => icon::package_icon("w-4 h-4"),
         WorkCenterDomain::LowStock => icon::info_icon("w-4 h-4"),
     }
 }
@@ -2177,6 +2227,7 @@ fn domain_label(d: WorkCenterDomain) -> &'static str {
         WorkCenterDomain::Requisition => "待领料",
         WorkCenterDomain::Transfer => "待调拨",
         WorkCenterDomain::CycleCount => "待盘点",
+        WorkCenterDomain::OutsourceIssue => "委外发料",
         WorkCenterDomain::LowStock => "低库存",
     }
 }
@@ -2203,16 +2254,17 @@ fn domain_tab_badge(n: u64) -> Markup {
     }
 }
 
-/// 6 个环节药丸 tab 栏（对齐 MES demand_filter_bar 第一行范式，mes_work_center.rs:416）。
+/// 7 个环节药丸 tab 栏（对齐 MES demand_filter_bar 第一行范式，mes_work_center.rs:416）。
 /// 切 tab 强制 page=1、携带 #wc-domain-filter；整体在 #wc-domain-card 内，
 /// outerHTML 替换时 tab 栏随之刷新，无需 #status-tabs oob。
 fn render_domain_tabs(active: WorkCenterDomain, summary: &WorkCenterSummary) -> Markup {
-    const DOMAINS: [WorkCenterDomain; 6] = [
+    const DOMAINS: [WorkCenterDomain; 7] = [
         WorkCenterDomain::Arrival,
         WorkCenterDomain::Outbound,
         WorkCenterDomain::Requisition,
         WorkCenterDomain::Transfer,
         WorkCenterDomain::CycleCount,
+        WorkCenterDomain::OutsourceIssue,
         WorkCenterDomain::LowStock,
     ];
     html! {
@@ -2241,6 +2293,7 @@ fn domain_card_head(active: WorkCenterDomain, summary: &WorkCenterSummary) -> Ma
         WorkCenterDomain::Requisition => ("待领料", icon::clipboard_list_icon("w-[15px] h-[15px]"), "生产工单 领料发料"),
         WorkCenterDomain::Transfer => ("待调拨", icon::arrow_left_right_icon("w-[15px] h-[15px]"), "仓间调拨 出入库"),
         WorkCenterDomain::CycleCount => ("待盘点", icon::clipboard_document_icon("w-[15px] h-[15px]"), "库存盘点 审批调整"),
+        WorkCenterDomain::OutsourceIssue => ("委外发料", icon::package_icon("w-[15px] h-[15px]"), "委外单 发料给供应商"),
         WorkCenterDomain::LowStock => ("低库存", icon::info_icon("w-[15px] h-[15px]"), "安全库存预警 确认处理"),
     };
     let s = summary.of(active);
@@ -2812,6 +2865,11 @@ fn render_row_action(t: &PendingTask) -> Markup {
             doc_detail_trigger("cc_detail", t.doc_id, "pending", html! { "详情" (icon::clipboard_list_icon("w-3 h-3")) },
                 "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90")
         }
+        // 委外发料：详情 drawer（picking + 物料清单 + 确认发料表单，POST osa_issue）
+        WorkCenterDomain::OutsourceIssue => {
+            doc_detail_trigger("osa_issue_detail", t.doc_id, "pending", html! { "发料" (icon::package_icon("w-3 h-3")) },
+                "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90")
+        }
         // 低库存预警：行内 ack（POST action=ack_low_stock，刷新当前 card）
         WorkCenterDomain::LowStock => {
             html! {
@@ -3110,6 +3168,7 @@ async fn render_drawer_body(action: &str, id: i64, view: Option<&str>, ctx: Requ
         "req_detail" => req_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "transfer_detail" => transfer_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "cc_detail" => cc_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
+        "osa_issue_detail" => osa_issue_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "transfer" => transfer_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "ship_detail" => ship_detail_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "arrival_po_detail" => arrival_po_detail_drawer_body(&state, &service_ctx, &mut conn, id).await?,
@@ -3770,139 +3829,123 @@ async fn issue_drawer_body(
             .into_iter()
             .map(|p| (p.product_id, p))
             .collect();
-        // 可用量（按领料单源仓库；发料前确认库存够不够、缺料预警）
-        let avail_map = state
+        // 可用库存（全仓库 ATP），选仓库后 wcShipRefreshStock 刷新
+        let avail_map: HashMap<i64, Decimal> = state
             .inventory_transaction_service()
-            .query_available_batch(ctx, db, &product_ids, req.from_warehouse_id)
+            .query_available_batch(ctx, db, &product_ids, None)
             .await
             .unwrap_or_default();
-        let wh_name = state
+        let warehouses = state
             .warehouse_service()
-            .get(ctx, db, req.from_warehouse_id.unwrap_or(0))
+            .list(ctx, db, WarehouseFilter::default(), 1, 200)
             .await
-            .map(|w| w.name)
-            .unwrap_or_else(|_| "—".into());
-        let date_str = req
-            .scheduled_date
-            .map(|d| d.format("%Y-%m-%d").to_string())
-            .unwrap_or_else(|| "—".into());
-        // 缺料行（avail < requested），用于警示条
-        let short_items: Vec<(String, Decimal, Decimal, Decimal)> = items
-            .iter()
-            .filter_map(|it| {
-                // 无 stock_ledger 记录 → 可用量 0（该仓库无此产品库存）
-                let avail = avail_map.get(&it.product_id).copied().unwrap_or(Decimal::ZERO);
-                if avail < it.qty_requested {
-                    let pname = product_map
-                        .get(&it.product_id)
-                        .map(|p| p.pdt_name.clone())
-                        .unwrap_or_else(|| format!("产品 #{}", it.product_id));
-                    Some((pname, it.qty_requested, avail, it.qty_requested - avail))
-                } else {
-                    None
-                }
-            })
-            .collect();
-        let has_short = !short_items.is_empty();
+            .map(|r| r.items)
+            .unwrap_or_default();
+        let total_qty: Decimal = items.iter().map(|i| i.qty_requested).sum();
+        let mut shortage_count: i32 = 0;
 
-        // 物料表格行：产品（含单位/编码/规格）/ 申请量 / 可用量（缺料红字 + 缺口徽章）
         let mut rows = html! {};
         for it in &items {
-            let p_opt = product_map.get(&it.product_id);
-            // 无 stock_ledger 记录 → 可用量 0（该仓库无此产品库存）
+            let prod_name = product_map
+                .get(&it.product_id)
+                .map(|p| p.pdt_name.clone())
+                .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+            let prod_code = product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default();
             let avail = avail_map.get(&it.product_id).copied().unwrap_or(Decimal::ZERO);
-            let short = avail < it.qty_requested;
+            let is_shortage = avail < it.qty_requested;
+            if is_shortage {
+                shortage_count += 1;
+            }
             rows = html! {
                 (rows)
-                tr {
-                    td class="min-w-0 py-2" {
-                        @if let Some(p) = p_opt {
-                            div class="text-sm text-fg font-medium leading-tight truncate" {
-                                (p.pdt_name)
-                                @if !p.unit.is_empty() {
-                                    span class="text-xs text-muted ml-1" { "(" (p.unit) ")" }
-                                }
-                            }
-                            @if !p.product_code.is_empty() {
-                                div class="text-xs text-muted font-mono truncate" { (p.product_code) }
-                            }
-                            @if !p.meta.specification.is_empty() {
-                                div class="text-xs text-fg-2 truncate" { (p.meta.specification) }
-                            }
-                        } @else {
-                            span class="text-sm text-muted" { "产品 #" (it.product_id) }
+                tr class="hover:bg-surface transition-colors duration-100" data-row data-pid=(it.product_id) data-need=(it.qty_requested) {
+                    input type="hidden" data-k="picking_item_id" value=(it.id);
+                    input type="hidden" data-k="product_id" value=(it.product_id);
+                    // 产品
+                    td class="py-2 px-2.5 min-w-0" {
+                        div class="text-sm text-fg font-medium leading-tight truncate w-[160px]" title=(prod_name) { (prod_name) }
+                        @if !prod_code.is_empty() {
+                            div class="text-xs text-muted font-mono truncate w-[160px]" { (prod_code) }
                         }
                     }
-                    td class="text-right font-mono tabular-nums text-fg-2 whitespace-nowrap py-2" {
-                        (fmt_qty(it.qty_requested))
+                    // 申请量
+                    td class="py-2 px-2 text-right whitespace-nowrap" {
+                        span class="text-xs text-muted font-mono" { (fmt_qty(it.qty_requested)) }
                     }
-                    td class="text-right font-mono tabular-nums whitespace-nowrap py-2" {
-                        @if short {
-                            span class="text-danger font-semibold" { (fmt_qty(avail)) }
-                            span class="ml-1 inline-block text-xs px-1.5 py-0.5 rounded-full bg-danger-bg text-danger font-medium whitespace-nowrap" {
-                                "缺 " (fmt_qty(it.qty_requested - avail))
+                    // 可用（选仓后 wcShipRefreshStock 刷新）
+                    td class="py-2 px-2 text-right whitespace-nowrap" {
+                        span class="text-xs font-mono" data-avail {
+                            @if is_shortage {
+                                span class="text-danger" { (fmt_qty(avail)) " 缺" }
+                            } @else {
+                                span class="text-muted" { (fmt_qty(avail)) }
                             }
-                        } @else {
-                            span class="text-success font-medium" { (fmt_qty(avail)) }
                         }
+                    }
+                    // 仓库 + 库位（弹窗式 outbound：只列该物料有实物存量的库位）
+                    td class="py-1.5 px-1.5 w-[200px]" {
+                        @let bid = format!("bin-{}", it.id);
+                        (crate::components::bin_search::warehouse_bin_cell(&bid, it.product_id, &warehouses, "", "outbound"))
+                    }
+                    // 实发
+                    td class="py-1.5 px-1.5" {
+                        input type="number" data-k="qty" value=(fmt_qty(it.qty_requested)) min="0" step="any"
+                            class="w-[64px] px-2 py-1.5 border border-border rounded-sm text-xs font-mono text-right bg-white focus:border-accent focus:shadow-[var(--shadow-focus)] outline-none transition-all duration-150";
                     }
                 }
             };
         }
 
         let inner = html! {
+            // 隐藏 items_json（wcShipCollectRows 填充）
+            input type="hidden" name="items_json" value="[]" {};
             // 单号信息条
-            div class="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-border-soft" {
-                div class="flex items-center gap-2 min-w-0" {
-                    span class="text-[15px] font-mono font-bold text-fg" { (req.doc_number) }
-                    span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-accent bg-accent-bg" { "待发料" }
+            div class="flex items-center justify-between mb-4 pb-4 border-b border-border-soft" {
+                div class="flex items-center gap-2" {
+                    (icon::box_icon("w-4 h-4 text-muted"))
+                    span class="text-xs text-muted" { "领料单" }
+                    span class="text-sm font-mono font-semibold text-fg" { (req.doc_number) }
                 }
-                div class="text-right shrink-0" {
-                    @if let Some(wo_id) = req.work_order_id.filter(|&w| w > 0) {
-                        div class="text-xs text-muted whitespace-nowrap" {
-                            "关联工单 " span class="font-mono text-fg-2" { "WO-" (wo_id) }
+                div class="flex items-center gap-2" {
+                    @if shortage_count > 0 {
+                        span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-danger-bg text-danger" {
+                            (shortage_count) " 项缺料"
                         }
                     }
-                    div class="text-xs text-muted whitespace-nowrap" {
-                        "仓库 " span class="text-fg-2" { (wh_name) }
-                        " · 日期 " span class="font-mono text-fg-2" { (date_str) }
+                    span class="text-xs text-muted" { (items.len()) " 项 · " (fmt_qty(total_qty)) }
+                }
+            }
+            // 统一仓库（批量应用到所有行）
+            div class="mb-3 flex items-center gap-2" {
+                select id="issue-warehouse"
+                    _="on change call wcApplyWarehouseAll(me) then wcShipRefreshStock(me)"
+                    class="flex-1 px-2.5 py-2 border border-border rounded-sm text-sm bg-surface text-muted focus:border-accent outline-none transition-all duration-150" {
+                    option value="" selected { "统一仓库：应用到所有行…" }
+                    @for w in &warehouses {
+                        option value=(w.id) { (w.name) }
                     }
                 }
             }
             // 物料明细表格
-            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-2" {
-                (icon::box_icon("w-[18px] h-[18px]")) "发料明细"
-                span class="ml-auto text-xs font-normal text-muted" { "共 " (items.len()) " 项" }
-            }
-            div class="overflow-x-auto" {
-                table class="data-table" {
+            div class="mb-4 overflow-visible" {
+                table class="w-full text-sm border-collapse" {
                     thead {
-                        tr {
-                            th class="min-w-[200px]" { "产品" }
-                            th class="w-[100px] text-right" { "申请量" }
-                            th class="w-[130px] text-right" { "可用量" }
+                        tr class="border-b border-border-soft text-xs text-muted" {
+                            th class="py-2 px-2.5 text-left font-semibold" { "产品" }
+                            th class="py-2 px-2 text-right font-semibold whitespace-nowrap" { "申请" }
+                            th class="py-2 px-2 text-right font-semibold whitespace-nowrap" { "可用" }
+                            th class="py-2 px-1.5 text-left font-semibold whitespace-nowrap" { "仓库 / 库位" }
+                            th class="py-2 px-1.5 text-right font-semibold whitespace-nowrap" { "实发" }
                         }
                     }
-                    tbody { (rows) }
+                    tbody class="divide-y divide-border-soft" { (rows) }
                 }
             }
-            // 合计
-            div class="flex items-center justify-between gap-3 mt-3 px-3.5 py-2.5 bg-surface rounded-sm" {
-                span class="text-xs text-muted" { "合计发料" }
-                span class="text-sm font-mono font-semibold text-fg" { (items.len()) " 项" }
-            }
-            // 缺料警示（缺料时提示将导致负库存；不阻止发料，保持 ABT 柔性负库存现状）
-            @if has_short {
-                div class="flex items-start gap-2 mt-3 px-3 py-2.5 rounded-sm bg-danger-bg text-xs text-danger" {
-                    (icon::info_icon("w-4 h-4 shrink-0 mt-0.5"))
-                    div {
-                        @for s in &short_items {
-                            div class="whitespace-nowrap" {
-                                (s.0) "：申请 " (fmt_qty(s.1)) " · 可用 " (fmt_qty(s.2)) " · 缺 " (fmt_qty(s.3))
-                            }
-                        }
-                        div class="mt-1 font-medium" { "全量发料将导致上述物料负库存。" }
-                    }
+            // 操作提示
+            div class="mb-4 p-3 rounded-md bg-warn-bg border border-warn/20 flex items-start gap-2" {
+                (icon::clock_icon("w-3.5 h-3.5 text-warn mt-0.5 shrink-0"))
+                p class="text-xs text-warn leading-relaxed" {
+                    "确认发料将从所选仓库/库位扣减库存并计入工单成本"
                 }
             }
         };
@@ -3911,8 +3954,8 @@ async fn issue_drawer_body(
             "issue",
             id,
             WorkCenterDomain::Requisition,
-            "确认全量发料？将扣减库存并计入工单成本",
-            "",
+            "确认发料？将从所选仓库/库位扣减库存并计入工单成本",
+            "return wcShipCollectRows(this)",
             inner,
             "确认发料",
         ))
@@ -3961,6 +4004,110 @@ async fn transfer_drawer_body(
         "",
         inner,
         btn_label,
+    ))
+}
+
+/// 委外发料 drawer body（Issue #270）：仓库执行发料。id = OutsourceIssue picking id。
+/// 显示委外单 + 供应商 + 发料清单（物料/数量），「确认发料」POST osa_issue → dispatch_action
+/// 对该 OSA 全部 sibling picking dispatch+complete + om.confirm_sent（OSA Draft→Sent）。
+async fn osa_issue_drawer_body(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    id: i64,
+) -> Result<Markup> {
+    let pk_svc = state.picking_service();
+    let picking = pk_svc.get(ctx, db, id).await?;
+    let osa_id = picking.source_id.ok_or_else(|| {
+        DomainError::validation("委外发料单未关联委外单（source_id 缺失）")
+    })?;
+    let osa = state
+        .outsourcing_order_service()
+        .find_by_id(ctx, db, osa_id)
+        .await?;
+    let items = pk_svc.list_items(ctx, db, id).await.unwrap_or_default();
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
+    let supplier_name = state
+        .supplier_service()
+        .get(ctx, db, osa.supplier_id)
+        .await
+        .map(|s| s.name)
+        .unwrap_or_else(|_| format!("供应商 #{}", osa.supplier_id));
+    let from_wh = state
+        .warehouse_service()
+        .get(ctx, db, picking.from_warehouse_id.unwrap_or(0))
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+
+    let mut rows = html! {};
+    for it in &items {
+        let pname = product_map
+            .get(&it.product_id)
+            .map(|p| p.pdt_name.clone())
+            .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+        let pcode = product_map
+            .get(&it.product_id)
+            .map(|p| p.product_code.clone())
+            .unwrap_or_default();
+        rows = html! {
+            (rows)
+            div class="flex items-center justify-between px-3 py-2 gap-2" {
+                div class="min-w-0" {
+                    div class="text-sm text-fg-2 truncate" { (pname) }
+                    div class="text-xs text-muted truncate" { (pcode) }
+                }
+                div class="text-right shrink-0 text-sm font-mono text-fg" { "发料 " (fmt_qty(it.qty_requested)) }
+            }
+        };
+    }
+
+    let inner = html! {
+        div class="mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="text-xs text-muted font-medium" { "委外单 " }
+                span class="text-base font-mono font-bold text-fg" { (osa.doc_number) }
+            }
+            div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
+                div {
+                    span class="text-muted" { "供应商 " }
+                    span class="text-fg-2" { (supplier_name) }
+                }
+                div {
+                    span class="text-muted" { "发料仓库 " }
+                    span class="text-fg-2" { (from_wh) }
+                }
+            }
+        }
+        p class="text-sm text-muted mb-3" { "确认发料将从源仓扣减物料、计入委外虚拟仓，并回写委外单为「已发料」。" }
+        div class="mb-2" {
+            div class="text-xs font-semibold text-muted mb-2" { "发料清单（" (items.len()) " 项）" }
+            div class="rounded-sm border border-border-soft divide-y divide-border-soft" {
+                @if items.is_empty() {
+                    div class="px-3 py-4 text-center text-sm text-muted" { "暂无明细" }
+                } @else {
+                    (rows)
+                }
+            }
+        }
+    };
+
+    Ok(drawer_form(
+        "委外发料",
+        "osa_issue",
+        id,
+        WorkCenterDomain::OutsourceIssue,
+        "确认执行委外发料？",
+        "",
+        inner,
+        "确认发料",
     ))
 }
 

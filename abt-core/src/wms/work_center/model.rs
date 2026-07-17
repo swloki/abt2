@@ -19,6 +19,7 @@ pub struct WorkCenterSummary {
     pub requisitions: DomainStats,
     pub transfers: DomainStats,
     pub cycle_counts: DomainStats,
+    pub outsource_issues: DomainStats,
     pub low_stocks: DomainStats,
 }
 
@@ -31,6 +32,7 @@ impl WorkCenterSummary {
             WorkCenterDomain::Requisition => self.requisitions,
             WorkCenterDomain::Transfer => self.transfers,
             WorkCenterDomain::CycleCount => self.cycle_counts,
+            WorkCenterDomain::OutsourceIssue => self.outsource_issues,
             WorkCenterDomain::LowStock => self.low_stocks,
         }
     }
@@ -42,6 +44,7 @@ impl WorkCenterSummary {
             + self.requisitions.total
             + self.transfers.total
             + self.cycle_counts.total
+            + self.outsource_issues.total
             + self.low_stocks.total
     }
 
@@ -59,6 +62,8 @@ pub enum WorkCenterDomain {
     Requisition,
     Transfer,
     CycleCount,
+    /// 委外发料（OutsourceIssue picking，Draft/Confirmed = 待发料/在途；source=outsourcing_order）
+    OutsourceIssue,
     /// 低库存预警（查 low_stock_alerts，不走 simple_cfg；性质是异常提醒不是单据待办）
     LowStock,
 }

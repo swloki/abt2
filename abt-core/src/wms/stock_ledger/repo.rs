@@ -126,6 +126,33 @@ impl StockLedgerRepo {
 
     }
 
+    /// 查某产品库存最大的台账行（含 zone/bin/batch）—— 委外发料扣库时按此精确扣
+    /// （避免 batch_no=None 命中同 bin 的小 NULL-batch 行报负库存）。Issue #270。
+    /// 返回 None 表示该产品无任何库存。
+    pub async fn find_best_stock_location(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+    ) -> Result<Option<(i64, i64, i64, Option<String>)>> {
+        use sqlx::Row;
+        let row = sqlx::query(
+            r#"SELECT warehouse_id, zone_id, bin_id, batch_no FROM stock_ledger
+               WHERE product_id = $1 AND quantity > 0
+               ORDER BY quantity DESC, received_date ASC NULLS LAST, id ASC LIMIT 1"#,
+        )
+        .bind(product_id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(row.map(|r| {
+            let batch: Option<String> = r.try_get("batch_no").ok().flatten();
+            (
+                r.try_get::<i64, _>("warehouse_id").unwrap_or(0),
+                r.try_get::<i64, _>("zone_id").unwrap_or(0),
+                r.try_get::<i64, _>("bin_id").unwrap_or(0),
+                batch,
+            )
+        }))
+    }
+
     /// 计算可用量 ATP = SUM(stock_ledger.quantity - stock_ledger.reserved_qty)
     ///                   - SUM(inventory_reservations.reserved_qty WHERE status=Active)
     ///
@@ -544,7 +571,7 @@ impl StockLedgerRepo {
                 (SELECT zone_id, bin_id, 1 AS prio
                  FROM stock_ledger
                  WHERE product_id = $1 AND warehouse_id = $2 AND quantity > 0
-                 ORDER BY received_date ASC NULLS LAST, id ASC
+                 ORDER BY quantity DESC, received_date ASC NULLS LAST, id ASC
                  LIMIT 1)
                 UNION ALL
                 (SELECT b.zone_id AS zone_id, b.id AS bin_id, 2 AS prio

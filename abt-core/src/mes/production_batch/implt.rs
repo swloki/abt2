@@ -16,6 +16,10 @@ use crate::mes::production_inspection::model::CreateInspectionReq;
 use crate::mes::production_inspection::repo::ProductionInspectionRepo;
 use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
+use crate::om::enums::OutsourcingStatus;
+use crate::om::outsourcing_order::repo::OutsourcingOrderRepo;
+use crate::om::outsourcing_order::service::OutsourcingOrderService;
+use crate::om::outsourcing_order::{model::CancelOutsourcingReq, new_outsourcing_order_service};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
@@ -36,6 +40,22 @@ impl ProductionBatchServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+}
+
+/// 车间在制库（WIP-SHOP）warehouse_id —— 工序产出半成品在制流转虚拟仓（migration 105）。
+/// 半成品报工产出 +qty 入此仓、后道消耗 -qty 出此仓，纯账面流转无物理搬运。
+pub async fn resolve_wip_warehouse_id(db: PgExecutor<'_>) -> Result<i64> {
+    let id: Option<i64> = sqlx::query_scalar(
+        "SELECT id FROM warehouses WHERE code = 'WIP-SHOP' AND deleted_at IS NULL LIMIT 1",
+    )
+    .fetch_optional(&mut *db)
+    .await
+    .map_err(|e| DomainError::Internal(e.into()))?;
+    id.ok_or_else(|| {
+        DomainError::business_rule(
+            "车间在制库(WIP-SHOP)未配置，请确认 migration 105 已执行".to_string(),
+        )
+    })
 }
 
 #[async_trait]
@@ -330,6 +350,112 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                     .create_entries(ctx, db, report_entries)
                     .await?;
             }
+
+            // --- e4. 半成品「车间在制」账面流转（解多工序流转死锁）---
+            // 前道报工产出的半成品原先不入库 → 后道齐套 ATP=0 欠料死锁。
+            // 现让报工为半成品在车间在制虚拟仓（无物理搬运）记两笔账：
+            //   (a) 产出：本道产出品（≠工单成品）+合格量 入 WIP（RoutingOutput）；
+            //   (b) 消耗：本道产出品 BOM 直接子级中属「上游工序产出品」的半成品
+            //           -(用量×本次产出) 出 WIP（MaterialIssue，带负库存预检护栏）。
+            // 与倒冲（只扣叶子原料）、领料（排除半成品）正交，不形成重复扣减。
+            use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
+            use crate::wms::enums::TransactionType;
+            use crate::wms::inventory_transaction::{
+                model::RecordTransactionReq, new_inventory_transaction_service,
+                service::InventoryTransactionService,
+            };
+
+            let wip_wh = resolve_wip_warehouse_id(db).await?;
+
+            // 本工单其他工序的产出品集合（识别「上游半成品」）
+            let all_routings = WorkOrderRoutingRepo::get_by_work_order_id(
+                &mut *db, batch.work_order_id,
+            )
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+            let upstream_outputs: std::collections::HashSet<i64> = all_routings
+                .iter()
+                .filter(|rr| rr.id != routing.id)
+                .filter_map(|rr| rr.product_id)
+                .collect();
+
+            // (a) 产出：半成品（产出品 ≠ 工单成品 FG）入车间在制仓。仅合格产出量，不良品不入 WIP。
+            if let Some(out_pid) = routing.product_id
+                && out_pid != batch.product_id
+                && req.completed_qty > Decimal::ZERO
+            {
+                new_inventory_transaction_service(self.pool.clone())
+                    .record(
+                        ctx, db,
+                        RecordTransactionReq {
+                            doc_number: None,
+                            delivery_no: None,
+                            source_doc_number: Some(doc_number.clone()),
+                            transaction_type: TransactionType::RoutingOutput,
+                            product_id: out_pid,
+                            warehouse_id: wip_wh,
+                            zone_id: None,
+                            bin_id: None,
+                            batch_no: Some(batch.batch_no.clone()),
+                            quantity: req.completed_qty,
+                            unit_cost: None,
+                            source_type: "work_report".to_string(),
+                            source_id: work_report_id,
+                            remark: Some(format!(
+                                "工序{}「{}」报工产出半成品",
+                                step_no, routing.process_name
+                            )),
+                        },
+                    )
+                    .await?;
+            }
+
+            // (b) 消耗：本道产出品 BOM 直接子级 ∩ 上游产出集合 → 倒冲扣 WIP
+            if let Some(out_pid) = routing.product_id {
+                let fg = new_product_service(self.pool.clone())
+                    .get(ctx, db, batch.product_id)
+                    .await?;
+                let bom_svc = new_bom_query_service(self.pool.clone());
+                if let Some(fg_bom_id) = bom_svc
+                    .find_published_bom_by_product_code(ctx, db, &fg.product_code)
+                    .await?
+                {
+                    for child in bom_svc
+                        .get_direct_children_by_product(ctx, db, fg_bom_id, out_pid)
+                        .await?
+                    {
+                        if upstream_outputs.contains(&child.product_id) {
+                            let consume = child.quantity * req.completed_qty;
+                            if consume > Decimal::ZERO {
+                                new_inventory_transaction_service(self.pool.clone())
+                                    .record(
+                                        ctx, db,
+                                        RecordTransactionReq {
+                                            doc_number: None,
+                                            delivery_no: None,
+                                            source_doc_number: Some(doc_number.clone()),
+                                            transaction_type: TransactionType::MaterialIssue,
+                                            product_id: child.product_id,
+                                            warehouse_id: wip_wh,
+                                            zone_id: None,
+                                            bin_id: None,
+                                            batch_no: Some(batch.batch_no.clone()),
+                                            quantity: -consume,
+                                            unit_cost: None,
+                                            source_type: "work_report".to_string(),
+                                            source_id: work_report_id,
+                                            remark: Some(format!(
+                                                "工序{}「{}」报工消耗上游半成品",
+                                                step_no, routing.process_name
+                                            )),
+                                        },
+                                    )
+                                    .await?;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // --- f1. UPSERT batch_routing_progress (batch_id, routing_id) ---
@@ -622,7 +748,11 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         sqlx::query("DELETE FROM work_order_routings WHERE work_order_id = $1")
             .bind(work_order_id).execute(&mut *db).await?;
         let mut inserted = 0usize;
-        for op in &ops {
+        for (idx, op) in ops.iter().enumerate() {
+            // step_no 是工单工序序号（1-based 连续），矩阵 active_step / 报工防跳序
+            // (current_step != step_no-1) / next_step(step_no+1) 均依赖此语义。
+            // 不能直接用 BOM 源 op.step_order（可能不从 1 开始），按 ops 顺序重编号（issue #260）。
+            let step_no = (idx + 1) as i32;
             let unit_price = price_map.get(&op.step_order).copied();
             sqlx::query(
                 r#"INSERT INTO work_order_routings
@@ -630,7 +760,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                     unit_price, allowed_loss_rate, planned_qty, is_outsourced, is_inspection_point, product_id)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)"#,
             )
-            .bind(work_order_id).bind(op.step_order).bind(&op.process_name)
+            .bind(work_order_id).bind(step_no).bind(&op.process_name)
             .bind(op.work_center_id).bind(op.standard_time).bind(op.standard_cost)
             .bind(unit_price).bind(op.allowed_loss_rate)
             .bind(planned_qty).bind(op.is_outsourced).bind(op.is_inspection_point)
@@ -803,6 +933,31 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             });
         }
 
+        // 收料前置（开工）：批次 Pending 时 current_step=0 → 第 1 道工序（step_no=1）是开工对象。
+        // 若该工序有领料单（Active picking），须仓库 issue 发齐（picking=Done）才能开工——
+        // 防绕过前端直接 POST 收料。Backflush（无领料单）/无产出工序放行（无消耗物料或倒冲）。
+        let routings = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, batch.work_order_id).await?;
+        if let Some(op) = routings.iter().find(|r| r.step_no == 1)
+            && op.product_id.is_some()
+        {
+            let has_active_req = crate::wms::picking::repo::PickingRepo::find_active_picking_by_batch_operation(
+                &mut *db, batch_id, op.id,
+            )
+            .await?
+            .is_some();
+            if has_active_req {
+                let issued = crate::wms::picking::repo::PickingRepo::find_issued_routing_ids_by_batch(
+                    &mut *db, batch_id,
+                )
+                .await?;
+                if !issued.contains(&op.id) {
+                    return Err(DomainError::business_rule(
+                        "仓库尚未发料完成，暂不能收料开工",
+                    ));
+                }
+            }
+        }
+
         ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::InProgress)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -892,9 +1047,48 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             });
         }
 
+        // Issue #270：委外级联——本批次关联的已发料/已收货委外单阻止报废（料在供应商手中 / 已立 AP 台账）。
+        let linked_osa = OutsourcingOrderRepo::query_by_batch(&mut *db, batch_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let active_osa_count = linked_osa
+            .iter()
+            .filter(|o| matches!(
+                o.status,
+                OutsourcingStatus::Sent
+                    | OutsourcingStatus::InProduction
+                    | OutsourcingStatus::Delivered
+                    | OutsourcingStatus::Received
+            ))
+            .count();
+        if active_osa_count > 0 {
+            return Err(DomainError::BusinessRule(format!(
+                "批次有 {active_osa_count} 张已发料/已收货的委外单，请先收货或取消委外单后再报废批次",
+            )));
+        }
+
         ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::Cancelled)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // Issue #270：取消本批次关联的 Draft 委外单（om.cancel 内部已清理其待发料 OutsourceIssue picking）
+        for o in &linked_osa {
+            if o.status == OutsourcingStatus::Draft
+                && let Err(e) = new_outsourcing_order_service(self.pool.clone())
+                    .cancel(
+                        ctx,
+                        db,
+                        CancelOutsourcingReq {
+                            id: o.id,
+                            expected_version: o.version,
+                            remark: Some("批次报废级联".into()),
+                        },
+                    )
+                    .await
+            {
+                tracing::warn!(osa_id = o.id, error = %e, "批次报废：Draft 委外单取消失败");
+            }
+        }
 
         // 释放 HARD 预留
         new_inventory_reservation_service(self.pool.clone())
@@ -977,6 +1171,50 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, work_order_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn list_routings_needing_requisition(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<std::collections::HashSet<i64>> {
+        use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
+
+        let routings = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, work_order_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        // 本工单所有工序产出品（识别「半成品」，与外购料区分）
+        let all_outputs: std::collections::HashSet<i64> =
+            routings.iter().filter_map(|r| r.product_id).collect();
+
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, db, work_order_id)
+            .await?;
+        let fg = new_product_service(self.pool.clone())
+            .get(ctx, db, wo.product_id)
+            .await?;
+        let bom_svc = new_bom_query_service(self.pool.clone());
+        let fg_bom_id = match bom_svc
+            .find_published_bom_by_product_code(ctx, db, &fg.product_code)
+            .await?
+        {
+            Some(id) => id,
+            None => return Ok(std::collections::HashSet::new()),
+        };
+
+        // 需领料 = 产出品的 BOM 直接子级含外购物料（非本工单任何工序产出品）
+        let mut needs: std::collections::HashSet<i64> = std::collections::HashSet::new();
+        for r in &routings {
+            if let Some(out_pid) = r.product_id
+                && let Ok(children) =
+                    bom_svc.get_direct_children_by_product(ctx, db, fg_bom_id, out_pid).await
+                && children.iter().any(|c| !all_outputs.contains(&c.product_id))
+            {
+                needs.insert(r.id);
+            }
+        }
+        Ok(needs)
     }
 
     async fn get_product_name(

@@ -4,6 +4,7 @@ use std::time::Instant;
 use crate::config::Config;
 use abt_core::fms::work_center::FmsWorkCenterSummary;
 use abt_core::purchase::work_center::PurchaseWorkCenterSummary;
+use abt_core::sales::work_center::SalesWorkCenterSummary;
 use abt_core::shared::identity::RolePermissionCache;
 use abt_core::shared::types::{PgPool, PgPoolOptions};
 use abt_core::shared::excel::ImportResult;
@@ -61,6 +62,9 @@ pub struct AppState {
     /// 财务作业中心 summary 缓存：首次/失效时算一次（并行 ~30ms），后续读缓存（0 查询）；
     /// 写操作（登记收付款 / 确认 / 核销 / 调整）commit 后 invalidate。TTL 30s 兜底。
     pub fms_summary_cache: Arc<RwLock<Option<(Instant, FmsWorkCenterSummary)>>>,
+    /// 销售作业中心 summary 缓存：首次/失效时算一次（并行 ~30ms），后续读缓存（0 查询）；
+    /// 写操作（报价/订单/退货/对账流转）commit 后 invalidate。TTL 30s 兜底。
+    pub sales_summary_cache: Arc<RwLock<Option<(Instant, SalesWorkCenterSummary)>>>,
 }
 
 impl AppState {
@@ -110,6 +114,7 @@ impl AppState {
             use abt_core::purchase::return_settlement_handler::PurchaseReturnSettledHandler;
             use abt_core::purchase::demand_handler::PurchaseDemandCreatedHandler;
             use abt_core::mes::demand_handler::MesDemandCreatedHandler;
+            use abt_core::mes::outsourcing_received_handler::OutsourcingReceivedHandler;
             use abt_core::sales::sales_order::{SalesDemandConfirmedHandler, SalesDemandRejectedHandler, SalesDemandReleasedHandler};
             use abt_core::sales::sales_return_received_handler::SalesReturnReceivedHandler;
             use abt_core::sales::shipment_shipped_handler::ShipmentShippedHandler;
@@ -158,6 +163,10 @@ impl AppState {
                 DomainEventType::ShipmentShipped,
                 Arc::new(ShipmentShippedHandler::new(pool.clone())),
             );
+            registry.register(
+                DomainEventType::OutsourcingReceived,
+                Arc::new(OutsourcingReceivedHandler::new(pool.clone())),
+            );
 
             let dead_letter = Arc::new(DeadLetterServiceImpl::new());
             let processor = EventProcessor::new(
@@ -182,6 +191,7 @@ impl AppState {
             import_semaphore: Arc::new(Semaphore::new(5)),
             purchase_summary_cache: Arc::new(RwLock::new(None)),
             fms_summary_cache: Arc::new(RwLock::new(None)),
+            sales_summary_cache: Arc::new(RwLock::new(None)),
         })
     }
 
@@ -204,6 +214,10 @@ impl AppState {
 
     pub fn sales_order_service(&self) -> impl abt_core::sales::sales_order::SalesOrderService {
         abt_core::sales::sales_order::new_sales_order_service(self.pool.clone())
+    }
+
+    pub fn attachment_service(&self) -> impl abt_core::shared::attachment::AttachmentService {
+        abt_core::shared::attachment::new_attachment_service(self.pool.clone())
     }
 
     pub fn sales_demand_service(&self) -> impl abt_core::sales::sales_order::DemandService {
@@ -232,6 +246,12 @@ impl AppState {
         &self,
     ) -> impl abt_core::fms::work_center::FmsWorkCenterService {
         abt_core::fms::work_center::new_fms_work_center_service(self.pool.clone())
+    }
+
+    pub fn sales_work_center_service(
+        &self,
+    ) -> impl abt_core::sales::work_center::SalesWorkCenterService {
+        abt_core::sales::work_center::new_sales_work_center_service(self.pool.clone())
     }
 
     // ── WMS (Inventory Management) Services ──
@@ -642,5 +662,6 @@ impl AppState {
         import_semaphore: Arc::new(Semaphore::new(5)),
         purchase_summary_cache: Arc::new(RwLock::new(None)),
         fms_summary_cache: Arc::new(RwLock::new(None)),
+        sales_summary_cache: Arc::new(RwLock::new(None)),
     }
 }}

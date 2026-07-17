@@ -158,6 +158,8 @@ pub struct WoReqPreviewItem {
 #[derive(Debug, Clone)]
 pub struct IssueMaterialReq {
     pub id: i64,
+    /// 发料仓库（发料 drawer 选定，对齐直接发货；issue 时 update_from_warehouse 改写 picking 源仓）
+    pub warehouse_id: i64,
     pub items: Vec<IssueItemReq>,
 }
 

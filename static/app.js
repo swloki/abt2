@@ -1157,4 +1157,139 @@ window.rowExpandToggleAll = function (btn, scopeSelector) {
     }
 };
 
+// ── 通用图片上传控件（image_upload 组件）：上传后同步 attachments_json、删除图 ──
+window.imageUploadSync = function (root) {
+    if (!root) return;
+    const hidden = root.querySelector('.image-upload-json');
+    if (!hidden) return;
+    let items;
+    try { items = JSON.parse(hidden.value || '[]'); } catch (e) { items = []; }
+    root.querySelectorAll('.iu-item:not([data-linked])').forEach(function (d) {
+        items.push({
+            path: d.dataset.path,
+            name: d.dataset.name,
+            type: d.dataset.type,
+            size: parseInt(d.dataset.size, 10) || 0,
+        });
+        d.dataset.linked = '1';
+    });
+    hidden.value = JSON.stringify(items);
+};
+
+window.imageRemove = function (btn) {
+    const item = btn.closest('.iu-item');
+    const root = btn.closest('.image-upload');
+    if (!item || !root) return;
+    const path = item.dataset.path;
+    const hidden = root.querySelector('.image-upload-json');
+    htmx
+        .ajax('POST', '/admin/components/delete-image?path=' + encodeURIComponent(path), {
+            target: item,
+            swap: 'none',
+        })
+        .then(function () {
+            item.remove();
+            if (hidden) {
+                let items;
+                try { items = JSON.parse(hidden.value || '[]'); } catch (e) { items = []; }
+                items = items.filter(function (i) { return i.path !== path; });
+                hidden.value = JSON.stringify(items);
+            }
+        });
+};
+
+// ── Work-center auto-refresh timer ──
+// 控件 #wc-ar-control 在 render_card_shell 标题栏（card 外部），不受 htmx 刷新影响，
+// timer 生命周期独立于数据区（#wc-demand-body）的 DOM 替换。到点 dispatch 事件名，数据区
+// 声明 hx-trigger="<event> from:body" 自刷新（只换数据区，filter 表单节点不动）。
+// 刷新前 _arShouldSkip 检测：drawer/modal 打开、数据区内聚焦输入、勾选 checkbox、展开态
+// ——任一成立跳过本次，避免覆盖用户交互态（focus 保护救不了已失焦的 checkbox/展开态）。
+var _ar = { timer: null, remaining: 0, interval: 60, running: false,
+            event: 'wcDemandAutoRefresh', bodySel: '#wc-demand-body' };
+
+function _arShouldSkip() {
+  // drawer/modal 打开（用户正在做写操作）
+  if (document.querySelector('.drawer-overlay.open, .modal-overlay.is-open')) return true;
+  var body = document.querySelector(_ar.bodySel);
+  if (!body) return true;
+  // 数据区内有聚焦的表单元素（正在输入）
+  var ae = document.activeElement;
+  if (ae && body.contains(ae) &&
+      (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' ||
+       ae.tagName === 'SELECT' || ae.isContentEditable)) return true;
+  // 数据区内有勾选的 checkbox（批量选择态，outerHTML 会清掉）
+  if (body.querySelector('input[type=checkbox]:checked')) return true;
+  // 数据区内有展开的懒加载区（同上）
+  if (body.querySelector('.expanded')) return true;
+  return false;
+}
+
+function _arFire() {
+  if (_arShouldSkip()) return;
+  document.body.dispatchEvent(new CustomEvent(_ar.event));
+}
+
+function _arSetCount(n) {
+  var el = document.getElementById('wc-ar-count');
+  if (el) el.textContent = n;
+}
+
+function _arTick() {
+  _ar.remaining--;
+  if (_ar.remaining <= 0) {
+    _arFire();
+    _ar.remaining = _ar.interval;
+  }
+  _arSetCount(_ar.remaining + 's');
+}
+
+function _arStart() {
+  _arStop();
+  _ar.remaining = _ar.interval;
+  _ar.running = true;
+  _ar.timer = setInterval(_arTick, 1000);
+  _arSetCount(_ar.remaining + 's');
+}
+
+function _arStop() {
+  if (_ar.timer) { clearInterval(_ar.timer); _ar.timer = null; }
+  _ar.running = false;
+  _ar.remaining = 0;
+  _arSetCount('--');
+}
+
+window.wcAutoRefresh = {
+  init: function (opts) {
+    _ar.event = (opts && opts.event) || _ar.event;
+    _ar.bodySel = (opts && opts.bodySel) || _ar.bodySel;
+    // 页面隐藏时暂停 timer（省资源 + 避免后台请求堆积），可见时恢复
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        if (_ar.timer) { clearInterval(_ar.timer); _ar.timer = null; }
+      } else if (_ar.running && !_ar.timer) {
+        _ar.remaining = _ar.interval;
+        _ar.timer = setInterval(_arTick, 1000);
+      }
+    });
+  },
+  onToggleClick: function (labelEl) {
+    var tog = labelEl.querySelector('.toggle-track');
+    if (tog && tog.classList.contains('active')) _arStart();
+    else _arStop();
+  },
+  onIntervalChange: function (selEl) {
+    _ar.interval = parseInt(selEl.value, 10) || 60;
+    if (_ar.running) _arStart(); // 用新 interval 重启
+  }
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+  var ctl = document.getElementById('wc-ar-control');
+  if (!ctl) return;
+  window.wcAutoRefresh.init({
+    event: ctl.getAttribute('data-ar-event'),
+    bodySel: ctl.getAttribute('data-ar-body')
+  });
+});
+
 

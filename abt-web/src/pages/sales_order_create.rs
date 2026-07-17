@@ -11,6 +11,7 @@ use abt_core::sales::quotation::QuotationService;
 use abt_core::sales::quotation::model::QuotationItem;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
+use abt_core::shared::attachment::AttachmentService;
 use abt_core::shared::types::PageParams;
 use std::collections::HashMap;
 
@@ -39,6 +40,7 @@ pub struct OrderCreateForm {
  // 故订单级备注用 order_remark，行项目的 remark 不匹配顶层字段被 serde 忽略（与 quantity 等同机制）。
  pub order_remark: Option<String>,
  pub items_json: String,
+ pub attachments_json: String,
  pub profit_center_id: Option<String>,
 }
 
@@ -240,6 +242,17 @@ pub async fn create_order(
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
+ // 关联即时上传的图片（通用附件服务，owner_type=sales_order）
+ let metas: Vec<abt_core::shared::attachment::AttachmentMeta> =
+     serde_json::from_str(&form.attachments_json).unwrap_or_default();
+ if !metas.is_empty() {
+     let mut tx2 = state.pool.begin().await
+         .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+     state.attachment_service().link(&service_ctx, &mut tx2, "sales_order", id, metas).await?;
+     tx2.commit().await
+         .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ }
+
  let redirect = OrderDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -250,7 +263,6 @@ pub async fn create_order(
 
 #[allow(clippy::type_complexity)]
 fn order_create_page(customers: &[abt_core::master_data::customer::model::Customer], prefill: &Option<OrderPrefill>, profit_centers: &[abt_core::master_data::profit_center::ProfitCenter]) -> Markup {
- let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
  // Pre-fill values
  let (sel_customer_id, sel_contacts, sel_payment, sel_delivery, sel_remark): (Option<i64>, &[CustomerContact], Option<&str>, Option<&str>, Option<&str>) = if let Some(p) = prefill {
@@ -286,28 +298,6 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { (icon::clipboard_document_icon("w-[18px] h-[18px]")) "订单信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
-                    div class="form-field" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                            "订单日期"
-                            span class="required" { "*" }
-                        }
-                        input
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
-                            type="date"
-                            value=(today)
-                            readonly {}
-                    }
-                    div class="form-field" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                            "业务员"
-                        }
-                        select
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
-                            name="sales_rep"
-                        {
-                            option value="" { "当前用户" }
-                        }
-                    }
                     div class="form-field" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "利润中心" }
                         select
@@ -386,7 +376,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { (icon::package_icon("w-[18px] h-[18px]")) "产品明细" }
                 div class="overflow-x-auto" {
-                    table class="data-table" {
+                    table class="data-table min-w-[1400px]" {
                         thead {
                             tr {
                                 th class="w-12" { "#" }
@@ -397,7 +387,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                                 th class="w-28" { "单价 (¥)" }
                                 th class="w-32" { "小计 (¥)" }
                                 th class="col-date" { "交货日期" }
-                                th class="w-[160px]" { "备注" }
+                                th class="w-[300px]" { "备注" }
                                 th class="w-16" {}
                             }
                         }
@@ -441,16 +431,12 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                     @if let Some(r) = sel_remark { (r) }
                 }
             }
-            // ── Attachment ──
+            // ── 图片附件（通用上传控件，即时上传拿路径，随表单提交关联）──
             div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
             {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                { (icon::upload_icon("w-[18px] h-[18px]")) "附件" }
-                div class="rounded p-8 text-center cursor-pointer" {
-                    (icon::upload_icon("w-8 h-8"))
-                    p class="upload-title" { "点击或拖拽文件到此处上传" }
-                    p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
-                }
+                { "图片附件" }
+                (crate::components::image_upload::image_upload("attachments_json", "sales_order"))
             }
             // ── Action Bar ──
             div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
@@ -458,17 +444,11 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                 a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                     href=(format!("{}?restore=true", OrderListPath::PATH))
                 { "取消" }
-                div class="flex gap-3" {
-                    button
-                        type="button"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    { (icon::save_icon("w-4 h-4")) "保存草稿" }
-                    button
-                        type="button"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        _="on click call salesOrderSubmit() then trigger submit on #order-form"
-                    { (icon::send_icon("w-4 h-4")) "提交订单" }
-                }
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    _="on click call salesOrderSubmit() then trigger submit on #order-form"
+                { (icon::save_icon("w-4 h-4")) "保存订单" }
             }
         }
         // ── Product Selection Modal ──

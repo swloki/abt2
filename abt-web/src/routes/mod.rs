@@ -15,6 +15,7 @@ pub mod order;
 pub mod payment_request;
 pub mod purchase_dashboard;
 pub mod purchase_work_center;
+pub mod sales_work_center;
 pub mod purchase_order;
 pub mod purchase_quotation;
 pub mod purchase_reconciliation;
@@ -65,6 +66,7 @@ pub mod fms_work_center;
 pub mod excel;
 pub mod print_template;
 use axum::{Router, routing::get, middleware};
+use tower_http::services::ServeDir;
 
 use crate::auth::middleware::auth_middleware;
 use crate::middleware::list_state::list_state_middleware;
@@ -83,6 +85,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(shipping::router())
                 .merge(sales_return::router())
                 .merge(reconciliation::router())
+                .merge(sales_work_center::router())
                 // ── Master Data (MD) ──
                 .merge(md_dashboard::router())
                 .merge(product::router())
@@ -159,6 +162,8 @@ pub fn router(state: AppState) -> Router {
                 .merge(crate::components::shipping_request_picker::router())
                 .merge(crate::components::material_requisition_picker::router())
                 .merge(crate::components::worker_picker::router())
+                .merge(crate::components::image_upload::router())
+                .nest_service("/uploads", ServeDir::new("static/uploads"))
                 .layer(middleware::from_fn(list_state_middleware))
                 .layer(middleware::from_fn_with_state(
                     state.clone(),

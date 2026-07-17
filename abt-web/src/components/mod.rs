@@ -1,4 +1,5 @@
 pub mod alert;
+pub mod auto_refresh;
 pub mod confirm_dialog;
 pub mod customer_info;
 pub mod disclosure;
@@ -30,3 +31,5 @@ pub mod row_expand;
 pub mod customer_search;
 pub mod bin_search;
 pub mod print_dropdown;
+pub mod image_upload;
+pub mod fulfillment_workbench;

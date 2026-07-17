@@ -43,6 +43,11 @@ use abt_core::purchase::work_center::{
     PurchaseWorkCenterService, PurchaseWorkCenterSummary,
     SettlementHubSummary, SettlementReconType, ThreeWayMatchSummary,
 };
+use abt_core::om::enums::{OutsourcingStatus, OutsourcingType};
+use abt_core::om::outsourcing_order::{
+    CancelOutsourcingReq, OutsourcingOrderQuery, OutsourcingOrderService,
+};
+use crate::routes::om::OmOutsourcingDetailPath;
 use abt_core::shared::types::{DomainError, PageParams};
 
 use std::collections::{HashMap, HashSet};
@@ -66,7 +71,7 @@ use crate::toast::{add_toast, ToastType};
 use crate::layout::page::admin_page;
 use crate::routes::purchase_work_center::*;
 use crate::routes::print_template::PrintTemplateListPath;
-use crate::utils::{empty_as_none, RequestContext};
+use crate::utils::{empty_as_none, fmt_qty, RequestContext};
 use abt_macros::require_permission;
 
 // =============================================================================
@@ -388,6 +393,214 @@ pub async fn get_orders_card(
         }
         .into_string(),
     ))
+}
+
+// ── ②' 委外订单（Issue #270：聚合 OM 委外单，Draft=待办；就地取消 + 跳 OM 详情处理）──
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct OutsourcingCardParams {
+    /// 状态筛选（默认全部，对齐 om_outsourcing_list）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub status: Option<i16>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub keyword: Option<String>,
+    #[serde(default)]
+    pub page: Option<u32>,
+    #[serde(default)]
+    pub per_page: Option<u32>,
+}
+
+/// 委外单状态 → (标签, 语义色 class)，与 OM 列表页对齐。
+fn outsourcing_status_label(s: &OutsourcingStatus) -> (&'static str, &'static str) {
+    match s {
+        OutsourcingStatus::Draft => ("草稿", "bg-surface text-muted"),
+        OutsourcingStatus::Sent => ("已发料", "bg-accent-bg text-accent"),
+        OutsourcingStatus::InProduction => ("生产中", "bg-warn-bg text-warn"),
+        OutsourcingStatus::Delivered => ("已交付", "bg-purple-bg text-purple"),
+        OutsourcingStatus::Received => ("已收货", "bg-success-bg text-success"),
+        OutsourcingStatus::Closed => ("已关闭", "bg-surface text-muted"),
+        OutsourcingStatus::ConvertedToInternal => ("转自制", "bg-accent-bg text-accent"),
+        OutsourcingStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
+    }
+}
+
+fn outsourcing_type_label(t: &OutsourcingType) -> &'static str {
+    match t {
+        OutsourcingType::Full => "整体委外",
+        OutsourcingType::Process => "工序委外",
+        OutsourcingType::Material => "材料委外",
+        OutsourcingType::Rework => "委外返工",
+    }
+}
+
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_outsourcing_card(
+    _path: PcOutsourcingPath,
+    ctx: RequestContext,
+    Query(p): Query<OutsourcingCardParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.outsourcing_order_service();
+    let summary = cached_summary(&state, &service_ctx, &mut conn).await;
+    let page = p.page.unwrap_or(1);
+    let per_page = p.per_page.unwrap_or(10).clamp(1, 200);
+    let status = p.status.and_then(OutsourcingStatus::from_i16);
+    let result = svc
+        .list(
+            &service_ctx,
+            &mut conn,
+            OutsourcingOrderQuery {
+                status,
+                keyword: p.keyword.clone(),
+                ..Default::default()
+            },
+            PageParams::new(page, per_page),
+        )
+        .await?;
+    let sup_ids: Vec<i64> = result.items.iter().map(|o| o.supplier_id).collect();
+    let sup_names = supplier_names(&state, &service_ctx, &mut conn, &sup_ids).await;
+    let prod_ids: Vec<i64> = result.items.iter().map(|o| o.product_id).collect();
+    let (codes, pnames) = product_codes_names(&state, &service_ctx, &mut conn, prod_ids).await;
+
+    let status_opts: [(Option<i16>, &str); 9] = [
+        (None, "全部"), (Some(1), "草稿"), (Some(2), "已发料"),
+        (Some(3), "生产中"), (Some(4), "已交付"), (Some(5), "已收货"),
+        (Some(6), "已关闭"), (Some(7), "转自制"), (Some(8), "已取消"),
+    ];
+
+    let mut rows = html! {};
+    for o in &result.items {
+        let (st_label, st_cls) = outsourcing_status_label(&o.status);
+        let sup = sup_names.get(&o.supplier_id).cloned().unwrap_or_else(|| format!("#{}", o.supplier_id));
+        let pname = pnames.get(&o.product_id).cloned().unwrap_or_else(|| format!("产品 #{}", o.product_id));
+        let pcode = codes.get(&o.product_id).cloned().unwrap_or_default();
+        let is_draft = o.status == OutsourcingStatus::Draft;
+        rows = html! {
+            (rows)
+            tr class="border-b border-border-soft hover:bg-surface" {
+                td class="py-2.5 px-4" {
+                    a class="text-accent font-medium font-mono hover:underline"
+                        href=(OmOutsourcingDetailPath { id: o.id }.to_string()) { (o.doc_number) }
+                }
+                td class="py-2.5 px-4 text-fg-2" { (sup) }
+                td class="py-2.5 px-4" {
+                    div class="text-fg-2" { (pname) }
+                    @if !pcode.is_empty() {
+                        div class="text-xs text-muted" { (pcode) }
+                    }
+                }
+                td class="py-2.5 px-4 text-fg-2" { (outsourcing_type_label(&o.outsourcing_type)) }
+                td class="py-2.5 px-4 font-mono text-fg" { (fmt_qty(o.planned_qty)) }
+                td class="py-2.5 px-4" {
+                    span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {st_cls}")) { (st_label) }
+                }
+                td class="py-2.5 px-4" {
+                    div class="flex items-center gap-2" {
+                        a class="text-xs text-accent hover:underline" target="_blank"
+                            href=(OmOutsourcingDetailPath { id: o.id }.to_string()) { "详情" }
+                        @if is_draft {
+                            button class="text-xs text-danger hover:underline border-none bg-transparent cursor-pointer"
+                                type="button"
+                                hx-post=(PcOutsourcingCancelPath { id: o.id }.to_string())
+                                hx-target="this" hx-swap="none"
+                                hx-vals=(serde_json::json!({ "expected_version": o.version }).to_string())
+                                hx-confirm="确认取消此委外单？关联的待发料单据将同步作废。" { "取消" }
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    Ok(Html(
+        html! {
+            div id="pc-card"
+                hx-get=(PcOutsourcingPath::PATH)
+                hx-trigger="outsourcingChanged from:body, poChanged from:body"
+                hx-include="#pc-filter-form"
+                hx-target="this" hx-select="#pc-card" hx-swap="outerHTML" {
+                (pc_tab_bar("outsourcing", &summary))
+                form class="filter-bar filter-form" id="pc-filter-form"
+                    hx-get=(PcOutsourcingPath::PATH)
+                    hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                    hx-target="#pc-card" hx-select="#pc-card" hx-swap="outerHTML"
+                    hx-include="#pc-filter-form" {
+                    select name="status" class="px-3 py-2 border border-border rounded-sm bg-white text-sm text-fg focus:border-accent" {
+                        @for (val, label) in status_opts {
+                            @let sel = p.status == val;
+                            option value=(val.map(|v| v.to_string()).unwrap_or_default()) selected[sel] { (label) }
+                        }
+                    }
+                    input type="text" name="keyword" class="search-input px-3 py-2 border border-border rounded-sm bg-white text-sm text-fg focus:border-accent"
+                        placeholder="搜索单号..." value=(p.keyword.as_deref().unwrap_or("")) {};
+                }
+                div class="data-table overflow-x-auto mt-3" {
+                    table class="w-full text-sm" {
+                        thead {
+                            tr class="border-b border-border text-muted" {
+                                th class="py-2.5 px-4 text-left font-semibold" { "委外单号" }
+                                th class="py-2.5 px-4 text-left font-semibold" { "供应商" }
+                                th class="py-2.5 px-4 text-left font-semibold" { "产品" }
+                                th class="py-2.5 px-4 text-left font-semibold" { "类型" }
+                                th class="py-2.5 px-4 text-left font-semibold" { "计划量" }
+                                th class="py-2.5 px-4 text-left font-semibold" { "状态" }
+                                th class="py-2.5 px-4 text-left font-semibold" { "操作" }
+                            }
+                        }
+                        tbody {
+                            @if result.items.is_empty() {
+                                tr { td colspan="7" class="py-8 text-center text-muted" { "暂无委外单" } }
+                            } @else {
+                                (rows)
+                            }
+                        }
+                    }
+                }
+                (pagination(PcOutsourcingPath::PATH, "#pc-card", "#pc-filter-form", result.total, result.page, result.total_pages))
+            }
+        }
+        .into_string(),
+    ))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OutsourcingCancelForm {
+    pub expected_version: i32,
+    #[serde(default)]
+    pub remark: Option<String>,
+}
+
+/// 就地取消 Draft 委外单（Issue #270）。om.cancel 内部已同步取消关联待发料 picking。
+#[require_permission("OM", "update")]
+pub async fn cancel_outsourcing(
+    path: PcOutsourcingCancelPath,
+    ctx: RequestContext,
+    Form(form): Form<OutsourcingCancelForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .outsourcing_order_service()
+        .cancel(
+            &service_ctx,
+            &mut tx,
+            CancelOutsourcingReq {
+                id: path.id,
+                expected_version: form.expected_version,
+                remark: form.remark,
+            },
+        )
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    add_toast(service_ctx.operator_id, "委外单已取消", ToastType::Success);
+    invalidate_purchase_summary(&state);
+    Ok(([("HX-Trigger", "outsourcingChanged, showToast")], Html(String::new())))
 }
 
 // ── ③ 对账付款 ──
@@ -3064,6 +3277,7 @@ fn pc_tab_bar(active: &str, s: &PurchaseWorkCenterSummary) -> Markup {
             (tab("demand-material", PcDemandPath::PATH, r#"{"view":"material"}"#, icon::grid_4_icon("w-4 h-4"), "物料汇总", s.pending_demand))
             (tab("quotation", PcQuotationPath::PATH, "{}", icon::clipboard_document_icon("w-4 h-4"), "供应商报价", s.total_quotations))
             (tab("orders", PcOrdersPath::PATH, "{}", icon::clipboard_list_icon("w-4 h-4"), "采购订单", s.total_orders))
+            (tab("outsourcing", PcOutsourcingPath::PATH, "{}", icon::package_icon("w-4 h-4"), "委外订单", s.total_outsourcing))
             (tab("misc", PcMiscPath::PATH, "{}", icon::clipboard_module_icon("w-4 h-4"), "零星采购", s.total_misc))
             (tab("returns", PcReturnsPath::PATH, "{}", icon::return_arrow_icon("w-4 h-4"), "采购退货", s.total_returns))
             (tab("settlement", PcSettlementPath::PATH, "{}", icon::payment_icon("w-4 h-4"), "对账付款", s.total_recon))

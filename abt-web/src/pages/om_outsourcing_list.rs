@@ -130,6 +130,8 @@ fn build_filter(params: &OutsourcingQueryParams) -> OutsourcingOrderQuery {
  supplier_id: params.supplier_id.as_deref().and_then(|s| s.parse::<i64>().ok()),
  outsourcing_type: params.outsourcing_type.as_deref().and_then(parse_type),
  work_order_id: None,
+ routing_id: None,
+ batch_id: None,
  date_range: match (params.date_from.as_deref(), params.date_to.as_deref()) {
  (Some(from), Some(to)) => {
  let f = from.parse().ok();

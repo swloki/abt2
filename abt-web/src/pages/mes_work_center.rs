@@ -51,10 +51,9 @@ use crate::layout::page::admin_page;
 use crate::routes::mes_demand_pool::{MesDemandPoolCreatePath, MesDemandRowsPath};
 use abt_core::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use abt_core::master_data::supplier::{Supplier, SupplierQuery, SupplierService};
-use abt_core::om::enums::OutsourcingType;
+use abt_core::om::enums::{OutsourcingStatus, OutsourcingType};
 use abt_core::om::outsourcing_order::{
     CreateOutsourcingOrderReq, OutsourcingMaterialItem, OutsourcingOrderService,
-    ReceiveOutsourcingReq,
 };
 use abt_core::wms::warehouse::{Warehouse, WarehouseFilter, WarehouseService};
 use crate::routes::mes_work_center::*;
@@ -2828,7 +2827,6 @@ fn render_batch_matrix_row(
     osa_map: &HashMap<i64, abt_core::om::outsourcing_order::OutsourcingOrder>,
 ) -> Markup {
     use abt_core::mes::work_order::MaterialAvailabilityLevel;
-    use abt_core::om::enums::OutsourcingStatus;
     let wc_name = r
         .work_center_id
         .and_then(|id| wc_map.get(&id))
@@ -2883,18 +2881,21 @@ fn render_batch_matrix_row(
         Report,      // 报工
         Suspended,   // ⚠ 已暂停
         Dash,        // —
-        OsaCreate,   // 🔧 委外：创建委外单
-        OsaDraft,    // 委外单已建(Draft) → 发料
-        OsaSent,     // 委外已发料(Sent) → 收货
-        OsaDone,     // 委外已收货(Received)
+        OsaCreate,      // 🔧 委外：创建委外单
+        OsaDraft,       // 委外单已建(Draft) → 待仓库发料
+        OsaWaitReceipt, // 委外已发料(Sent) → 待仓库产出品入库（Issue #277）
+        OsaReceive,     // 委外已产出品入库(Received) → 生产确认收货=工序回写（Issue #277）
     }
     // 委外工序走独立动作流（不参与车间领料/收料/报工）
     let action = if r.is_outsourced {
         match osa_map.get(&r.id) {
             None if is_current => Action::OsaCreate,
             Some(o) if o.status == OutsourcingStatus::Draft => Action::OsaDraft,
-            Some(o) if o.status == OutsourcingStatus::Sent => Action::OsaSent,
-            Some(o) if o.status == OutsourcingStatus::Received => Action::OsaDone,
+            // Issue #277：已发料(Sent) → 待仓库产出品入库（仓库未入库前 MES 收货置灰）
+            Some(o) if o.status == OutsourcingStatus::Sent => Action::OsaWaitReceipt,
+            // 仓库已产出品入库(Received)：工序已回写完成 → Done；否则待生产确认收货 → OsaReceive
+            Some(o) if o.status == OutsourcingStatus::Received && is_completed => Action::Done,
+            Some(o) if o.status == OutsourcingStatus::Received => Action::OsaReceive,
             _ if is_completed => Action::Done,
             _ => Action::Dash,
         }
@@ -3000,15 +3001,16 @@ fn render_batch_matrix_row(
                         // 生产端不再触发发料，显示「待仓库发料」状态。
                         span class="text-xs px-2 py-1 rounded-sm bg-purple/10 text-purple font-medium" { "待仓库发料" }
                     }
-                    Action::OsaSent => {
-                        // 委外已发料(Sent) → 收货（om receive 入 WIP-SHOP）
+                    Action::OsaWaitReceipt => {
+                        // Issue #277：委外已发料(Sent)，待仓库办理产出品入库后激活收货
+                        span class="text-xs px-2 py-1 rounded-sm bg-purple/10 text-purple font-medium" { "待仓库入库" }
+                    }
+                    Action::OsaReceive => {
+                        // Issue #277：仓库已产出品入库(Received) → 生产确认委外收货（writeback 推进工序）
                         form hx-post=(WcBatchOsaReceivePath { batch_id: batch.id, routing_id: r.id }.to_string()) hx-target="#batch-drawer-body" hx-swap="innerHTML" {
                             button type="submit" class="text-xs px-2 py-1 rounded-sm bg-success text-white border-none cursor-pointer hover:opacity-90 transition-all font-medium"
                                 hx-confirm="确认委外收货？" { "委外收货" }
                         }
-                    }
-                    Action::OsaDone => {
-                        span class="text-success font-medium" { "✅ 委外已完成" }
                     }
                     Action::Dash => {
                         span class="text-muted" { "—" }
@@ -4074,30 +4076,31 @@ pub async fn osa_create(
     Ok(([("HX-Trigger", "woChanged, showToast")], Html(body)))
 }
 
-/// 批次工序委外：收货（POST，om receive 产出半成品入 WIP-SHOP + 立加工费 AP）。
+/// 批次工序委外：收货确认（POST，writeback 推进工序进度）。
 ///
-/// 收货入车间在制仓(WIP-SHOP)，衔接下一道倒冲；om receive 发 OutsourcingReceived 事件 →
-/// EventHandler 回写工序进度 → 动作位 OsaSent→OsaDone。
+/// Issue #277：产出品入库（库存+IQC+应付+成本）已前移到仓库「委外产出品入库」动作（om.receive）。
+/// MES 委外收货瘦身为工序闭环确认：校验仓库已入库(OSA=Received)后，同步回写 batch_routing_progress
+/// （累加合格量 + 推进 current_step），动作位 OsaReceive→Done。
 #[require_permission("WORK_ORDER", "update")]
 pub async fn osa_receive(
     path: WcBatchOsaReceivePath,
     ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
-    let mut tx = state
-        .pool
-        .begin()
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
     let batch_svc = state.production_batch_service();
     let om_svc = state.outsourcing_order_service();
+    let mut conn = state
+        .pool
+        .acquire()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
     let batch = batch_svc
-        .find_by_id(&service_ctx, &mut tx, path.batch_id)
+        .find_by_id(&service_ctx, &mut conn, path.batch_id)
         .await?;
     let order = om_svc
         .find_active_for_routing(
             &service_ctx,
-            &mut tx,
+            &mut conn,
             batch.work_order_id,
             path.routing_id,
             Some(batch.id),
@@ -4106,30 +4109,16 @@ pub async fn osa_receive(
         .into_iter()
         .next()
         .ok_or_else(|| DomainError::not_found("活跃委外单"))?;
-    // 委外收货入车间在制仓(WIP-SHOP)，衔接下一道倒冲
-    let wip_wh =
-        abt_core::mes::production_batch::implt::resolve_wip_warehouse_id(&mut tx).await?;
-    let card_sn = batch.card_sn.clone();
-    om_svc
-        .receive(
-            &service_ctx,
-            &mut tx,
-            ReceiveOutsourcingReq {
-                id: order.id,
-                expected_version: order.version,
-                received_qty: order.planned_qty,
-                warehouse_id: Some(wip_wh),
-                iqc_passed_qty: Some(order.planned_qty),
-                remark: Some(format!("批次{}委外收货", card_sn)),
-            },
+    // Issue #277：门控——产出品入库由仓库办理，MES 收货前 OSA 必须已 Received
+    if order.status != OutsourcingStatus::Received {
+        return Err(DomainError::business_rule(
+            "委外单尚未完成仓库产出品入库，无法收货",
         )
-        .await?;
-    tx.commit()
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-    // 同步回写工序进度（绕过异步 EventProcessor，其 OutsourcingReceived 调度问题排查中）
+        .into());
+    }
+    // 工序回写：合格量取 OSA.completed_qty（仓库入库时由 IQC 确认的实际合格量，非 planned_qty）
     abt_core::mes::outsourcing_received_handler::OutsourcingReceivedHandler::new(state.pool.clone())
-        .writeback(path.routing_id, batch.work_order_id, Some(batch.id), order.planned_qty)
+        .writeback(path.routing_id, batch.work_order_id, Some(batch.id), order.completed_qty)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
     crate::toast::add_toast(
@@ -4137,11 +4126,6 @@ pub async fn osa_receive(
         "委外收货完成",
         crate::toast::ToastType::Success,
     );
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
     let body = load_batch_drawer_html(&state, &service_ctx, &mut conn, path.batch_id).await?;
     Ok(([("HX-Trigger", "woChanged, showToast")], Html(body)))
 }

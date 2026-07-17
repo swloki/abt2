@@ -34,6 +34,7 @@ impl WorkCenterService for WorkCenterServiceImpl {
             transfers: count_safe(&mut *db, WorkCenterDomain::Transfer, today).await,
             cycle_counts: count_safe(&mut *db, WorkCenterDomain::CycleCount, today).await,
             outsource_issues: count_safe(&mut *db, WorkCenterDomain::OutsourceIssue, today).await,
+            outsource_receipts: count_safe(&mut *db, WorkCenterDomain::OutsourceReceipt, today).await,
             low_stocks: count_safe(&mut *db, WorkCenterDomain::LowStock, today).await,
         })
     }

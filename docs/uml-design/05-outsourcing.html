@@ -193,7 +193,7 @@ classDiagram
       <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
         <span style="color:#c678dd;">StateMachineService</span> → 所有状态转换（Draft→Sent→Received→Closed 等）统一通过 transition() 管理<br>
         <span style="color:#c678dd;">AuditLogService</span> → create/send/receive/convert_to_internal 关键操作记录审计日志（同事务）<br>
-        <span style="color:#c678dd;">DomainEventBus</span> → 状态变更后发布领域事件（OutsourcingSent / OutsourcingReceived / OutsourcingConvertedToInternal / OutsourcingCancelled）<br>
+        <span style="color:#c678dd;">DomainEventBus</span> → 状态变更后发布领域事件（OutsourcingSent / OutsourcingConvertedToInternal / OutsourcingCancelled；OutsourcingReceived Issue #277 删除，writeback 改同步直调）<br>
         <span style="color:#c678dd;">DocumentSequenceService</span> → 委外单编号生成（OO-2026-05-xxxxx）<br>
         <span style="color:#c678dd;">DocumentLinkService</span> → 委外单↔工单 | 委外单↔追踪节点 | 委外单↔调拨单<br>
         <span style="color:#c678dd;">CostEntryService</span> → 外协成本归集（借:在制品 / 贷:应付外协费）
@@ -541,8 +541,12 @@ classDiagram
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
-          <span style="color:#d19a66;">OutsourcingReceived</span><br>
-          <span style="color:#888;">// receive() 成功后发布</span><br>
+          <span style="color:#d19a66;text-decoration:line-through;">OutsourcingReceived</span>
+          <span style="color:#f53f3f;">⚠ Issue #277 已删除</span><br>
+          <span style="color:#888;">// 历史上 receive() 成功后发布；Issue #277 起 om.receive（产出品入库）不再发布此事件。
+          // 控制链重构：产出品入库（库存+IQC+应付+成本，仓库执行）与工序闭环（MES 委外收货）解耦。
+          // writeback 改由 MES osa_receive / OM 详情页 receive_order（Process 类型）同步直调 OutsourcingReceivedHandler::writeback。
+          // 历史事件 payload（仅供追溯）：</span><br>
           {<br>
           &nbsp;&nbsp;outsourcing_id: i64<br>
           &nbsp;&nbsp;doc_number: String<br>
@@ -580,7 +584,7 @@ classDiagram
         <span style="color:#c678dd;">DocumentLinkService</span> → 委外单↔工单 | 委外单↔追踪节点 | 委外单↔调拨单<br>
         <span style="color:#98c379;">StateMachineService</span> → OutsourcingStatus 状态转换管理 | guard_condition 校验<br>
         <span style="color:#98c379;">AuditLogService</span> → 关键操作审计日志记录<br>
-        <span style="color:#98c379;">DomainEventBus</span> → OutsourcingSent / OutsourcingReceived / OutsourcingConvertedToInternal / OutsourcingCancelled
+        <span style="color:#98c379;">DomainEventBus</span> → OutsourcingSent / OutsourcingConvertedToInternal / OutsourcingCancelled（OutsourcingReceived Issue #277 删除，writeback 同步直调）
       </div>
     </div>
 

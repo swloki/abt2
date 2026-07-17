@@ -93,6 +93,19 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
             summary: "'委外发料'",
             extra_where: " AND t.picking_type = 6", // OutsourceIssue
         },
+        WorkCenterDomain::OutsourceReceipt => SimpleDomainCfg {
+            // 委外产出品入库（Issue #277）：查 Sent 态委外单（已发料、待仓库收货入库）。
+            // 不预建 picking——产出品入库直接调 om.receive 写库存流水（与 OM 详情页 receive_order 一致）。
+            table: "outsourcing_orders",
+            statuses: &[2], // Sent（已发料，待产出品入库）
+            expected_display: "t.scheduled_date",
+            expected_urgency: "t.scheduled_date",
+            has_deleted_at: true,
+            join: "LEFT JOIN suppliers s ON s.supplier_id = t.supplier_id AND s.deleted_at IS NULL",
+            counterparty: "s.supplier_name",
+            summary: "'委外产出品入库'",
+            extra_where: " AND t.outsourcing_type IN (1,2,3)", // Full/Process/Material，排除 Rework
+        },
     }
 }
 

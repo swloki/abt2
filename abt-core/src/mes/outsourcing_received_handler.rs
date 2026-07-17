@@ -1,17 +1,20 @@
-//! 委外收货 → 工序进度回写 EventHandler
+//! 委外产出品入库 → 工序进度回写（同步直调）
 //!
-//! 消费 `OutsourcingReceived` 事件（om OutsourcingOrderService::receive 发布）。
+//! 历史上是消费 `OutsourcingReceived` 事件的 EventHandler；Issue #277 起 om.receive 不再发布
+//! 该事件（产出品入库与工序闭环解耦），writeback 改由调用方同步直调：
+//! - MES 委外收货（mes_work_center::osa_receive）：工序委外（Process）收货确认时推进工序
+//! - OM 详情页 receive_order（Process 类型）：管理员一步产出品入库后推进工序
+//!
 //! 对 Process 类型（OutsourcingType::Process=2）委外单，回写 batch_routing_progress
 //! （该道工序完成）+ 推进 batch.current_step，使委外收货后工序自动流转到下一道。
 //!
 //! 镜像 confirm_routing_step 的尾部（f2 累加 / g1 InProgress / g3 Completed / i 推进），
-//! 跳过：d 工资、e3 人工+制费成本（已在 om receive 立加工费 AP + 成本分录）、
-//! e4 WIP 产出（已由 om receive 入 WIP-SHOP）、h IPQC。
+//! 跳过：d 工资、e3 人工+制费成本（已在 om.receive 立加工费 AP + 成本分录）、
+//! e4 WIP 产出（已由 om.receive 入 WIP-SHOP）、h IPQC。
 //!
-//! 幂等：brp 已 Completed 则跳过（防 EventProcessor 重试重复推进 current_step）。
-//! 事务：handler 用独立 conn（非发布事务），所有写幂等，失败重试安全。
+//! 幂等：brp 已 Completed 则跳过（防重复调用重复推进 current_step）。
+//! 事务：用独立 conn（非发布事务），所有写幂等，失败重试安全。
 
-use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
@@ -19,8 +22,6 @@ use crate::mes::enums::{BatchStatus, RoutingStatus};
 use crate::mes::production_batch::repo::{
     BatchRoutingProgressRepo, ProductionBatchRepo, WorkOrderRoutingRepo,
 };
-use crate::shared::event_bus::model::DomainEvent;
-use crate::shared::event_bus::registry::EventHandler;
 use crate::shared::types::{DomainError, Result};
 
 pub struct OutsourcingReceivedHandler {
@@ -32,9 +33,9 @@ impl OutsourcingReceivedHandler {
         Self { pool }
     }
 
-    /// 委外收货回写工序进度（EventHandler 异步 + osa_receive 同步都调，统一逻辑）。
+    /// 委外收货回写工序进度（MES osa_receive / OM 详情页 Process 收货同步直调，统一逻辑）。
     /// 镜像 confirm_routing_step 尾部：累加完成量 / Pending→InProgress / Completed+推进 current_step。
-    /// 抽出为 pub 便于 osa_receive 绕过异步事件机制同步调用（EventProcessor 调度问题排查中）。
+    /// Issue #277：om.receive 产出品入库不再发事件，writeback 完全由调用方同步触发。
     pub async fn writeback(
         &self,
         routing_id: i64,
@@ -118,43 +119,5 @@ impl OutsourcingReceivedHandler {
             }
         }
         Ok(())
-    }
-}
-
-#[async_trait]
-impl EventHandler for OutsourcingReceivedHandler {
-    async fn handle(&self, event: &DomainEvent) -> Result<()> {
-        // 只处理 Process 类型委外（Full/Material/Rework 不回写工序）
-        let otype = event
-            .payload
-            .get("outsourcing_type")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        if otype != 2 {
-            return Ok(());
-        }
-
-        let routing_id = event
-            .payload
-            .get("routing_id")
-            .and_then(|v| v.as_i64())
-            .ok_or_else(|| DomainError::business_rule("OutsourcingReceived 缺 routing_id".to_string()))?;
-        let wo_id = event
-            .payload
-            .get("work_order_id")
-            .and_then(|v| v.as_i64())
-            .ok_or_else(|| DomainError::business_rule("OutsourcingReceived 缺 work_order_id".to_string()))?;
-        let batch_id = event.payload.get("batch_id").and_then(|v| v.as_i64());
-        let iqc_qty: Decimal = event
-            .payload
-            .get("iqc_passed_qty")
-            .and_then(|v| v.as_str())
-            .and_then(|s| s.parse().ok())
-            .unwrap_or_default();
-        self.writeback(routing_id, wo_id, batch_id, iqc_qty).await
-    }
-
-    fn name(&self) -> &str {
-        "outsourcing_received_routing_writeback"
     }
 }

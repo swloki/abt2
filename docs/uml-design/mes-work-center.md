@@ -86,3 +86,21 @@ pub struct MesWorkCenterSummary {
 
 **service 层兜底**：`ProductionBatchService::start_batch` 在 `Pending→InProgress` 前校验——开工对象（第 1 道工序）若有领料单（Active picking），须 `Done` 才能开工，防绕过前端直接 POST `batch_receive`。Backflush（倒冲，无领料单）/无产出工序放行（无消耗物料或倒冲，不领料）。部分发料（`Confirmed` + 部分 `qty_done`，未 `Done`）不可收料。
 
+## 8. 委外工序门控（Issue #277）
+
+委外工序（`work_order_routings.is_outsourced`）走独立动作流，不参与车间领料/收料/报工。批次 drawer 工序矩阵动作位按 OSA（OutsourcingOrder）状态判定：
+
+| Action | OSA 状态 | 渲染 |
+|---|---|---|
+| `OsaCreate` | 无 OSA + 当前道 | 创建委外单（drawer） |
+| `OsaDraft` | `Draft` | 灰态「待仓库发料」（仓库作业中心 OutsourceIssue 域执行发料） |
+| `OsaWaitReceipt` | `Sent` | 灰态「待仓库入库」（仓库作业中心 OutsourceReceipt 域执行产出品入库） |
+| `OsaReceive` | `Received` + 工序未完成 | 绿色「委外收货」（writeback 推进工序） |
+| `Done` | `Received` + 工序已完成 | ✅ 已完成 |
+
+**Issue #277 控制链**（产出品入库与工序闭环解耦）：
+- 仓库「委外产出品入库」（OutsourceReceipt 域 `osa_receipt`）调 `om.receive`：IQC 门禁 + 产品入目标仓（Process→WIP-SHOP，Full/Material→仓库选）+ 消耗虚拟仓 + 立应付 + 成本，OSA `Sent→Received`。**不推进工序**。
+- MES「委外收货」（`osa_receive`）瘦身为工序闭环确认：校验 OSA=`Received` 后同步直调 `OutsourcingReceivedHandler::writeback`（合格量取 `OSA.completed_qty`，非 `planned_qty`），推进 `batch_routing_progress` + `current_step`。
+- 仓库未产出品入库前（OSA=`Sent`），MES 收货按钮置灰（`OsaWaitReceipt`），实现「账实相符」硬约束。
+- `om.receive` 不再发布 `OutsourcingReceived` 事件（writeback 全靠同步直调）；OM 详情页 `receive_order`（Process 类型）亦同步调 writeback。
+

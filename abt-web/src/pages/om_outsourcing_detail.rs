@@ -216,6 +216,16 @@ pub async fn receive_order(
  }).await?;
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ // Issue #277：Process 工序委外，管理员直收（产出品入库）后同步回写工序进度。
+ // om.receive 不再发 OutsourcingReceived 事件，writeback 由调用方同步触发。
+ if order.outsourcing_type == OutsourcingType::Process
+     && let (Some(routing_id), Some(wo_id)) = (order.routing_id, order.work_order_id)
+ {
+     abt_core::mes::outsourcing_received_handler::OutsourcingReceivedHandler::new(state.pool.clone())
+         .writeback(routing_id, wo_id, order.batch_id, received_qty)
+         .await
+         .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ }
  Ok(axum::response::Response::builder()
  .header("HX-Redirect", &OmOutsourcingDetailPath { id: path.id }.to_string())
  .body(axum::body::Body::empty())

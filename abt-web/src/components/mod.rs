@@ -1,4 +1,5 @@
 pub mod alert;
+pub mod auto_refresh;
 pub mod confirm_dialog;
 pub mod customer_info;
 pub mod disclosure;

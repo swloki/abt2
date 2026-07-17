@@ -41,6 +41,7 @@ use abt_core::shared::identity::UserService;
 use std::collections::HashMap;
 
 use crate::components::alert;
+use crate::components::auto_refresh;
 use crate::components::icon;
 use crate::components::material_badge::material_badge_mini;
 use crate::components::overlay::drawer_shell;
@@ -140,7 +141,8 @@ fn work_center_content(summary: &MesWorkCenterSummary, order_id: Option<i64>) ->
             }
         }
         (render_card_shell("wc-demand-card", &demand_src, "生产需求池", icon::globe_icon("w-[15px] h-[15px]"), Some((summary.pending_release, "danger")),
-            Some(html! { (summary.pending_release) " 张待下达 · 销售订单驱动 · 就地「转化为工单」" })))
+            Some(html! { (summary.pending_release) " 张待下达 · 销售订单驱动 · 就地「转化为工单」" }),
+            Some(auto_refresh::auto_refresh_control("wcDemandAutoRefresh", "#wc-demand-body", 60))))
         (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达工单", "w-[640px]"))
         (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建工单", "w-[680px]"))
         (render_drawer_overlay("batch-overlay", "batch-drawer", "batch-drawer-body", "批次处理", "w-[640px]"))
@@ -249,6 +251,7 @@ pub async fn get_demand_card(
         ));
     }
     let view = p.view.as_deref().unwrap_or("detail");
+    let page = p.page.unwrap_or(1);
     // 各 tab 的待处理总数（固定口径，不随筛选变；COUNT 轻量，card 每次刷新都查以保证 badge 实时）
     let tab_counts = load_tab_counts(&state, &service_ctx, &mut conn).await;
 
@@ -259,7 +262,6 @@ pub async fn get_demand_card(
         let status = p.wo_status.as_deref().and_then(parse_wo_status);
         let today = chrono::Local::now().date_naive();
         let (date_from, date_to) = parse_wo_date_filter(p.date_filter.as_deref(), today);
-        let page = p.page.unwrap_or(1);
         let result = wo_svc
             .list(
                 &service_ctx,
@@ -285,7 +287,6 @@ pub async fn get_demand_card(
         // 批次 tab：跨工单列出所有生产批次（工单下达 + 拆批后产生）
         let batch_svc = state.production_batch_service();
         let status = p.batch_status.as_deref().and_then(parse_batch_status);
-        let page = p.page.unwrap_or(1);
         let result = batch_svc
             .list_batches(
                 &service_ctx,
@@ -305,7 +306,6 @@ pub async fn get_demand_card(
         )) }
     } else {
         let svc = state.mes_demand_service();
-        let page = p.page.unwrap_or(1);
         let (date_start, date_end) = parse_date_filter(p.date_filter.as_deref());
 
         if view == "detail" {
@@ -353,7 +353,15 @@ pub async fn get_demand_card(
                 hx-include="#wc-demand-filter-form"
                 hx-select="#wc-demand-card" hx-swap="outerHTML" {
                 (demand_filter_bar(view, &p, &tab_counts))
-                (body)
+                div id="wc-demand-body"
+                    hx-get=(WcDemandPath::PATH)
+                    hx-trigger="wcDemandAutoRefresh from:body"
+                    hx-vals=(serde_json::json!({ "view": view, "page": page }).to_string())
+                    hx-include="#wc-demand-filter-form"
+                    hx-select="#wc-demand-body" hx-swap="outerHTML"
+                    hx-sync="this:replace" {
+                    (body)
+                }
             }
         }
         .into_string(),
@@ -4162,6 +4170,7 @@ fn render_card_shell(
     icon: Markup,
     dot: Option<(u64, &'static str)>,
     meta: Option<Markup>,
+    auto_refresh: Option<Markup>,
 ) -> Markup {
     html! {
         section class="bg-bg border border-border-soft rounded-lg mb-4 shadow-[var(--shadow-card)] overflow-hidden" {
@@ -4180,6 +4189,7 @@ fn render_card_shell(
                 } @else {
                     span class="flex-1" {}
                 }
+                @if let Some(ar) = auto_refresh { (ar) }
             }
             div id=(card_id)
                 class="p-5 text-sm text-muted"
